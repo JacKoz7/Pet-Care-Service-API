@@ -1,0 +1,255 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enum for user roles
+enum UserRole {
+  CLIENT
+  SERVICE_PROVIDER
+  ADMIN
+}
+
+// Enum for booking status
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+// Enum for advertisement status
+enum AdvertisementStatus {
+  ACTIVE
+  INACTIVE
+  PAUSED
+}
+
+// Main User table - stores additional data beyond Firebase Auth
+model User {
+  idUser       Int      @id @default(autoincrement())
+  firebaseUid  String   @unique // UID from Firebase Auth
+  firstName    String   @db.VarChar(45)
+  lastName     String   @db.VarChar(45)
+  email        String   @db.VarChar(70)
+  phoneNumber  String?  @db.Char(9)
+  lastActive   DateTime @default(now())
+  role         UserRole @default(CLIENT)
+  cityId       Int
+
+  // Relations
+  city            City             @relation(fields: [cityId], references: [idCity])
+  clientBookings  Booking[]        @relation("ClientBookings")
+  clientPets      Pet[]            @relation("ClientPets")
+  clientFeedback  Feedback[]       @relation("ClientFeedback")
+  
+  // Service Provider specific relations
+  serviceProvider ServiceProvider?
+  
+  // Admin specific relations
+  admin           Admin?
+
+  @@map("User")
+}
+
+// Service Provider details
+model ServiceProvider {
+  idServiceProvider Int      @id @default(autoincrement())
+  userId           Int      @unique
+  
+  // Relations
+  user           User            @relation(fields: [userId], references: [idUser])
+  advertisements Advertisement[]
+  availabilities Availability[]
+  bookings      Booking[]       @relation("ProviderBookings")
+  feedbacks     Feedback[]      @relation("ProviderFeedback")
+
+  @@map("Service_Provider")
+}
+
+// Admin details
+model Admin {
+  idAdmin Int @id @default(autoincrement())
+  userId  Int @unique
+  
+  // Relations
+  user User @relation(fields: [userId], references: [idUser])
+
+  @@map("Admin")
+}
+
+// City lookup table
+model City {
+  idCity Int    @id @default(autoincrement())
+  name   String @db.VarChar(70)
+  
+  // Relations
+  users User[]
+
+  @@map("City")
+}
+
+// Pet information
+model Pet {
+  idPet       Int     @id @default(autoincrement())
+  name        String  @db.VarChar(45)
+  age         Decimal @db.Decimal(3,0)
+  description String? @db.VarChar(500)
+  breedId     Int
+  clientId    Int
+  
+  // Relations
+  breed   Breed @relation(fields: [breedId], references: [idBreed])
+  client  User  @relation("ClientPets", fields: [clientId], references: [idUser])
+  archive Archive[]
+
+  @@map("Pet")
+}
+
+// Breed lookup table
+model Breed {
+  idBreed Int    @id @default(autoincrement())
+  name    String @db.VarChar(60)
+  spieceId Int
+  
+  // Relations
+  spiece Spiece @relation(fields: [spieceId], references: [idSpiece])
+  pets   Pet[]
+
+  @@map("Breed")
+}
+
+// Species lookup table
+model Spiece {
+  idSpiece Int    @id @default(autoincrement())
+  name     String @db.VarChar(60)
+  
+  // Relations
+  breeds Breed[]
+
+  @@map("Spiece")
+}
+
+// Services offered
+model Service {
+  idService Int    @id @default(autoincrement())
+  name      String @db.VarChar(120)
+  
+  // Relations
+  advertisements Advertisement[]
+
+  @@map("Service")
+}
+
+// Advertisements posted by service providers
+model Advertisement {
+  idAdvertisement Int                 @id @default(autoincrement())
+  description     String              @db.VarChar(1000)
+  price           Float
+  serviceId       Int
+  serviceProviderId Int
+  statusId        Int
+  
+  // Relations
+  service         Service           @relation(fields: [serviceId], references: [idService])
+  serviceProvider ServiceProvider   @relation(fields: [serviceProviderId], references: [idServiceProvider])
+  status          StatusAdvertisement @relation(fields: [statusId], references: [idStatus])
+  bookings        Booking[]
+  feedbacks       Feedback[]
+  archives        Archive[]
+
+  @@map("Advertisement")
+}
+
+// Advertisement status lookup
+model StatusAdvertisement {
+  idStatus Int    @id @default(autoincrement())
+  name     String @db.VarChar(60)
+  
+  // Relations
+  advertisements Advertisement[]
+
+  @@map("Status_Advertisement")
+}
+
+// Service provider availability
+model Availability {
+  idAvailability    Int      @id @default(autoincrement())
+  dayOfWeek         String   // ENUM: MONDAY, TUESDAY, etc.
+  startTime         DateTime @db.Time
+  endTime           DateTime @db.Time
+  serviceProviderId Int
+  
+  // Relations
+  serviceProvider ServiceProvider @relation(fields: [serviceProviderId], references: [idServiceProvider])
+
+  @@map("Availability")
+}
+
+// Booking system
+model Booking {
+  idBooking         Int      @id @default(autoincrement())
+  startDateTime     DateTime
+  endDateTime       DateTime
+  clientId          Int
+  serviceProviderId Int
+  advertisementId   Int
+  
+  // Relations
+  client          User            @relation("ClientBookings", fields: [clientId], references: [idUser])
+  serviceProvider ServiceProvider @relation("ProviderBookings", fields: [serviceProviderId], references: [idServiceProvider])
+  advertisement   Advertisement   @relation(fields: [advertisementId], references: [idAdvertisement])
+
+  @@map("Booking")
+}
+
+// Feedback system
+model Feedback {
+  idFeedback        Int     @id @default(autoincrement())
+  rate              Decimal @db.Decimal(2,1)
+  description       String? @db.VarChar(500)
+  clientId          Int
+  advertisementId   Int
+  serviceProviderId Int
+  
+  // Relations
+  client          User            @relation("ClientFeedback", fields: [clientId], references: [idUser])
+  advertisement   Advertisement   @relation(fields: [advertisementId], references: [idAdvertisement])
+  serviceProvider ServiceProvider @relation("ProviderFeedback", fields: [serviceProviderId], references: [idServiceProvider])
+
+  @@map("Feedback")
+}
+
+// Archive system
+model Archive {
+  idArchive       Int      @id @default(autoincrement())
+  date            DateTime
+  petId           Int
+  advertisementId Int
+  statusId        Int
+  
+  // Relations
+  pet           Pet           @relation(fields: [petId], references: [idPet])
+  advertisement Advertisement @relation(fields: [advertisementId], references: [idAdvertisement])
+  status        StatusArchive @relation(fields: [statusId], references: [idStatus])
+
+  @@map("Archive")
+}
+
+// Archive status lookup
+model StatusArchive {
+  idStatus Int    @id @default(autoincrement())
+  name     String @db.VarChar(60)
+  
+  // Relations
+  archives Archive[]
+
+  @@map("Status_Archive")
+}
