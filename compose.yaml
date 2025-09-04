@@ -7,3 +7,25 @@ services:
       - "3000:3000"
     environment:
       NODE_ENV: development
+    volumes:
+      - ./src:/app/src
+      - ./public:/app/public
+      - ./package.json:/app/package.json
+    depends_on:
+      - db
+    develop:
+      watch:
+        - action: sync
+          path: ./src
+          target: /app/src
+          ignore:
+            - node_modules/
+        - action: rebuild
+          path: package.json
+
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_PASSWORD: example
+    ports:
+      - "5432:5432"
