@@ -1,0 +1,189 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  idUser      Int       @id @default(autoincrement())
+  firebaseUid String    @unique
+  firstName   String?   @db.VarChar(45)
+  lastName    String?   @db.VarChar(45)
+  email       String?   @db.VarChar(70)
+  phoneNumber String?   @db.Char(9)
+  lastActive  DateTime?
+  City        City?     @relation(fields: [City_idCity], references: [idCity])
+  City_idCity Int?
+
+  // Relacje
+  ServiceProviders Service_Provider[]
+  Clients          Client[]
+  Admin            Admin?
+}
+
+model Admin {
+  idAdmin     Int  @id @default(autoincrement())
+  User        User @relation(fields: [User_idUser], references: [idUser])
+  User_idUser Int  @unique
+}
+
+model City {
+  idCity Int    @id @default(autoincrement())
+  name   String @db.VarChar(70)
+
+  Users User[]
+}
+
+model Service_Provider {
+  idService_Provider Int  @id @default(autoincrement())
+  User               User @relation(fields: [User_idUser], references: [idUser])
+  User_idUser        Int
+
+  Advertisements Advertisement[]
+  Bookings       Booking[]
+  Availabilities Availability[]
+  Feedbacks      Feedback[]
+}
+
+model Availability {
+  idAvailability Int       @id @default(autoincrement())
+  dayOfWeek      DayOfWeek
+  startTime      DateTime  @db.Time
+  endTime        DateTime  @db.Time
+
+  Service_Provider                    Service_Provider @relation(fields: [Service_Provider_idService_Provider], references: [idService_Provider])
+  Service_Provider_idService_Provider Int
+}
+
+enum DayOfWeek {
+  Monday
+  Tuesday
+  Wednesday
+  Thursday
+  Friday
+  Saturday
+  Sunday
+}
+
+model Advertisement {
+  idAdvertisement                     Int                  @id @default(autoincrement())
+  description                         String?              @db.VarChar(1000)
+  price                               Float?
+  Service                             Service              @relation(fields: [Service_idService], references: [idService])
+  Service_idService                   Int
+  Service_Provider                    Service_Provider     @relation(fields: [Service_Provider_idService_Provider], references: [idService_Provider])
+  Service_Provider_idService_Provider Int
+  Status_Advertisement                Status_Advertisement @relation(fields: [Status_Advertisement_idStatus], references: [idStatus])
+  Status_Advertisement_idStatus       Int
+
+  Feedbacks Feedback[]
+  Archives  Archive[]
+}
+
+model Service {
+  idService Int    @id @default(autoincrement())
+  name      String @db.VarChar(120)
+
+  Advertisements Advertisement[]
+}
+
+model Status_Advertisement {
+  idStatus Int    @id @default(autoincrement())
+  name     String @db.VarChar(60)
+
+  Advertisements Advertisement[]
+}
+
+model Booking {
+  idBooking     Int      @id @default(autoincrement())
+  startDateTime DateTime
+  endDateTime   DateTime
+
+  Client                              Client           @relation(fields: [Client_idClient], references: [idClient])
+  Client_idClient                     Int
+  Service_Provider                    Service_Provider @relation(fields: [Service_Provider_idService_Provider], references: [idService_Provider])
+  Service_Provider_idService_Provider Int
+}
+
+model Client {
+  idClient    Int  @id @default(autoincrement())
+  User        User @relation(fields: [User_idUser], references: [idUser])
+  User_idUser Int
+
+  Bookings  Booking[]
+  Feedbacks Feedback[]
+  Pets      Pet[]
+}
+
+model Feedback {
+  idFeedback  Int     @id @default(autoincrement())
+  rate        Decimal @db.Decimal(2, 1)
+  description String? @db.VarChar(500)
+
+  Client                              Client           @relation(fields: [Client_idClient], references: [idClient])
+  Client_idClient                     Int
+  Advertisement                       Advertisement    @relation(fields: [Advertisement_idAdvertisement], references: [idAdvertisement])
+  Advertisement_idAdvertisement       Int
+  Service_Provider                    Service_Provider @relation(fields: [Service_Provider_idService_Provider], references: [idService_Provider])
+  Service_Provider_idService_Provider Int
+}
+
+model Pet {
+  idPet       Int     @id @default(autoincrement())
+  name        String  @db.VarChar(45)
+  age         Decimal @db.Decimal(3, 0)
+  description String? @db.VarChar(500)
+
+  Breed           Breed  @relation(fields: [Breed_idBreed], references: [idBreed])
+  Breed_idBreed   Int
+  Client          Client @relation(fields: [Client_idClient], references: [idClient])
+  Client_idClient Int
+
+  Archives Archive[]
+}
+
+model Breed {
+  idBreed Int    @id @default(autoincrement())
+  name    String @db.VarChar(60)
+
+  Spiece          Spiece @relation(fields: [Spiece_idSpiece], references: [idSpiece])
+  Spiece_idSpiece Int
+
+  Pets Pet[]
+}
+
+model Spiece {
+  idSpiece Int    @id @default(autoincrement())
+  name     String @db.VarChar(60)
+
+  Breeds Breed[]
+}
+
+model Archive {
+  idArchive Int      @id @default(autoincrement())
+  date      DateTime
+
+  Pet                           Pet            @relation(fields: [Pet_idPet], references: [idPet])
+  Pet_idPet                     Int
+  Advertisement                 Advertisement  @relation(fields: [Advertisement_idAdvertisement], references: [idAdvertisement])
+  Advertisement_idAdvertisement Int
+  Status_Archive                Status_Archive @relation(fields: [Status_Archive_idStatus], references: [idStatus])
+  Status_Archive_idStatus       Int
+}
+
+model Status_Archive {
+  idStatus Int    @id @default(autoincrement())
+  name     String @db.VarChar(60)
+
+  Archives Archive[]
+}
