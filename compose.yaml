@@ -7,25 +7,27 @@ services:
       - "3000:3000"
     environment:
       NODE_ENV: development
+      DATABASE_URL: postgresql://postgres:example@db:5432/petcare?schema=public
     volumes:
       - ./src:/app/src
       - ./public:/app/public
       - ./package.json:/app/package.json
+      - ./.env.local:/app/.env.local
+      - ./prisma:/app/prisma
     depends_on:
-      - db
-    develop:
-      watch:
-        - action: sync
-          path: ./src
-          target: /app/src
-          ignore:
-            - node_modules/
-        - action: rebuild
-          path: package.json
+      db:
+        condition: service_healthy
+    command: sh -c "sleep 5 && npm run migrate-deploy && npm run seed && npm run dev"
 
   db:
     image: postgres:17-alpine
     environment:
       POSTGRES_PASSWORD: example
+      POSTGRES_DB: petcare
     ports:
-      - "5432:5432"
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d petcare"]
+      interval: 5s
+      timeout: 5s
+      retries: 5

@@ -5,8 +5,8 @@
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
 generator client {
-  provider = "prisma-client-js"
-  output   = "../src/generated/prisma"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {
@@ -39,9 +39,8 @@ model Admin {
 
 model City {
   idCity Int    @id @default(autoincrement())
-  name   String @db.VarChar(70)
-
-  Users User[]
+  name   String @db.VarChar(70) @unique
+  Users  User[]
 }
 
 model Service_Provider {
