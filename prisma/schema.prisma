@@ -38,9 +38,10 @@ model Admin {
 }
 
 model City {
-  idCity Int    @id @default(autoincrement())
-  name   String @db.VarChar(70) @unique
-  Users  User[]
+  idCity   Int    @id @default(autoincrement())
+  name     String @db.VarChar(70) @unique
+  imageUrl String? @db.VarChar(500) 
+  Users    User[]
 }
 
 model Service_Provider {
