@@ -97,7 +97,7 @@ export default function Page() {
       await sendEmailVerification();
 
       // 3. Dodaj do bazy z flagą isEmailVerified: false
-      const response = await fetch("/api/users/registration", {
+      const response = await fetch("/api/users/attributes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
