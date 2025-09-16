@@ -83,19 +83,21 @@ export default function Page() {
       setIsSubmitting(true);
       setError("");
 
-      // 1. Najpierw utwórz użytkownika w Firebase
+      // 1. Utwórz użytkownika w Firebase
       const firebaseResult = await createUser(
         formData.email,
         formData.password
       );
-
       if (!firebaseResult) {
         setError("Failed to create Firebase account");
         return;
       }
 
-      // 2. Następnie dodaj do bazy danych
-      const response = await fetch("/api/auth/register", {
+      // 2. Wyślij email weryfikacyjny NATYCHMIAST
+      await sendEmailVerification();
+
+      // 3. Dodaj do bazy z flagą isEmailVerified: false
+      const response = await fetch("/api/users/registration", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -105,21 +107,18 @@ export default function Page() {
           lastName: formData.lastName || undefined,
           phoneNumber: formData.phoneNumber || undefined,
           cityId: formData.cityId || undefined,
+          isEmailVerified: false, // Dodaj to pole do schematu
         }),
       });
 
-      const data = await response.json();
-
       if (response.ok) {
-        // 3. Wyślij email weryfikacyjny
-        await sendEmailVerification();
         alert(
-          "Registration successful! Please check your email for verification."
+          "Registration successful! Please verify your email before signing in."
         );
         router.push("/sign-in");
       } else {
-        // Jeśli baza danych się nie powiodła, usuń użytkownika z Firebase
         await firebaseResult.user.delete();
+        const data = await response.json();
         setError(data.error || "Registration failed");
       }
     } catch (error) {
