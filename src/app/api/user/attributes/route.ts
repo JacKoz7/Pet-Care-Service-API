@@ -102,13 +102,13 @@ export async function POST(request: NextRequest) {
 
 /**
  * @swagger
- * /api/users/attributes:
+ * /api/user/attributes:
  *   post:
  *     summary: Register a new user profile
  *     description: |
  *       Creates a new user in the database with attributes such as name, surname, phone number, and city.
  *       Authentication and password management are handled by Firebase — this endpoint only stores the user's Firebase UID and profile data.
- *     tags: [Users]
+ *     tags: [User]
  *     requestBody:
  *       required: true
  *       content:

@@ -1,23 +1,14 @@
 // src/app/components/Header.tsx
 "use client";
 
-import { auth } from "../firebase";
-import { useAuthState } from "react-firebase-hooks/auth";
+import { useAuth } from "../context/AuthContext";
 import { signOut } from "firebase/auth";
+import { auth } from "../firebase";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
 
 export default function Header() {
-  const [user] = useAuthState(auth);
+  const { user, loading } = useAuth();
   const router = useRouter();
-
-  useEffect(() => {
-    if (user?.email) {
-      localStorage.setItem("userEmail", user.email);
-    } else {
-      localStorage.removeItem("userEmail");
-    }
-  }, [user]);
 
   const handleSignOut = async () => {
     try {
@@ -26,6 +17,13 @@ export default function Header() {
     } catch (error) {
       console.error("Sign out error:", error);
     }
+  };
+
+  const getRoleLabel = () => {
+    if (!user?.roles) return "";
+    if (user.roles.includes("admin")) return "Admin";
+    if (user.roles.includes("service_provider")) return "Service Provider";
+    return "";
   };
 
   return (
@@ -38,11 +36,14 @@ export default function Header() {
           Pet Care Service
         </h1>
         <div className="flex items-center gap-4">
-          {user ? (
+          {user && !loading ? (
             <>
-              <span className="text-gray-600 font-medium">
-                {localStorage.getItem("userEmail")}
-              </span>
+              <button
+                onClick={() => router.push("/profile")}
+                className="bg-blue-100 text-blue-800 px-3 py-1 rounded-md font-medium hover:bg-blue-200 transition"
+              >
+                {user.email} {getRoleLabel() && `(${getRoleLabel()})`}
+              </button>
               <button
                 onClick={handleSignOut}
                 className="bg-red-500 text-white px-4 py-2 rounded-md font-bold hover:bg-red-600"

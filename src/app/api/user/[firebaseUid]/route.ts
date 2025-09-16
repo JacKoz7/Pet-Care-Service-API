@@ -128,14 +128,14 @@ export async function DELETE(
 
 /**
  * @swagger
- * /api/users/{firebaseUid}:
+ * /api/user/{firebaseUid}:
  *   delete:
  *     summary: Delete a user (admin only)
  *     description: |
  *       Deletes a user from both the database and Firebase Auth.
  *       This operation is irreversible and will permanently remove all user data.
  *       Requires admin authentication via Firebase ID token.
- *     tags: [Users]
+ *     tags: [User]
  *     security:
  *       - BearerAuth: []
  *     parameters:

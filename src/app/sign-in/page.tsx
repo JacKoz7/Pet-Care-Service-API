@@ -40,7 +40,7 @@ export default function Page() {
         }
 
         try {
-          const response = await fetch("/api/users/verify-email", {
+          const response = await fetch("/api/user/verify-email", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ firebaseUid: result.user.uid }),

@@ -25,7 +25,7 @@ export default function EmailVerificationPopup({
     await user.reload();
     if (user.emailVerified) {
       try {
-        const response = await fetch("/api/users/verify-email", {
+        const response = await fetch("/api/user/verify-email", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ firebaseUid: user.uid }),
@@ -82,7 +82,7 @@ export default function EmailVerificationPopup({
       await user.reload();
       if (user.emailVerified) {
         try {
-          const response = await fetch("/api/users/verify-email", {
+          const response = await fetch("/api/user/verify-email", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ firebaseUid: user.uid }),

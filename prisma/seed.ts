@@ -15,8 +15,7 @@ const cities = [
   },
   {
     name: "Wrocław",
-    imageUrl:
-      "https://visitwroclaw.eu/files/news/wroclaw-visit2.jpg",
+    imageUrl: "https://visitwroclaw.eu/files/news/wroclaw-visit2.jpg",
   },
   {
     name: "Poznań",
@@ -35,8 +34,7 @@ const cities = [
   },
   {
     name: "Lublin",
-    imageUrl:
-      "https://meteor-turystyka.pl/images/places/0/101.jpg",
+    imageUrl: "https://meteor-turystyka.pl/images/places/0/101.jpg",
   },
   {
     name: "Radom",
@@ -71,58 +69,12 @@ async function main() {
     console.log(`Dodano lub zaktualizowano miasto: ${city.name}`);
   }
 
-  console.log("Dodaję użytkownika admina...");
-
-  // Seed admin user
-  const adminUser = await prisma.user.upsert({
-    where: { firebaseUid: "gDrvZrbz1xXe8JcqiBFjWrIUHvm1" },
-    update: {
-      email: "ilovesteroids5@gmail.com",
-      firstName: "Jan", // Example first name
-      lastName: "Kowalski", // Example last name
-      phoneNumber: "123456789", // Example phone number
-      isEmailVerified: true, // Assume email is verified for admin
-      lastActive: new Date(), // Current timestamp
-      City: {
-        connect: { name: "Warszawa" }, // Connect to an existing city
-      },
-    },
-    create: {
-      firebaseUid: "gDrvZrbz1xXe8JcqiBFjWrIUHvm1",
-      email: "ilovesteroids5@gmail.com",
-      firstName: "Jan",
-      lastName: "Kowalski",
-      phoneNumber: "123456789",
-      isEmailVerified: true,
-      lastActive: new Date(),
-      City: {
-        connect: { name: "Warszawa" }, // Connect to Warszawa
-      },
-    },
-  });
-
-  // Ensure the user is an admin
-  await prisma.admin.upsert({
-    where: { User_idUser: adminUser.idUser },
-    update: {},
-    create: {
-      User: {
-        connect: { idUser: adminUser.idUser },
-      },
-    },
-  });
-
-  console.log(
-    `Dodano lub zaktualizowano użytkownika admina: ${adminUser.email}`
-  );
-  console.log("Gotowe!");
+  main()
+    .catch((e) => {
+      console.error("Błąd podczas seedowania:", e);
+      process.exit(1);
+    })
+    .finally(async () => {
+      await prisma.$disconnect();
+    });
 }
-
-main()
-  .catch((e) => {
-    console.error("Błąd podczas seedowania:", e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });

@@ -98,7 +98,7 @@ export default function Page() {
 
       await sendEmailVerification();
 
-      const response = await fetch("/api/users/attributes", {
+      const response = await fetch("/api/user/attributes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
