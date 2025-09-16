@@ -7,6 +7,7 @@ import {
   useCreateUserWithEmailAndPassword,
   useSendEmailVerification,
 } from "react-firebase-hooks/auth";
+import EmailVerificationPopup from "../components/EmailVerificationPopUp"; // Import the component
 
 interface City {
   idCity: number;
@@ -19,6 +20,8 @@ export default function Page() {
     useCreateUserWithEmailAndPassword(auth);
   const [sendEmailVerification] = useSendEmailVerification(auth);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showVerificationPopup, setShowVerificationPopup] = useState(false);
+  const [createdUser, setCreatedUser] = useState<any>(null);
   const [cities, setCities] = useState<City[]>([]);
   const [formData, setFormData] = useState({
     email: "",
@@ -112,10 +115,9 @@ export default function Page() {
       });
 
       if (response.ok) {
-        alert(
-          "Registration successful! Please verify your email before signing in."
-        );
-        router.push("/sign-in");
+        // Show verification popup instead of alert
+        setCreatedUser(firebaseResult.user);
+        setShowVerificationPopup(true);
       } else {
         await firebaseResult.user.delete();
         const data = await response.json();
@@ -127,6 +129,16 @@ export default function Page() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleVerificationSuccess = () => {
+    setShowVerificationPopup(false);
+    router.push("/sign-in");
+  };
+
+  const handleClosePopup = () => {
+    setShowVerificationPopup(false);
+    router.push("/sign-in");
   };
 
   return (
@@ -213,6 +225,14 @@ export default function Page() {
             SIGN UP
           </button>
         </div>
+      )}
+
+      {/* Email Verification Popup */}
+      {showVerificationPopup && createdUser && (
+        <EmailVerificationPopup
+          user={createdUser}
+          onVerified={handleVerificationSuccess}
+        />
       )}
     </div>
   );

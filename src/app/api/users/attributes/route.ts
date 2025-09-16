@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client"; 
+import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
@@ -68,6 +68,15 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // Sprawdź, czy email to ADMIN_EMAIL z .env.local i utwórz Admina jeśli tak
+    if (email === process.env.ADMIN_EMAIL) {
+      await prisma.admin.create({
+        data: {
+          User_idUser: newUser.idUser,
+        },
+      });
+    }
+
     return NextResponse.json({
       success: true,
       user: {
@@ -90,7 +99,6 @@ export async function POST(request: NextRequest) {
     await prisma.$disconnect();
   }
 }
-
 
 /**
  * @swagger

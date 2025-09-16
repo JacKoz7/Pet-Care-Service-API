@@ -10,6 +10,39 @@ export async function DELETE(
   { params }: { params: { firebaseUid: string } }
 ) {
   try {
+    // Extract and verify bearer token
+    const authHeader = request.headers.get("authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return NextResponse.json(
+        { error: "Authorization header missing or invalid" },
+        { status: 401 }
+      );
+    }
+
+    const token = authHeader.split(" ")[1];
+    let decodedToken;
+    try {
+      decodedToken = await adminAuth.verifyIdToken(token);
+    } catch (error) {
+      return NextResponse.json(
+        { error: "Invalid or expired token" },
+        { status: 401 }
+      );
+    }
+
+    // Check if the authenticated user is an admin
+    const authUser = await prisma.user.findUnique({
+      where: { firebaseUid: decodedToken.uid },
+      include: { Admin: true },
+    });
+
+    if (!authUser || !authUser.Admin) {
+      return NextResponse.json(
+        { error: "Unauthorized: Admin access required" },
+        { status: 403 }
+      );
+    }
+
     const { firebaseUid } = params;
 
     if (!firebaseUid) {
@@ -97,11 +130,14 @@ export async function DELETE(
  * @swagger
  * /api/users/{firebaseUid}:
  *   delete:
- *     summary: Delete a user
+ *     summary: Delete a user (admin only)
  *     description: |
  *       Deletes a user from both the database and Firebase Auth.
  *       This operation is irreversible and will permanently remove all user data.
+ *       Requires admin authentication via Firebase ID token.
  *     tags: [Users]
+ *     security:
+ *       - BearerAuth: []
  *     parameters:
  *       - in: path
  *         name: firebaseUid
@@ -154,6 +190,26 @@ export async function DELETE(
  *                 error:
  *                   type: string
  *                   example: "Firebase UID is required"
+ *       401:
+ *         description: Unauthorized (invalid or missing token)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: "Invalid or expired token"
+ *       403:
+ *         description: Forbidden (not an admin)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: "Unauthorized: Admin access required"
  *       404:
  *         description: User not found
  *         content:
