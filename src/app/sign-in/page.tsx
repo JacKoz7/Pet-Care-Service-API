@@ -3,14 +3,16 @@
 
 import { auth } from "../firebase";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSignInWithEmailAndPassword } from "react-firebase-hooks/auth";
 import { sendEmailVerification } from "firebase/auth";
 import { IconRefresh, IconArrowLeft } from "@tabler/icons-react";
+import { useAuth } from "../context/AuthContext";
 
 export default function Page() {
   const router = useRouter();
-  const [signInUserWithEmailAndPassword, user, loading, error] =
+  const { user, loading } = useAuth(); // Get auth state
+  const [signInUserWithEmailAndPassword, signedInUser, signInLoading, error] =
     useSignInWithEmailAndPassword(auth);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -20,6 +22,13 @@ export default function Page() {
     "idle" | "sending" | "sent" | "error"
   >("idle");
   const [unverifiedUser, setUnverifiedUser] = useState<any>(null);
+
+  // Redirect if user is logged in
+  useEffect(() => {
+    if (!loading && user) {
+      router.push("/"); // Redirect to main page
+    }
+  }, [user, loading, router]);
 
   const onSubmit = async () => {
     setCustomError("");
@@ -88,6 +97,12 @@ export default function Page() {
     }
   };
 
+  // Show loading state while checking auth
+  if (loading) {
+    return <div>Loading...</div>;
+  }
+
+  // Render sign-in page if not logged in
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col pt-20">
       <div className="max-w-md mx-auto w-full">
@@ -105,7 +120,7 @@ export default function Page() {
           value={email}
           placeholder="Email"
           className="text-xl px-4 py-2 rounded-md border border-gray-300 mb-4 w-full"
-          disabled={loading || isVerifying}
+          disabled={signInLoading || isVerifying}
         />
         <input
           type="password"
@@ -113,7 +128,7 @@ export default function Page() {
           value={password}
           placeholder="Password"
           className="text-xl px-4 py-2 rounded-md border border-gray-300 mb-4 w-full"
-          disabled={loading || isVerifying}
+          disabled={signInLoading || isVerifying}
         />
 
         {(error || customError) && (
@@ -143,9 +158,9 @@ export default function Page() {
         <button
           className="bg-yellow-500 text-black px-4 py-2 rounded-md font-bold hover:bg-yellow-600 w-full disabled:opacity-50 disabled:cursor-not-allowed"
           onClick={onSubmit}
-          disabled={loading || isVerifying}
+          disabled={signInLoading || isVerifying}
         >
-          {loading || isVerifying ? "Signing in..." : "SIGN IN"}
+          {signInLoading || isVerifying ? "Signing in..." : "SIGN IN"}
         </button>
       </div>
     </div>

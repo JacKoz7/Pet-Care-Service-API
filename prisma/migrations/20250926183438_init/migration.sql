@@ -1,6 +1,12 @@
 -- CreateEnum
 CREATE TYPE "public"."DayOfWeek" AS ENUM ('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday');
 
+-- CreateEnum
+CREATE TYPE "public"."StatusAdvertisement" AS ENUM ('ACTIVE', 'INACTIVE', 'PENDING');
+
+-- CreateEnum
+CREATE TYPE "public"."StatusArchive" AS ENUM ('COMPLETED', 'CANCELLED', 'PENDING');
+
 -- CreateTable
 CREATE TABLE "public"."User" (
     "idUser" SERIAL NOT NULL,
@@ -9,6 +15,7 @@ CREATE TABLE "public"."User" (
     "lastName" VARCHAR(45),
     "email" VARCHAR(70),
     "phoneNumber" CHAR(9),
+    "isEmailVerified" BOOLEAN NOT NULL DEFAULT false,
     "lastActive" TIMESTAMP(3),
     "City_idCity" INTEGER,
 
@@ -27,6 +34,7 @@ CREATE TABLE "public"."Admin" (
 CREATE TABLE "public"."City" (
     "idCity" SERIAL NOT NULL,
     "name" VARCHAR(70) NOT NULL,
+    "imageUrl" VARCHAR(500),
 
     CONSTRAINT "City_pkey" PRIMARY KEY ("idCity")
 );
@@ -53,11 +61,15 @@ CREATE TABLE "public"."Availability" (
 -- CreateTable
 CREATE TABLE "public"."Advertisement" (
     "idAdvertisement" SERIAL NOT NULL,
+    "title" VARCHAR(100) NOT NULL,
     "description" VARCHAR(1000),
     "price" DOUBLE PRECISION,
+    "status" "public"."StatusAdvertisement" NOT NULL DEFAULT 'ACTIVE',
+    "startDate" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "endDate" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "Service_idService" INTEGER NOT NULL,
     "Service_Provider_idService_Provider" INTEGER NOT NULL,
-    "Status_Advertisement_idStatus" INTEGER NOT NULL,
 
     CONSTRAINT "Advertisement_pkey" PRIMARY KEY ("idAdvertisement")
 );
@@ -68,14 +80,6 @@ CREATE TABLE "public"."Service" (
     "name" VARCHAR(120) NOT NULL,
 
     CONSTRAINT "Service_pkey" PRIMARY KEY ("idService")
-);
-
--- CreateTable
-CREATE TABLE "public"."Status_Advertisement" (
-    "idStatus" SERIAL NOT NULL,
-    "name" VARCHAR(60) NOT NULL,
-
-    CONSTRAINT "Status_Advertisement_pkey" PRIMARY KEY ("idStatus")
 );
 
 -- CreateTable
@@ -142,19 +146,21 @@ CREATE TABLE "public"."Spiece" (
 CREATE TABLE "public"."Archive" (
     "idArchive" SERIAL NOT NULL,
     "date" TIMESTAMP(3) NOT NULL,
+    "status" "public"."StatusArchive" NOT NULL DEFAULT 'COMPLETED',
     "Pet_idPet" INTEGER NOT NULL,
     "Advertisement_idAdvertisement" INTEGER NOT NULL,
-    "Status_Archive_idStatus" INTEGER NOT NULL,
 
     CONSTRAINT "Archive_pkey" PRIMARY KEY ("idArchive")
 );
 
 -- CreateTable
-CREATE TABLE "public"."Status_Archive" (
-    "idStatus" SERIAL NOT NULL,
-    "name" VARCHAR(60) NOT NULL,
+CREATE TABLE "public"."AdvertisementImage" (
+    "idAdvertisementImage" SERIAL NOT NULL,
+    "imageUrl" VARCHAR(500) NOT NULL,
+    "order" INTEGER,
+    "Advertisement_idAdvertisement" INTEGER NOT NULL,
 
-    CONSTRAINT "Status_Archive_pkey" PRIMARY KEY ("idStatus")
+    CONSTRAINT "AdvertisementImage_pkey" PRIMARY KEY ("idAdvertisementImage")
 );
 
 -- CreateIndex
@@ -162,6 +168,15 @@ CREATE UNIQUE INDEX "User_firebaseUid_key" ON "public"."User"("firebaseUid");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Admin_User_idUser_key" ON "public"."Admin"("User_idUser");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "City_name_key" ON "public"."City"("name");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Advertisement_title_Service_Provider_idService_Provider_key" ON "public"."Advertisement"("title", "Service_Provider_idService_Provider");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Service_name_key" ON "public"."Service"("name");
 
 -- AddForeignKey
 ALTER TABLE "public"."User" ADD CONSTRAINT "User_City_idCity_fkey" FOREIGN KEY ("City_idCity") REFERENCES "public"."City"("idCity") ON DELETE SET NULL ON UPDATE CASCADE;
@@ -180,9 +195,6 @@ ALTER TABLE "public"."Advertisement" ADD CONSTRAINT "Advertisement_Service_idSer
 
 -- AddForeignKey
 ALTER TABLE "public"."Advertisement" ADD CONSTRAINT "Advertisement_Service_Provider_idService_Provider_fkey" FOREIGN KEY ("Service_Provider_idService_Provider") REFERENCES "public"."Service_Provider"("idService_Provider") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "public"."Advertisement" ADD CONSTRAINT "Advertisement_Status_Advertisement_idStatus_fkey" FOREIGN KEY ("Status_Advertisement_idStatus") REFERENCES "public"."Status_Advertisement"("idStatus") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "public"."Booking" ADD CONSTRAINT "Booking_Client_idClient_fkey" FOREIGN KEY ("Client_idClient") REFERENCES "public"."Client"("idClient") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -218,4 +230,4 @@ ALTER TABLE "public"."Archive" ADD CONSTRAINT "Archive_Pet_idPet_fkey" FOREIGN K
 ALTER TABLE "public"."Archive" ADD CONSTRAINT "Archive_Advertisement_idAdvertisement_fkey" FOREIGN KEY ("Advertisement_idAdvertisement") REFERENCES "public"."Advertisement"("idAdvertisement") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "public"."Archive" ADD CONSTRAINT "Archive_Status_Archive_idStatus_fkey" FOREIGN KEY ("Status_Archive_idStatus") REFERENCES "public"."Status_Archive"("idStatus") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "public"."AdvertisementImage" ADD CONSTRAINT "AdvertisementImage_Advertisement_idAdvertisement_fkey" FOREIGN KEY ("Advertisement_idAdvertisement") REFERENCES "public"."Advertisement"("idAdvertisement") ON DELETE RESTRICT ON UPDATE CASCADE;

@@ -20,13 +20,14 @@ export async function GET(request: NextRequest) {
     try {
       decodedToken = await adminAuth.verifyIdToken(token);
     } catch (error) {
+      console.error("Token verification failed:", error);
       return NextResponse.json(
         { error: "Invalid or expired token" },
         { status: 401 }
       );
     }
 
-    const user = await prisma.user.findUnique({
+    let user = await prisma.user.findUnique({
       where: { firebaseUid: decodedToken.uid },
       include: {
         City: true,
@@ -36,10 +37,59 @@ export async function GET(request: NextRequest) {
     });
 
     if (!user) {
-      return NextResponse.json(
-        { error: "User not found in database" },
-        { status: 404 }
-      );
+      const email = decodedToken.email;
+      if (!email) {
+        return NextResponse.json(
+          { error: "No email found in token" },
+          { status: 400 }
+        );
+      }
+
+      const existingUserByEmail = await prisma.user.findFirst({
+        where: { email },
+      });
+
+      if (existingUserByEmail) {
+        return NextResponse.json(
+          { error: "Email already exists with a different UID" },
+          { status: 409 }
+        );
+      }
+
+      user = await prisma.user.create({
+        data: {
+          firebaseUid: decodedToken.uid,
+          email,
+          lastActive: new Date(),
+        },
+        include: {
+          City: true,
+          Admin: true,
+          ServiceProviders: true,
+        },
+      });
+
+      if (email === process.env.ADMIN_EMAIL) {
+        await prisma.admin.create({
+          data: {
+            User_idUser: user.idUser,
+          },
+        });
+
+        // Refetch user to include updated relations
+        user = await prisma.user.findUnique({
+          where: { idUser: user.idUser },
+          include: {
+            City: true,
+            Admin: true,
+            ServiceProviders: true,
+          },
+        });
+      }
+    }
+
+    if (!user) {
+      throw new Error("Unexpected error: user is null");
     }
 
     await prisma.user.update({
@@ -94,6 +144,7 @@ export async function PUT(request: NextRequest) {
     try {
       decodedToken = await adminAuth.verifyIdToken(token);
     } catch (error) {
+      console.error("Token verification failed:", error);
       return NextResponse.json(
         { error: "Invalid or expired token" },
         { status: 401 }

@@ -17,7 +17,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    command: sh -c "sleep 5 && npm run migrate-deploy && npm run seed && npm run dev"
+    command: sh -c "sleep 5 && npm run migrate-deploy && npx prisma generate && npm run seed && npm run dev"
 
   db:
     image: postgres:17-alpine

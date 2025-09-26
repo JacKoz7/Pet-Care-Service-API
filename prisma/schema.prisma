@@ -15,16 +15,16 @@ datasource db {
 }
 
 model User {
-  idUser      Int       @id @default(autoincrement())
-  firebaseUid String    @unique
-  firstName   String?   @db.VarChar(45)
-  lastName    String?   @db.VarChar(45)
-  email       String?   @db.VarChar(70)
-  phoneNumber String?   @db.Char(9)
-  isEmailVerified Boolean  @default(false)
-  lastActive  DateTime?
-  City        City?     @relation(fields: [City_idCity], references: [idCity])
-  City_idCity Int?
+  idUser          Int       @id @default(autoincrement())
+  firebaseUid     String    @unique
+  firstName       String?   @db.VarChar(45)
+  lastName        String?   @db.VarChar(45)
+  email           String?   @db.VarChar(70)
+  phoneNumber     String?   @db.Char(9)
+  isEmailVerified Boolean   @default(false)
+  lastActive      DateTime?
+  City            City?     @relation(fields: [City_idCity], references: [idCity])
+  City_idCity     Int?
 
   // Relacje
   ServiceProviders Service_Provider[]
@@ -39,9 +39,9 @@ model Admin {
 }
 
 model City {
-  idCity   Int    @id @default(autoincrement())
-  name     String @db.VarChar(70) @unique
-  imageUrl String? @db.VarChar(500) 
+  idCity   Int     @id @default(autoincrement())
+  name     String  @unique @db.VarChar(70)
+  imageUrl String? @db.VarChar(500)
   Users    User[]
 }
 
@@ -77,30 +77,35 @@ enum DayOfWeek {
 }
 
 model Advertisement {
-  idAdvertisement                     Int                  @id @default(autoincrement())
-  description                         String?              @db.VarChar(1000)
+  idAdvertisement                     Int                 @id @default(autoincrement())
+  title                               String              @db.VarChar(100)
+  description                         String?             @db.VarChar(1000)
   price                               Float?
-  Service                             Service              @relation(fields: [Service_idService], references: [idService])
+  status                              StatusAdvertisement @default(ACTIVE)
+  startDate                           DateTime            @default(now())
+  endDate                             DateTime?
+  createdAt                           DateTime            @default(now())
+  Service                             Service             @relation(fields: [Service_idService], references: [idService])
   Service_idService                   Int
-  Service_Provider                    Service_Provider     @relation(fields: [Service_Provider_idService_Provider], references: [idService_Provider])
+  Service_Provider                    Service_Provider    @relation(fields: [Service_Provider_idService_Provider], references: [idService_Provider])
   Service_Provider_idService_Provider Int
-  Status_Advertisement                Status_Advertisement @relation(fields: [Status_Advertisement_idStatus], references: [idStatus])
-  Status_Advertisement_idStatus       Int
 
   Feedbacks Feedback[]
   Archives  Archive[]
+  Images    AdvertisementImage[]
+
+  @@unique([title, Service_Provider_idService_Provider])
+}
+
+enum StatusAdvertisement {
+  ACTIVE
+  INACTIVE
+  PENDING
 }
 
 model Service {
   idService Int    @id @default(autoincrement())
-  name      String @db.VarChar(120)
-
-  Advertisements Advertisement[]
-}
-
-model Status_Advertisement {
-  idStatus Int    @id @default(autoincrement())
-  name     String @db.VarChar(60)
+  name      String @unique @db.VarChar(120)
 
   Advertisements Advertisement[]
 }
@@ -171,20 +176,27 @@ model Spiece {
 }
 
 model Archive {
-  idArchive Int      @id @default(autoincrement())
+  idArchive Int           @id @default(autoincrement())
   date      DateTime
+  status    StatusArchive @default(COMPLETED)
 
-  Pet                           Pet            @relation(fields: [Pet_idPet], references: [idPet])
+  Pet                           Pet           @relation(fields: [Pet_idPet], references: [idPet])
   Pet_idPet                     Int
-  Advertisement                 Advertisement  @relation(fields: [Advertisement_idAdvertisement], references: [idAdvertisement])
+  Advertisement                 Advertisement @relation(fields: [Advertisement_idAdvertisement], references: [idAdvertisement])
   Advertisement_idAdvertisement Int
-  Status_Archive                Status_Archive @relation(fields: [Status_Archive_idStatus], references: [idStatus])
-  Status_Archive_idStatus       Int
 }
 
-model Status_Archive {
-  idStatus Int    @id @default(autoincrement())
-  name     String @db.VarChar(60)
+enum StatusArchive {
+  COMPLETED
+  CANCELLED
+  PENDING
+}
 
-  Archives Archive[]
+model AdvertisementImage {
+  idAdvertisementImage Int    @id @default(autoincrement())
+  imageUrl             String @db.VarChar(500)
+  order                Int?
+
+  Advertisement                 Advertisement @relation(fields: [Advertisement_idAdvertisement], references: [idAdvertisement])
+  Advertisement_idAdvertisement Int
 }

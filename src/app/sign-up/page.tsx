@@ -10,6 +10,7 @@ import {
   useSendEmailVerification,
 } from "react-firebase-hooks/auth";
 import EmailVerificationPopup from "../components/EmailVerificationPopUp";
+import { useAuth } from "../context/AuthContext";
 
 interface City {
   idCity: number;
@@ -18,12 +19,13 @@ interface City {
 
 export default function Page() {
   const router = useRouter();
-  const [createUser, user, loading, firebaseError] =
+  const { user, loading } = useAuth(); // Get auth state
+  const [createUser, createdUser, createLoading, firebaseError] =
     useCreateUserWithEmailAndPassword(auth);
   const [sendEmailVerification] = useSendEmailVerification(auth);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showVerificationPopup, setShowVerificationPopup] = useState(false);
-  const [createdUser, setCreatedUser] = useState<any>(null);
+  const [createdUserState, setCreatedUserState] = useState<any>(null);
   const [cities, setCities] = useState<City[]>([]);
   const [formData, setFormData] = useState({
     email: "",
@@ -35,6 +37,13 @@ export default function Page() {
     cityId: "",
   });
   const [error, setError] = useState("");
+
+  // Redirect if user is logged in
+  useEffect(() => {
+    if (!loading && user) {
+      router.push("/"); // Redirect to main page
+    }
+  }, [user, loading, router]);
 
   useEffect(() => {
     const fetchCities = async () => {
@@ -104,16 +113,15 @@ export default function Page() {
         body: JSON.stringify({
           firebaseUid: firebaseResult.user.uid,
           email: formData.email,
-          firstName: formData.firstName || undefined,
-          lastName: formData.lastName || undefined,
-          phoneNumber: formData.phoneNumber || undefined,
-          cityId: formData.cityId || undefined,
-          isEmailVerified: false,
+          firstName: formData.firstName || null,
+          lastName: formData.lastName || null,
+          phoneNumber: formData.phoneNumber || null,
+          cityId: formData.cityId ? Number(formData.cityId) : null,
         }),
       });
 
       if (response.ok) {
-        setCreatedUser(firebaseResult.user);
+        setCreatedUserState(firebaseResult.user);
         setShowVerificationPopup(true);
       } else {
         await firebaseResult.user.delete();
@@ -123,16 +131,36 @@ export default function Page() {
     } catch (error) {
       console.error("Registration error:", error);
       setError("Registration failed. Please try again.");
+      if (createdUser) {
+        try {
+          await createdUser.user.delete();
+        } catch (deleteErr) {
+          console.error("Failed to delete user:", deleteErr);
+        }
+      }
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleVerificationSuccess = () => {
+  const handleVerificationSuccess = async () => {
+    if (createdUserState) {
+      try {
+        await createdUserState.reload();
+      } catch (reloadErr) {
+        console.error("Failed to reload user:", reloadErr);
+      }
+    }
     setShowVerificationPopup(false);
-    router.push("/sign-in");
+    router.push("/");
   };
 
+  // Show loading state while checking auth
+  if (loading) {
+    return <div>Loading...</div>;
+  }
+
+  // Render sign-up page if not logged in
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col pt-20">
       <div className="max-w-md mx-auto w-full">
@@ -144,7 +172,7 @@ export default function Page() {
           Back to Home
         </button>
         <h1 className="text-3xl font-bold mb-6 text-center">Create Account</h1>
-        {loading || isSubmitting ? (
+        {createLoading || isSubmitting ? (
           <IconFidgetSpinner className="animate-spin w-8 h-8 mx-auto" />
         ) : (
           <div>
@@ -227,9 +255,9 @@ export default function Page() {
           </div>
         )}
 
-        {showVerificationPopup && createdUser && (
+        {showVerificationPopup && createdUserState && (
           <EmailVerificationPopup
-            user={createdUser}
+            user={createdUserState}
             onVerified={handleVerificationSuccess}
           />
         )}

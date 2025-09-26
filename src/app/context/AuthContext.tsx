@@ -37,6 +37,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (firebaseUser) {
+      if (!firebaseUser.emailVerified) {
+        setUser(null);
+        setToken(null);
+        return;
+      }
+
       // Fetch the ID token and decode roles
       const fetchTokenAndRoles = async () => {
         try {
@@ -61,9 +67,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             });
           } else {
             console.error("Failed to fetch user roles:", data.error);
+            setUser(null);
           }
         } catch (error) {
           console.error("Error fetching token or roles:", error);
+          setUser(null);
         }
       };
 
