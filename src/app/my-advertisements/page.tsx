@@ -12,6 +12,7 @@ import {
   IconMapPin,
   IconCalendar,
   IconPhoto,
+  IconClock,
 } from "@tabler/icons-react";
 
 interface MyAdvertisement {
@@ -19,6 +20,8 @@ interface MyAdvertisement {
   title: string;
   startDate: string;
   endDate: string | null;
+  serviceStartTime?: string;
+  serviceEndTime?: string;
   keyImage: string | null;
   city: {
     idCity: number;
@@ -85,7 +88,9 @@ export default function MyAdvertisements() {
       <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50 flex items-center justify-center">
         <div className="flex flex-col items-center">
           <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mb-4"></div>
-          <p className="text-indigo-600 text-lg font-medium">Loading your advertisements...</p>
+          <p className="text-indigo-600 text-lg font-medium">
+            Loading your advertisements...
+          </p>
         </div>
       </div>
     );
@@ -107,7 +112,8 @@ export default function MyAdvertisements() {
             My Advertisements
           </h1>
           <p className="text-gray-600 max-w-2xl mx-auto">
-            Manage your active pet care services. View details and update as needed.
+            Manage your active pet care services. View details and update as
+            needed.
           </p>
         </div>
 
@@ -135,8 +141,12 @@ export default function MyAdvertisements() {
             <div className="inline-flex items-center justify-center bg-indigo-100 w-16 h-16 rounded-full mb-4 mx-auto">
               <IconPhoto className="text-indigo-500" size={28} />
             </div>
-            <h3 className="text-xl font-medium text-gray-700 mb-2">No advertisements yet</h3>
-            <p className="text-gray-500">Create your first advertisement to get started!</p>
+            <h3 className="text-xl font-medium text-gray-700 mb-2">
+              No advertisements yet
+            </h3>
+            <p className="text-gray-500">
+              Create your first advertisement to get started!
+            </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -177,6 +187,15 @@ export default function MyAdvertisements() {
                         <IconCalendar className="mr-1" size={14} />
                         <span className="font-medium">
                           Ends: {new Date(ad.endDate).toLocaleDateString()}
+                        </span>
+                      </div>
+                    )}
+                    {(ad.serviceStartTime || ad.serviceEndTime) && (
+                      <div className="flex items-center">
+                        <IconClock className="mr-1" size={14} />
+                        <span className="font-medium">
+                          Service hours: {ad.serviceStartTime} -{" "}
+                          {ad.serviceEndTime}
                         </span>
                       </div>
                     )}

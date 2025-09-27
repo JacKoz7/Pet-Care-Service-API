@@ -1,5 +1,5 @@
 // src/app/api/advertisements/latest/route.ts
-import {  NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
@@ -15,6 +15,8 @@ export async function GET() {
         title: true,
         startDate: true,
         endDate: true,
+        serviceStartTime: true,
+        serviceEndTime: true,
         Images: {
           select: {
             imageUrl: true,
@@ -51,6 +53,8 @@ export async function GET() {
       title: ad.title,
       startDate: ad.startDate,
       endDate: ad.endDate,
+      serviceStartTime: ad.serviceStartTime ? ad.serviceStartTime.toTimeString().slice(0, 5) : null,
+      serviceEndTime: ad.serviceEndTime ? ad.serviceEndTime.toTimeString().slice(0, 5) : null,
       keyImage: ad.Images[0]?.imageUrl || null,
       city: {
         idCity: ad.Service_Provider.User.City.idCity,
@@ -81,7 +85,7 @@ export async function GET() {
  *     summary: Get 10 latest active advertisements
  *     description: |
  *       Returns the 10 most recently created active advertisements in the system.
- *       Only returns title, startDate, endDate, keyImage (first image), and the service provider's city information for each advertisement.
+ *       Only returns title, startDate, endDate, serviceStartTime, serviceEndTime, keyImage (first image), and the service provider's city information for each advertisement.
  *     tags: [Advertisements]
  *     responses:
  *       200:
@@ -114,6 +118,14 @@ export async function GET() {
  *                         format: date-time
  *                         nullable: true
  *                         example: "2025-11-25T00:00:00Z"
+ *                       serviceStartTime:
+ *                         type: string
+ *                         nullable: true
+ *                         example: "09:00"
+ *                       serviceEndTime:
+ *                         type: string
+ *                         nullable: true
+ *                         example: "17:00"
  *                       keyImage:
  *                         type: string
  *                         nullable: true

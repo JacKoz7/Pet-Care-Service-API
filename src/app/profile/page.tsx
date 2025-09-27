@@ -1,9 +1,10 @@
-// src/app/profile/page.tsx
 "use client";
 
 import { useAuth } from "../context/AuthContext";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useAuthState } from "react-firebase-hooks/auth";
+import { auth } from "../firebase";
+import { useEffect, useState, useCallback } from "react";
 import {
   IconArrowLeft,
   IconEdit,
@@ -38,10 +39,12 @@ interface City {
 }
 
 export default function Profile() {
-  const { user, token, loading } = useAuth();
+  const { user: contextUser, token, loading: contextLoading } = useAuth();
+  const [firebaseUser] = useAuthState(auth); // For token in role fetch
   const router = useRouter();
   const [userData, setUserData] = useState<UserData | null>(null);
   const [cities, setCities] = useState<City[]>([]);
+  const [roles, setRoles] = useState<string[]>([]); // NEW: For dynamic roles
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [isEditing, setIsEditing] = useState(false);
@@ -52,8 +55,35 @@ export default function Profile() {
     cityId: "",
   });
 
+  // Fetch roles independently (like in Header/Dashboard)
+  const fetchRoles = useCallback(async () => {
+    if (!firebaseUser) {
+      setRoles(["client"]);
+      return;
+    }
+
+    try {
+      const roleToken = await firebaseUser.getIdToken();
+      const response = await fetch("/api/user/check-role", {
+        headers: {
+          Authorization: `Bearer ${roleToken}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setRoles(data.roles || ["client"]);
+      } else {
+        setRoles(["client"]);
+      }
+    } catch (err) {
+      console.error("Error fetching roles in Profile:", err);
+      setRoles(["client"]);
+    }
+  }, [firebaseUser]);
+
   useEffect(() => {
-    if (!user || !token) {
+    if (!contextUser || !token) {
       router.push("/sign-in");
       return;
     }
@@ -93,7 +123,8 @@ export default function Profile() {
 
     fetchUserData();
     fetchCities();
-  }, [user, token, router]);
+    fetchRoles(); // NEW: Fetch dynamic roles
+  }, [contextUser, token, router, fetchRoles]);
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
@@ -150,7 +181,7 @@ export default function Profile() {
     }
   };
 
-  if (loading) {
+  if (contextLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50 flex items-center justify-center">
         <div className="flex flex-col items-center">
@@ -410,7 +441,7 @@ export default function Profile() {
                     <p className="text-base font-medium text-gray-900">
                       {userData.isAdmin
                         ? "Admin"
-                        : userData.isServiceProvider
+                        : roles.includes("service_provider")
                         ? "Service Provider"
                         : "Client"}
                     </p>

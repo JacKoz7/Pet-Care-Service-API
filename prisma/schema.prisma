@@ -86,6 +86,8 @@ model Advertisement {
   startDate                           DateTime            @default(now())
   endDate                             DateTime
   createdAt                           DateTime            @default(now())
+  serviceStartTime                    DateTime?           @db.Time
+  serviceEndTime                      DateTime?           @db.Time
   Service                             Service             @relation(fields: [Service_idService], references: [idService])
   Service_idService                   Int
   Service_Provider                    Service_Provider    @relation(fields: [Service_Provider_idService_Provider], references: [idService_Provider])

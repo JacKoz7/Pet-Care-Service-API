@@ -1,12 +1,10 @@
-// src/app/components/Dashboard.tsx
 "use client";
 
 import { auth } from "../firebase";
 import { useAuthState } from "react-firebase-hooks/auth";
-import { useAuth } from "../context/AuthContext";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   IconPaw,
   IconSearch,
@@ -17,6 +15,7 @@ import {
   IconBug,
   IconUser,
   IconFileText,
+  IconClock,
 } from "@tabler/icons-react";
 
 interface City {
@@ -30,6 +29,8 @@ interface Advertisement {
   title: string;
   startDate: string;
   endDate: string | null;
+  serviceStartTime?: string;
+  serviceEndTime?: string;
   keyImage: string | null;
   city: City;
 }
@@ -41,8 +42,7 @@ interface UserRoles {
 }
 
 export default function Dashboard() {
-  const [firebaseUser] = useAuthState(auth);
-  const { user: authUser, loading: authLoading, refreshUser } = useAuth();
+  const [user] = useAuthState(auth);
   const router = useRouter();
   const [cities, setCities] = useState<City[]>([]);
   const [latestAds, setLatestAds] = useState<Advertisement[]>([]);
@@ -53,7 +53,39 @@ export default function Dashboard() {
     isServiceProvider: false,
     isClient: true,
   });
+  const [isLoadingRole, setIsLoadingRole] = useState(true);
   const carouselRef = useRef<HTMLDivElement>(null);
+
+  // Hoist fetchUserRoles outside useEffect for reuse
+  const fetchUserRoles = useCallback(async () => {
+    if (!user) {
+      setIsLoadingRole(false);
+      return;
+    }
+
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch("/api/user/check-role", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // All users are clients by default
+        setUserRoles({
+          isAdmin: data.roles?.includes("admin") || false,
+          isServiceProvider: data.roles?.includes("service_provider") || false, // Only if active
+          isClient: true, // Everyone is a client
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching user roles:", error);
+    } finally {
+      setIsLoadingRole(false);
+    }
+  }, [user]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -68,25 +100,8 @@ export default function Dashboard() {
     };
 
     loadData();
-  }, []);
-
-  // Sync user roles from AuthContext
-  useEffect(() => {
-    if (authUser) {
-      setUserRoles({
-        isAdmin: authUser.roles?.includes("admin") || false,
-        isServiceProvider:
-          authUser.roles?.includes("service_provider") || false,
-        isClient: true, // Everyone is a client
-      });
-    } else {
-      setUserRoles({
-        isAdmin: false,
-        isServiceProvider: false,
-        isClient: true,
-      });
-    }
-  }, [authUser]);
+    fetchUserRoles();
+  }, [user, fetchUserRoles]);
 
   const fetchCities = async () => {
     try {
@@ -121,10 +136,10 @@ export default function Dashboard() {
   };
 
   const toggleServiceProviderRole = async () => {
-    if (!firebaseUser) return;
+    if (!user) return;
 
     try {
-      const token = await firebaseUser.getIdToken();
+      const token = await user.getIdToken();
       const endpoint = userRoles.isServiceProvider
         ? "/api/service-provider/unbecome"
         : "/api/service-provider/become";
@@ -140,14 +155,8 @@ export default function Dashboard() {
       });
 
       if (response.ok) {
-        // Optimistically update local state
-        setUserRoles((prev) => ({
-          ...prev,
-          isServiceProvider: !prev.isServiceProvider,
-        }));
-
-        // Refresh the auth context with force refresh to update token claims
-        await refreshUser();
+        // Refetch roles for accuracy (instead of local flip)
+        await fetchUserRoles();
 
         const action = userRoles.isServiceProvider
           ? "removed from"
@@ -168,13 +177,13 @@ export default function Dashboard() {
   };
 
   const handleDebugJWT = async () => {
-    if (!firebaseUser) {
+    if (!user) {
       console.log("No user logged in");
       return;
     }
 
     try {
-      const token = await firebaseUser.getIdToken(true); // Force refresh for latest
+      const token = await user.getIdToken();
       console.log("JWT Token:", token);
 
       // Decode the token to see the payload (without verification)
@@ -196,7 +205,7 @@ export default function Dashboard() {
   );
 
   const handleViewAd = (adId: number) => {
-    router.push(`/advertisements/${adId}`);
+    router.push(`/advertisements/${adId}`); // FIXED: Singular to match details page
   };
 
   const handleMyAds = () => {
@@ -212,7 +221,7 @@ export default function Dashboard() {
             {/* Left Side Buttons */}
             <div className="flex flex-col space-y-2">
               {/* Toggle Service Provider Button */}
-              {firebaseUser && !authLoading && (
+              {user && !isLoadingRole && (
                 <button
                   onClick={toggleServiceProviderRole}
                   className={`flex items-center px-4 py-2 rounded-xl font-medium transition-all duration-300 transform hover:-translate-y-0.5 shadow-md hover:shadow-lg ${
@@ -229,7 +238,7 @@ export default function Dashboard() {
               )}
 
               {/* Debug JWT Button */}
-              {firebaseUser && !authLoading && (
+              {user && !isLoadingRole && (
                 <button
                   onClick={handleDebugJWT}
                   className="flex items-center bg-gray-600 text-white px-4 py-2 rounded-xl font-medium hover:bg-gray-700 transition-all duration-300 transform hover:-translate-y-0.5 shadow-md hover:shadow-lg"
@@ -242,7 +251,7 @@ export default function Dashboard() {
             </div>
 
             {/* Right Side Button - My Advertisements */}
-            {firebaseUser && !authLoading && userRoles.isServiceProvider && (
+            {user && !isLoadingRole && userRoles.isServiceProvider && (
               <button
                 onClick={handleMyAds}
                 className="flex items-center bg-gradient-to-r from-blue-500 to-blue-600 text-white px-4 py-2 rounded-xl font-medium hover:from-blue-600 hover:to-blue-700 transition-all duration-300 transform hover:-translate-y-0.5 shadow-md hover:shadow-lg"
@@ -257,11 +266,11 @@ export default function Dashboard() {
             Welcome to Pet Care Service!
           </h1>
           <p className="text-gray-600 max-w-2xl mx-auto">
-            {firebaseUser ? (
+            {user ? (
               <>
                 Hello,{" "}
                 <span className="font-semibold text-indigo-600">
-                  {firebaseUser.email}
+                  {user.email}
                 </span>
                 ! Explore pet care services in various cities.
               </>
@@ -271,7 +280,7 @@ export default function Dashboard() {
           </p>
 
           {/* Display role badges if user has roles */}
-          {firebaseUser && (
+          {user && (
             <div className="mt-4 flex justify-center space-x-2">
               {/* Client badge - everyone is a client */}
               <div className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium flex items-center">
@@ -279,7 +288,7 @@ export default function Dashboard() {
                 Client
               </div>
 
-              {/* Service Provider badge */}
+              {/* Service Provider badge - only if active */}
               {userRoles.isServiceProvider && (
                 <div className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium flex items-center">
                   <IconStar size={14} className="mr-1" />
@@ -485,6 +494,15 @@ export default function Dashboard() {
                             {new Date(ad.endDate).toLocaleDateString()}
                           </span>
                         </p>
+                      )}
+                      {(ad.serviceStartTime || ad.serviceEndTime) && (
+                        <div className="flex items-center">
+                          <IconClock className="mr-1" size={14} />
+                          <span className="font-medium">
+                            Service hours: {ad.serviceStartTime} -{" "}
+                            {ad.serviceEndTime}
+                          </span>
+                        </div>
                       )}
                     </div>
                     <button

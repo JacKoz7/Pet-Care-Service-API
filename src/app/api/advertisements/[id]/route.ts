@@ -1,17 +1,19 @@
 // src/app/api/advertisements/[id]/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
+import { adminAuth } from "@/lib/firebaseAdmin";
 
 const prisma = new PrismaClient();
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const id = parseInt(params.id);
+    const { id } = await params;
+    const idNum = parseInt(id);
 
-    if (isNaN(id)) {
+    if (isNaN(idNum)) {
       return NextResponse.json(
         { error: "Invalid advertisement ID" },
         { status: 400 }
@@ -20,7 +22,7 @@ export async function GET(
 
     const advertisement = await prisma.advertisement.findUnique({
       where: {
-        idAdvertisement: id,
+        idAdvertisement: idNum,
       },
       select: {
         idAdvertisement: true,
@@ -30,8 +32,11 @@ export async function GET(
         status: true,
         startDate: true,
         endDate: true,
+        serviceStartTime: true,
+        serviceEndTime: true,
         Service_Provider: {
-          include: {
+          select: {
+            idService_Provider: true,
             User: {
               select: {
                 firstName: true,
@@ -76,6 +81,13 @@ export async function GET(
         status: advertisement.status,
         startDate: advertisement.startDate,
         endDate: advertisement.endDate,
+        serviceStartTime: advertisement.serviceStartTime
+          ? advertisement.serviceStartTime.toTimeString().slice(0, 5)
+          : null,
+        serviceEndTime: advertisement.serviceEndTime
+          ? advertisement.serviceEndTime.toTimeString().slice(0, 5)
+          : null,
+        serviceProviderId: advertisement.Service_Provider.idService_Provider,
         service: advertisement.Service.name,
         provider: {
           firstName: advertisement.Service_Provider.User.firstName,
@@ -95,6 +107,128 @@ export async function GET(
     });
   } catch (error) {
     console.error("Error fetching advertisement by ID:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const idNum = parseInt(id);
+
+    if (isNaN(idNum)) {
+      return NextResponse.json(
+        { error: "Invalid advertisement ID" },
+        { status: 400 }
+      );
+    }
+
+    const authHeader = request.headers.get("authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return NextResponse.json(
+        { error: "Authorization header missing or invalid" },
+        { status: 401 }
+      );
+    }
+
+    const token = authHeader.split(" ")[1];
+    let decodedToken;
+    try {
+      decodedToken = await adminAuth.verifyIdToken(token);
+    } catch (error) {
+      console.error("Token verification failed:", error);
+      return NextResponse.json(
+        { error: "Invalid or expired token" },
+        { status: 401 }
+      );
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { firebaseUid: decodedToken.uid },
+      include: {
+        ServiceProviders: true, // All service providers, active or not
+      },
+    });
+
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    if (user.ServiceProviders.length === 0) {
+      return NextResponse.json(
+        { error: "User has no service provider association" },
+        { status: 403 }
+      );
+    }
+
+    const advertisement = await prisma.advertisement.findUnique({
+      where: {
+        idAdvertisement: idNum,
+      },
+      select: {
+        Service_Provider_idService_Provider: true,
+      },
+    });
+
+    if (!advertisement) {
+      return NextResponse.json(
+        { error: "Advertisement not found" },
+        { status: 404 }
+      );
+    }
+
+    const isOwner = user.ServiceProviders.some(
+      (sp) =>
+        sp.idService_Provider ===
+        advertisement.Service_Provider_idService_Provider
+    );
+
+    if (!isOwner) {
+      return NextResponse.json(
+        { error: "You are not authorized to delete this advertisement" },
+        { status: 403 }
+      );
+    }
+
+    // NEW: Use transaction to delete related records first to avoid FK violation
+    await prisma.$transaction(async (tx) => {
+      // Delete related images
+      await tx.advertisementImage.deleteMany({
+        where: {
+          Advertisement_idAdvertisement: idNum,
+        },
+      });
+      // Delete related feedbacks
+      await tx.feedback.deleteMany({
+        where: {
+          Advertisement_idAdvertisement: idNum,
+        },
+      });
+      // Delete related archives
+      await tx.archive.deleteMany({
+        where: {
+          Advertisement_idAdvertisement: idNum,
+        },
+      });
+      // Now delete the advertisement
+      await tx.advertisement.delete({
+        where: {
+          idAdvertisement: idNum,
+        },
+      });
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Error deleting advertisement:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
@@ -161,9 +295,20 @@ export async function GET(
  *                       format: date-time
  *                       nullable: true
  *                       example: "2025-11-25T00:00:00Z"
+ *                     serviceStartTime:
+ *                       type: string
+ *                       nullable: true
+ *                       example: "09:00"
+ *                     serviceEndTime:
+ *                       type: string
+ *                       nullable: true
+ *                       example: "17:00"
  *                     service:
  *                       type: string
  *                       example: "Wyprowadzanie psów"
+ *                     serviceProviderId:
+ *                       type: integer
+ *                       example: 1
  *                     provider:
  *                       type: object
  *                       properties:
@@ -208,6 +353,42 @@ export async function GET(
  *         description: Invalid advertisement ID
  *       404:
  *         description: Advertisement not found
+ *       500:
+ *         description: Internal server error
+ *   delete:
+ *     summary: Delete advertisement by ID
+ *     description: |
+ *       Deletes a specific advertisement by its ID.
+ *       Requires authentication and authorization: the user must be associated with the service provider that owns the advertisement (active or inactive).
+ *     tags: [Advertisements]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Advertisement ID
+ *     responses:
+ *       200:
+ *         description: Advertisement deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *       400:
+ *         description: Invalid advertisement ID
+ *       401:
+ *         description: Unauthorized (invalid or missing token)
+ *       403:
+ *         description: Forbidden (not associated with the owner)
+ *       404:
+ *         description: Advertisement or user not found
  *       500:
  *         description: Internal server error
  */

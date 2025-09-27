@@ -41,6 +41,8 @@ export async function GET(request: NextRequest) {
                 title: true,
                 startDate: true,
                 endDate: true,
+                serviceStartTime: true,
+                serviceEndTime: true,
                 Images: {
                   select: {
                     imageUrl: true,
@@ -79,6 +81,8 @@ export async function GET(request: NextRequest) {
         title: ad.title,
         startDate: ad.startDate,
         endDate: ad.endDate,
+        serviceStartTime: ad.serviceStartTime ? ad.serviceStartTime.toTimeString().slice(0, 5) : null,
+        serviceEndTime: ad.serviceEndTime ? ad.serviceEndTime.toTimeString().slice(0, 5) : null,
         keyImage: ad.Images[0]?.imageUrl || null,
         city: {
           idCity: user.City.idCity,
@@ -117,7 +121,7 @@ export async function GET(request: NextRequest) {
  *     description: |
  *       Returns all active advertisements in the system.
  *       Supports pagination via query parameters 'page' and 'limit'.
- *       Only returns title, startDate, endDate, keyImage (first image), and the service provider's city information for each advertisement.
+ *       Only returns title, startDate, endDate, serviceStartTime, serviceEndTime, keyImage (first image), and the service provider's city information for each advertisement.
  *     tags: [Advertisements]
  *     parameters:
  *       - name: page
@@ -164,6 +168,14 @@ export async function GET(request: NextRequest) {
  *                         format: date-time
  *                         nullable: true
  *                         example: "2025-11-25T00:00:00Z"
+ *                       serviceStartTime:
+ *                         type: string
+ *                         nullable: true
+ *                         example: "09:00"
+ *                       serviceEndTime:
+ *                         type: string
+ *                         nullable: true
+ *                         example: "17:00"
  *                       keyImage:
  *                         type: string
  *                         nullable: true

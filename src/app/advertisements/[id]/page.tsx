@@ -1,4 +1,3 @@
-// src/app/advertisement/[id]/page.tsx
 "use client";
 
 import { auth } from "../../firebase";
@@ -16,6 +15,11 @@ import {
   IconInfoCircle,
   IconPhoto,
   IconPaw,
+  IconClock,
+  IconTrash,
+  IconAlertCircle,
+  IconCircleCheck,
+  IconX,
 } from "@tabler/icons-react";
 
 interface AdvertisementDetails {
@@ -26,7 +30,10 @@ interface AdvertisementDetails {
   status: string;
   startDate: string;
   endDate: string | null;
+  serviceStartTime: string | null;
+  serviceEndTime: string | null;
   service: string;
+  serviceProviderId: number;
   provider: {
     firstName: string | null;
     lastName: string | null;
@@ -43,48 +50,162 @@ interface AdvertisementDetails {
   }>;
 }
 
+interface UserRoles {
+  roles: string[];
+  serviceProviderIds: number[];
+}
+
+interface Notification {
+  message: string;
+  type: "info" | "error" | "warning" | "success";
+}
+
 export default function AdvertisementDetails() {
   const [user] = useAuthState(auth);
   const router = useRouter();
   const params = useParams();
   const adId = params.id as string;
   const [ad, setAd] = useState<AdvertisementDetails | null>(null);
+  const [userRoles, setUserRoles] = useState<UserRoles | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const [notification, setNotification] = useState<Notification | null>(null);
 
   useEffect(() => {
-    if (!adId || isNaN(Number(adId))) {
-      setError("Invalid advertisement ID");
-      setIsLoading(false);
-      return;
-    }
+    const fetchData = async () => {
+      if (!adId || isNaN(Number(adId))) {
+        setError("Invalid advertisement ID");
+        setIsLoading(false);
+        return;
+      }
 
-    const fetchAdDetails = async () => {
+      setIsLoading(true);
+      setError("");
+
       try {
-        const response = await fetch(`/api/advertisements/${adId}`);
-        if (response.ok) {
-          const data = await response.json();
-          if (data.success) {
-            setAd(data.advertisement);
+        // Fetch ad details
+        const adResponse = await fetch(`/api/advertisements/${adId}`);
+        if (!adResponse.ok) {
+          throw new Error("Failed to fetch advertisement details");
+        }
+        const adData = await adResponse.json();
+        if (!adData.success) {
+          throw new Error("Advertisement not found");
+        }
+        setAd(adData.advertisement);
+
+        // Fetch user roles if user is logged in
+        if (user) {
+          const token = await user.getIdToken();
+          const rolesResponse = await fetch("/api/user/check-role", {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+          if (!rolesResponse.ok) {
+            console.warn(
+              "Failed to fetch user roles:",
+              await rolesResponse.text()
+            );
           } else {
-            setError("Advertisement not found");
+            const rolesData = await rolesResponse.json();
+            console.log("Fetched user roles:", rolesData); // Debug log
+            setUserRoles({
+              roles: rolesData.roles || [],
+              serviceProviderIds: rolesData.serviceProviderIds || [],
+            });
           }
-        } else {
-          setError("Failed to fetch advertisement details");
         }
       } catch (err) {
-        setError("An error occurred while fetching details");
-        console.error("Error fetching advertisement:", err);
+        console.error("Error fetching data:", err);
+        setError(
+          err instanceof Error
+            ? err.message
+            : "An error occurred while fetching data"
+        );
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchAdDetails();
-  }, [adId]);
+    fetchData();
+  }, [adId, user]);
+
+  // Check if user owns the ad (via serviceProviderId match, regardless of current active status)
+  const isOwner =
+    user &&
+    userRoles &&
+    userRoles.serviceProviderIds.includes(ad?.serviceProviderId || 0);
+
+  console.log(
+    "Debug - isOwner:",
+    isOwner,
+    "ad.serviceProviderId:",
+    ad?.serviceProviderId,
+    "userRoles.serviceProviderIds:",
+    userRoles?.serviceProviderIds
+  ); // Debug log
 
   const handleBack = () => {
     router.back();
+  };
+
+  const showNotification = (message: string, type: Notification["type"]) => {
+    setNotification({ message, type });
+    // Auto-hide after 4 seconds
+    setTimeout(() => {
+      setNotification(null);
+    }, 4000);
+  };
+
+  const handleBook = () => {
+    if (!user) {
+      showNotification("Please sign in to book this service.", "warning");
+      return;
+    }
+
+    if (isOwner) {
+      showNotification("You cannot book your own advertisement.", "error");
+      return;
+    }
+
+    // Placeholder for booking implementation
+    showNotification("Booking feature coming soon!", "info");
+  };
+
+  const handleDelete = async () => {
+    if (!user || !isOwner || !ad) return;
+
+    if (!confirm("Are you sure you want to delete this advertisement?")) {
+      return;
+    }
+
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch(`/api/advertisements/${ad.id}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        showNotification("Advertisement deleted successfully!", "success");
+        setTimeout(() => router.back(), 1500); // Back after showing success
+      } else {
+        const errData = await response.json();
+        showNotification(
+          errData.error || "Failed to delete advertisement",
+          "error"
+        );
+      }
+    } catch (err) {
+      console.error("Error deleting advertisement:", err);
+      showNotification(
+        "An error occurred while deleting the advertisement",
+        "error"
+      );
+    }
   };
 
   if (isLoading) {
@@ -195,6 +316,20 @@ export default function AdvertisementDetails() {
                   </div>
                 )}
 
+                {(ad.serviceStartTime || ad.serviceEndTime) && (
+                  <div className="flex items-center">
+                    <IconClock className="text-indigo-500 mr-3" size={20} />
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">
+                        Service Hours
+                      </p>
+                      <p className="text-lg font-semibold text-gray-800">
+                        {ad.serviceStartTime} - {ad.serviceEndTime}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 {ad.price && (
                   <div className="flex items-center">
                     <IconCurrencyDollar
@@ -292,9 +427,19 @@ export default function AdvertisementDetails() {
               >
                 Back
               </button>
-              {user && (
-                <button className="flex-1 sm:flex-none bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-3 rounded-xl font-medium hover:from-indigo-700 hover:to-purple-700 transition-all duration-300">
-                  Book Now
+              <button
+                onClick={handleBook}
+                className="flex-1 sm:flex-none bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-3 rounded-xl font-medium hover:from-indigo-700 hover:to-purple-700 transition-all duration-300"
+              >
+                Book Now
+              </button>
+              {isOwner && (
+                <button
+                  onClick={handleDelete}
+                  className="flex-1 sm:flex-none bg-red-500 text-white px-6 py-3 rounded-xl font-medium hover:bg-red-600 transition-all duration-300 flex items-center justify-center"
+                >
+                  <IconTrash size={18} className="mr-2" />
+                  Delete
                 </button>
               )}
             </div>
@@ -302,19 +447,82 @@ export default function AdvertisementDetails() {
         </div>
       </div>
 
+      {/* Styled Notification Toast */}
+      {notification && (
+        <div className="fixed bottom-4 right-4 z-50 w-96 max-w-sm">
+          <div
+            className={`bg-white rounded-xl shadow-2xl border-l-4 p-4 flex items-start space-x-3 animate-slide-in-right transform transition-all duration-300 ${
+              notification.type === "success"
+                ? "border-green-500 bg-green-50"
+                : notification.type === "error"
+                ? "border-red-500 bg-red-50"
+                : notification.type === "warning"
+                ? "border-yellow-500 bg-yellow-50"
+                : "border-blue-500 bg-blue-50"
+            }`}
+          >
+            {notification.type === "success" && (
+              <IconCircleCheck
+                className="text-green-500 mt-0.5 flex-shrink-0"
+                size={20}
+              />
+            )}
+            {notification.type === "error" && (
+              <IconAlertCircle
+                className="text-red-500 mt-0.5 flex-shrink-0"
+                size={20}
+              />
+            )}
+            {notification.type === "warning" && (
+              <IconAlertCircle
+                className="text-yellow-500 mt-0.5 flex-shrink-0"
+                size={20}
+              />
+            )}
+            {notification.type === "info" && (
+              <IconInfoCircle
+                className="text-blue-500 mt-0.5 flex-shrink-0"
+                size={20}
+              />
+            )}
+            <div className="flex-1 min-w-0">
+              <p
+                className={`text-sm font-medium ${
+                  notification.type === "success"
+                    ? "text-green-800"
+                    : notification.type === "error"
+                    ? "text-red-800"
+                    : notification.type === "warning"
+                    ? "text-yellow-800"
+                    : "text-blue-800"
+                }`}
+              >
+                {notification.message}
+              </p>
+            </div>
+            <button
+              onClick={() => setNotification(null)}
+              className="ml-2 flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <IconX size={16} />
+            </button>
+          </div>
+        </div>
+      )}
+
       <style jsx global>{`
-        @keyframes fade-in {
+        @keyframes slide-in-right {
           from {
             opacity: 0;
-            transform: translateY(10px);
+            transform: translateX(100%);
           }
           to {
             opacity: 1;
-            transform: translateY(0);
+            transform: translateX(0);
           }
         }
-        .animate-fade-in {
-          animation: fade-in 0.5s ease-out forwards;
+        .animate-slide-in-right {
+          animation: slide-in-right 0.3s ease-out;
         }
       `}</style>
     </div>

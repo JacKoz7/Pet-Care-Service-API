@@ -2,19 +2,55 @@
 import { useAuth } from "../context/AuthContext";
 import { signOut } from "firebase/auth";
 import { auth } from "../firebase";
+import { useAuthState } from "react-firebase-hooks/auth";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 
 export default function Header() {
-  const { user, loading } = useAuth();
+  const { user: contextUser, loading: contextLoading } = useAuth();  // Custom context user
+  const [firebaseUser] = useAuthState(auth);  // Firebase user for token
   const router = useRouter();
 
   // State to ensure client-side rendering consistency
   const [isClient, setIsClient] = useState(false);
 
+  // Local state for roles (fetched independently)
+  const [roles, setRoles] = useState<string[]>([]);
+
   useEffect(() => {
     setIsClient(true); // Ensure component only renders fully on client
   }, []);
+
+  // Fetch roles independently (like in Dashboard)
+  const fetchRoles = useCallback(async () => {
+    if (!firebaseUser) {
+      setRoles(["client"]);
+      return;
+    }
+
+    try {
+      const token = await firebaseUser.getIdToken();
+      const response = await fetch("/api/user/check-role", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setRoles(data.roles || ["client"]);
+      } else {
+        setRoles(["client"]);
+      }
+    } catch (error) {
+      console.error("Error fetching roles in Header:", error);
+      setRoles(["client"]);
+    }
+  }, [firebaseUser]);
+
+  useEffect(() => {
+    fetchRoles();
+  }, [fetchRoles]);
 
   const handleSignOut = async () => {
     try {
@@ -22,18 +58,19 @@ export default function Header() {
       router.push("/");
     } catch (error) {
       console.error("Sign out error:", error);
+      alert("Error signing out. Please try again.");
     }
   };
 
   const getRoleLabel = () => {
-    if (!user?.roles) return "";
-    if (user.roles.includes("admin")) return "Admin";
-    if (user.roles.includes("service_provider")) return "Service Provider";
-    return "";
+    if (roles.length === 0) return "";
+    if (roles.includes("admin")) return "Admin";
+    if (roles.includes("service_provider")) return "Service Provider";  // Only if active
+    return "";  // Implicit client, no label
   };
 
   // Avoid rendering until client-side to prevent hydration mismatch
-  if (!isClient || loading) {
+  if (!isClient || contextLoading) {
     return null; // Or a minimal placeholder, e.g., <header>Loading...</header>
   }
 
@@ -58,15 +95,15 @@ export default function Header() {
             Docs
           </button>
 
-          {user ? (
+          {contextUser ? (
             <>
               {/* Profile Button */}
               <button
                 onClick={() => router.push("/profile")}
                 className="bg-gray-700 text-white px-4 py-2 rounded-lg font-medium hover:bg-gray-600 hover:shadow-md transition-all duration-200"
-                aria-label={`View profile for ${user.email}`}
+                aria-label={`View profile for ${contextUser.email}`}
               >
-                {user.email} {getRoleLabel() && `(${getRoleLabel()})`}
+                {contextUser.email} {getRoleLabel() && `(${getRoleLabel()})`}
               </button>
 
               {/* Sign Out Button */}

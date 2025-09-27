@@ -147,6 +147,8 @@ async function main() {
             status: "ACTIVE" as const,
             startDate: now,
             endDate: futureDate(60), // Active for 60 days
+            serviceStartTime: new Date("1970-01-01T09:00:00"),
+            serviceEndTime: new Date("1970-01-01T17:00:00"),
             images: [
               "https://images.unsplash.com/photo-1552053831-71594a27632d?w=500",
               "https://images.unsplash.com/photo-1583337130417-3346a1be7dee?w=500",
@@ -162,6 +164,8 @@ async function main() {
             status: "ACTIVE" as const,
             startDate: now,
             endDate: futureDate(365), // No expiration date
+            serviceStartTime: new Date("1970-01-01T08:00:00"),
+            serviceEndTime: new Date("1970-01-01T20:00:00"),
             images: [
               "https://images.unsplash.com/photo-1601758228041-f3b2795255f1?w=500",
             ],
@@ -182,6 +186,8 @@ async function main() {
             status: "ACTIVE" as const,
             startDate: now,
             endDate: futureDate(90), // Active for 90 days
+            serviceStartTime: new Date("1970-01-01T07:00:00"),
+            serviceEndTime: new Date("1970-01-01T22:00:00"),
             images: [
               "https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=500",
               "https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=500",
@@ -197,6 +203,8 @@ async function main() {
             status: "ACTIVE" as const,
             startDate: now,
             endDate: futureDate(30), // Active for 30 days
+            serviceStartTime: new Date("1970-01-01T10:00:00"),
+            serviceEndTime: new Date("1970-01-01T14:00:00"),
             images: [
               "https://images.unsplash.com/photo-1534361960057-19889db9621e?w=500",
             ],
@@ -217,6 +225,8 @@ async function main() {
             status: "ACTIVE" as const,
             startDate: now,
             endDate: futureDate(45), // Active for 45 days
+            serviceStartTime: new Date("1970-01-01T09:00:00"),
+            serviceEndTime: new Date("1970-01-01T13:00:00"),
             images: [
               "https://images.unsplash.com/photo-1559190394-df5a28aab5c5?w=500",
               "https://images.unsplash.com/photo-1570018144715-43110363d70a?w=500",
@@ -232,6 +242,8 @@ async function main() {
             status: "ACTIVE" as const,
             startDate: now,
             endDate: futureDate(365),
+            serviceStartTime: new Date("1970-01-01T14:00:00"),
+            serviceEndTime: new Date("1970-01-01T18:00:00"),
             images: [
               "https://images.unsplash.com/photo-1601758228041-f3b2795255f1?w=500",
             ],
@@ -251,6 +263,8 @@ async function main() {
           status: ad.status,
           startDate: ad.startDate,
           endDate: ad.endDate,
+          serviceStartTime: ad.serviceStartTime,
+          serviceEndTime: ad.serviceEndTime,
           Service_idService: ad.serviceId,
           Service_Provider_idService_Provider: ad.serviceProviderId,
           Images: {
@@ -267,7 +281,13 @@ async function main() {
       console.log(
         `Dodano ogłoszenie: ${createdAd.title} z ${
           createdAd.Images.length
-        } zdjęciami (aktywne do: ${createdAd.endDate || "bez limitu"})`
+        } zdjęciami (aktywne do: ${
+          createdAd.endDate || "bez limitu"
+        }, godziny: ${createdAd.serviceStartTime
+          ?.toTimeString()
+          .slice(0, 5)} - ${createdAd.serviceEndTime
+          ?.toTimeString()
+          .slice(0, 5)})`
       );
     } catch (error) {
       console.error(`Błąd przy dodawaniu ogłoszenia "${ad.title}":`, error);
