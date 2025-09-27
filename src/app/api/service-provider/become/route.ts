@@ -1,4 +1,4 @@
-// src/app/api/user/become-service-provider/route.ts
+// src/app/api/service-provider/become/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { adminAuth } from "@/lib/firebaseAdmin";
@@ -20,6 +20,7 @@ export async function POST(request: NextRequest) {
     try {
       decodedToken = await adminAuth.verifyIdToken(token);
     } catch (error) {
+      void error;
       return NextResponse.json(
         { error: "Invalid or expired token" },
         { status: 401 }
@@ -39,17 +40,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // Check if user is already a service provider
-    if (
-      existingUser.ServiceProviders &&
-      existingUser.ServiceProviders.length > 0
-    ) {
-      return NextResponse.json(
-        { error: "User is already a service provider" },
-        { status: 400 }
-      );
-    }
-
     // Check if user is an admin
     if (existingUser.Admin) {
       return NextResponse.json(
@@ -58,12 +48,35 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create service provider record using the database ID
-    const serviceProvider = await prisma.service_Provider.create({
-      data: {
-        User_idUser: existingUser.idUser,
-      },
-    });
+    // Check if user already has a service provider record (active or inactive)
+    const existingServiceProvider = existingUser.ServiceProviders.find(
+      (sp) => sp.User_idUser === existingUser.idUser
+    );
+
+    let serviceProvider;
+    if (existingServiceProvider) {
+      // Reactivate if inactive
+      if (!existingServiceProvider.isActive) {
+        serviceProvider = await prisma.service_Provider.update({
+          where: {
+            idService_Provider: existingServiceProvider.idService_Provider,
+          },
+          data: { isActive: true },
+        });
+      } else {
+        return NextResponse.json(
+          { error: "User is already a service provider" },
+          { status: 400 }
+        );
+      }
+    } else {
+      // Create new service provider record
+      serviceProvider = await prisma.service_Provider.create({
+        data: {
+          User_idUser: existingUser.idUser,
+        },
+      });
+    }
 
     return NextResponse.json({
       success: true,
@@ -89,7 +102,8 @@ export async function POST(request: NextRequest) {
  *     description: |
  *       Converts the currently authenticated user to a service provider role.
  *       Requires a valid Firebase ID token in the Authorization header.
- *       User must not already be a service provider.
+ *       If the user was previously a service provider (but inactive), it reactivates the role.
+ *       User must not already be an active service provider.
  *     tags: [Service Provider]
  *     security:
  *       - BearerAuth: []
@@ -110,7 +124,7 @@ export async function POST(request: NextRequest) {
  *                 serviceProviderId:
  *                   type: integer
  *                   example: 42
- *                   description: ID of the newly created service provider record
+ *                   description: ID of the service provider record
  *       400:
  *         description: Bad request (user is already a service provider or admin)
  *       401:

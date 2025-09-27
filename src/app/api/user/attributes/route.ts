@@ -1,3 +1,4 @@
+// src/app/api/user/attributes/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 
@@ -10,9 +11,9 @@ export async function POST(request: NextRequest) {
       body;
 
     // Walidacja wymaganych pól
-    if (!firebaseUid || !email) {
+    if (!firebaseUid || !email || !cityId) {
       return NextResponse.json(
-        { error: "Firebase UID and email are required" },
+        { error: "Firebase UID, email, and cityId are required" },
         { status: 400 }
       );
     }
@@ -28,14 +29,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Sprawdź czy miasto istnieje (jeśli podano)
-    if (cityId) {
-      const city = await prisma.city.findUnique({
-        where: { idCity: parseInt(cityId) },
-      });
-      if (!city) {
-        return NextResponse.json({ error: "Invalid city ID" }, { status: 400 });
-      }
+    // Sprawdź czy miasto istnieje
+    const city = await prisma.city.findUnique({
+      where: { idCity: Number(cityId) },
+    });
+    if (!city) {
+      return NextResponse.json({ error: "Invalid city ID" }, { status: 400 });
     }
 
     // Sprawdź czy użytkownik już istnieje w bazie danych
@@ -60,7 +59,7 @@ export async function POST(request: NextRequest) {
         lastName: lastName || null,
         email: email,
         phoneNumber: phoneNumber || null,
-        City_idCity: cityId ? parseInt(cityId) : null,
+        City_idCity: Number(cityId),
         lastActive: new Date(),
       },
       include: {
@@ -118,6 +117,7 @@ export async function POST(request: NextRequest) {
  *             required:
  *               - firebaseUid
  *               - email
+ *               - cityId
  *             properties:
  *               firebaseUid:
  *                 type: string
@@ -142,7 +142,7 @@ export async function POST(request: NextRequest) {
  *                 example: "123456789"
  *               cityId:
  *                 type: integer
- *                 description: Optional ID of the city (foreign key)
+ *                 description: Required ID of the city (foreign key)
  *                 example: 1
  *     responses:
  *       200:
@@ -181,7 +181,6 @@ export async function POST(request: NextRequest) {
  *                       example: "123456789"
  *                     city:
  *                       type: object
- *                       nullable: true
  *                       properties:
  *                         idCity:
  *                           type: integer
@@ -202,7 +201,7 @@ export async function POST(request: NextRequest) {
  *               properties:
  *                 error:
  *                   type: string
- *                   example: "Firebase UID and email are required"
+ *                   example: "Firebase UID, email, and cityId are required"
  *       409:
  *         description: User already exists
  *         content:

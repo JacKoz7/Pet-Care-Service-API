@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    let user = await prisma.user.findUnique({
+    const user = await prisma.user.findUnique({
       where: { firebaseUid: decodedToken.uid },
       include: {
         City: true,
@@ -37,59 +37,10 @@ export async function GET(request: NextRequest) {
     });
 
     if (!user) {
-      const email = decodedToken.email;
-      if (!email) {
-        return NextResponse.json(
-          { error: "No email found in token" },
-          { status: 400 }
-        );
-      }
-
-      const existingUserByEmail = await prisma.user.findFirst({
-        where: { email },
-      });
-
-      if (existingUserByEmail) {
-        return NextResponse.json(
-          { error: "Email already exists with a different UID" },
-          { status: 409 }
-        );
-      }
-
-      user = await prisma.user.create({
-        data: {
-          firebaseUid: decodedToken.uid,
-          email,
-          lastActive: new Date(),
-        },
-        include: {
-          City: true,
-          Admin: true,
-          ServiceProviders: true,
-        },
-      });
-
-      if (email === process.env.ADMIN_EMAIL) {
-        await prisma.admin.create({
-          data: {
-            User_idUser: user.idUser,
-          },
-        });
-
-        // Refetch user to include updated relations
-        user = await prisma.user.findUnique({
-          where: { idUser: user.idUser },
-          include: {
-            City: true,
-            Admin: true,
-            ServiceProviders: true,
-          },
-        });
-      }
-    }
-
-    if (!user) {
-      throw new Error("Unexpected error: user is null");
+      return NextResponse.json(
+        { error: "User profile not found. Please complete registration." },
+        { status: 400 }
+      );
     }
 
     await prisma.user.update({
@@ -106,13 +57,11 @@ export async function GET(request: NextRequest) {
         lastName: user.lastName,
         email: user.email,
         phoneNumber: user.phoneNumber,
-        city: user.City
-          ? {
-              idCity: user.City.idCity,
-              name: user.City.name,
-              imageUrl: user.City.imageUrl,
-            }
-          : null,
+        city: {
+          idCity: user.City.idCity,
+          name: user.City.name,
+          imageUrl: user.City.imageUrl,
+        },
         isAdmin: !!user.Admin,
         isServiceProvider: user.ServiceProviders.length > 0,
         lastActive: user.lastActive,
@@ -210,13 +159,11 @@ export async function PUT(request: NextRequest) {
         lastName: updatedUser.lastName,
         email: updatedUser.email,
         phoneNumber: updatedUser.phoneNumber,
-        city: updatedUser.City
-          ? {
-              idCity: updatedUser.City.idCity,
-              name: updatedUser.City.name,
-              imageUrl: updatedUser.City.imageUrl,
-            }
-          : null,
+        city: {
+          idCity: updatedUser.City.idCity,
+          name: updatedUser.City.name,
+          imageUrl: updatedUser.City.imageUrl,
+        },
         isAdmin: !!updatedUser.Admin,
         isServiceProvider: updatedUser.ServiceProviders.length > 0,
         lastActive: updatedUser.lastActive,
@@ -282,7 +229,6 @@ export async function PUT(request: NextRequest) {
  *                       example: "123456789"
  *                     city:
  *                       type: object
- *                       nullable: true
  *                       properties:
  *                         idCity:
  *                           type: integer
@@ -304,6 +250,8 @@ export async function PUT(request: NextRequest) {
  *                       type: string
  *                       format: date-time
  *                       example: "2025-09-16T12:00:00Z"
+ *       400:
+ *         description: User profile incomplete (e.g., missing city)
  *       401:
  *         description: Unauthorized (invalid or missing token)
  *       404:
@@ -379,7 +327,6 @@ export async function PUT(request: NextRequest) {
  *                       example: "123456789"
  *                     city:
  *                       type: object
- *                       nullable: true
  *                       properties:
  *                         idCity:
  *                           type: integer

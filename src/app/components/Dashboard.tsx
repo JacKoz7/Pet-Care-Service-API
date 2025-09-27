@@ -3,6 +3,9 @@
 
 import { auth } from "../firebase";
 import { useAuthState } from "react-firebase-hooks/auth";
+import { useAuth } from "../context/AuthContext";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
 import {
   IconPaw,
@@ -13,12 +16,22 @@ import {
   IconStar,
   IconBug,
   IconUser,
+  IconFileText,
 } from "@tabler/icons-react";
 
 interface City {
   idCity: number;
   name: string;
   imageUrl: string;
+}
+
+interface Advertisement {
+  id: number;
+  title: string;
+  startDate: string;
+  endDate: string | null;
+  keyImage: string | null;
+  city: City;
 }
 
 interface UserRoles {
@@ -28,8 +41,11 @@ interface UserRoles {
 }
 
 export default function Dashboard() {
-  const [user] = useAuthState(auth);
+  const [firebaseUser] = useAuthState(auth);
+  const { user: authUser, loading: authLoading, refreshUser } = useAuth();
+  const router = useRouter();
   const [cities, setCities] = useState<City[]>([]);
+  const [latestAds, setLatestAds] = useState<Advertisement[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [userRoles, setUserRoles] = useState<UserRoles>({
@@ -37,56 +53,60 @@ export default function Dashboard() {
     isServiceProvider: false,
     isClient: true,
   });
-  const [isLoadingRole, setIsLoadingRole] = useState(true);
   const carouselRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const fetchCities = async () => {
+    const loadData = async () => {
+      setIsLoading(true);
       try {
-        const response = await fetch("/api/cities");
-        const data = await response.json();
-        setCities(data.cities || []);
+        await Promise.all([fetchCities(), fetchLatestAds()]);
       } catch (error) {
-        console.error("Error fetching cities:", error);
+        console.error("Error loading data:", error);
       } finally {
         setIsLoading(false);
       }
     };
 
-    const fetchUserRoles = async () => {
-      if (!user) {
-        setIsLoadingRole(false);
-        return;
-      }
+    loadData();
+  }, []);
 
-      try {
-        const token = await user.getIdToken();
-        const response = await fetch("/api/user/check-role", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+  // Sync user roles from AuthContext
+  useEffect(() => {
+    if (authUser) {
+      setUserRoles({
+        isAdmin: authUser.roles?.includes("admin") || false,
+        isServiceProvider:
+          authUser.roles?.includes("service_provider") || false,
+        isClient: true, // Everyone is a client
+      });
+    } else {
+      setUserRoles({
+        isAdmin: false,
+        isServiceProvider: false,
+        isClient: true,
+      });
+    }
+  }, [authUser]);
 
-        if (response.ok) {
-          const data = await response.json();
-          // All users are clients by default
-          setUserRoles({
-            isAdmin: data.roles?.includes("admin") || false,
-            isServiceProvider:
-              data.roles?.includes("service_provider") || false,
-            isClient: true, // Everyone is a client
-          });
-        }
-      } catch (error) {
-        console.error("Error fetching user roles:", error);
-      } finally {
-        setIsLoadingRole(false);
-      }
-    };
+  const fetchCities = async () => {
+    try {
+      const response = await fetch("/api/cities");
+      const data = await response.json();
+      setCities(data.cities || []);
+    } catch (error) {
+      console.error("Error fetching cities:", error);
+    }
+  };
 
-    fetchCities();
-    fetchUserRoles();
-  }, [user]);
+  const fetchLatestAds = async () => {
+    try {
+      const response = await fetch("/api/advertisements/latest");
+      const data = await response.json();
+      setLatestAds(data.advertisements || []);
+    } catch (error) {
+      console.error("Error fetching latest advertisements:", error);
+    }
+  };
 
   const scrollLeft = () => {
     if (carouselRef.current) {
@@ -101,10 +121,10 @@ export default function Dashboard() {
   };
 
   const toggleServiceProviderRole = async () => {
-    if (!user) return;
+    if (!firebaseUser) return;
 
     try {
-      const token = await user.getIdToken();
+      const token = await firebaseUser.getIdToken();
       const endpoint = userRoles.isServiceProvider
         ? "/api/service-provider/unbecome"
         : "/api/service-provider/become";
@@ -120,11 +140,14 @@ export default function Dashboard() {
       });
 
       if (response.ok) {
-        const data = await response.json();
+        // Optimistically update local state
         setUserRoles((prev) => ({
           ...prev,
           isServiceProvider: !prev.isServiceProvider,
         }));
+
+        // Refresh the auth context with force refresh to update token claims
+        await refreshUser();
 
         const action = userRoles.isServiceProvider
           ? "removed from"
@@ -145,13 +168,13 @@ export default function Dashboard() {
   };
 
   const handleDebugJWT = async () => {
-    if (!user) {
+    if (!firebaseUser) {
       console.log("No user logged in");
       return;
     }
 
     try {
-      const token = await user.getIdToken();
+      const token = await firebaseUser.getIdToken(true); // Force refresh for latest
       console.log("JWT Token:", token);
 
       // Decode the token to see the payload (without verification)
@@ -168,16 +191,28 @@ export default function Dashboard() {
     city.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const filteredAds = latestAds.filter((ad) =>
+    ad.city.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const handleViewAd = (adId: number) => {
+    router.push(`/advertisements/${adId}`);
+  };
+
+  const handleMyAds = () => {
+    router.push("/my-advertisements");
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50 py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
         {/* Header Section with Role Management Buttons */}
         <div className="mb-10 text-center relative">
-          <div className="flex flex-col items-start mb-4 space-y-3">
-            {/* Role Management Buttons */}
-            {user && !isLoadingRole && (
-              <div className="flex flex-col space-y-2">
-                {/* Toggle Service Provider Button */}
+          <div className="flex justify-between items-start mb-4">
+            {/* Left Side Buttons */}
+            <div className="flex flex-col space-y-2">
+              {/* Toggle Service Provider Button */}
+              {firebaseUser && !authLoading && (
                 <button
                   onClick={toggleServiceProviderRole}
                   className={`flex items-center px-4 py-2 rounded-xl font-medium transition-all duration-300 transform hover:-translate-y-0.5 shadow-md hover:shadow-lg ${
@@ -191,8 +226,10 @@ export default function Dashboard() {
                     ? "Switch to Client"
                     : "Become Service Provider"}
                 </button>
+              )}
 
-                {/* Debug JWT Button */}
+              {/* Debug JWT Button */}
+              {firebaseUser && !authLoading && (
                 <button
                   onClick={handleDebugJWT}
                   className="flex items-center bg-gray-600 text-white px-4 py-2 rounded-xl font-medium hover:bg-gray-700 transition-all duration-300 transform hover:-translate-y-0.5 shadow-md hover:shadow-lg"
@@ -201,7 +238,18 @@ export default function Dashboard() {
                   <IconBug size={18} className="mr-2" />
                   Debug JWT
                 </button>
-              </div>
+              )}
+            </div>
+
+            {/* Right Side Button - My Advertisements */}
+            {firebaseUser && !authLoading && userRoles.isServiceProvider && (
+              <button
+                onClick={handleMyAds}
+                className="flex items-center bg-gradient-to-r from-blue-500 to-blue-600 text-white px-4 py-2 rounded-xl font-medium hover:from-blue-600 hover:to-blue-700 transition-all duration-300 transform hover:-translate-y-0.5 shadow-md hover:shadow-lg"
+              >
+                <IconFileText size={18} className="mr-2" />
+                My Advertisements
+              </button>
             )}
           </div>
 
@@ -209,11 +257,11 @@ export default function Dashboard() {
             Welcome to Pet Care Service!
           </h1>
           <p className="text-gray-600 max-w-2xl mx-auto">
-            {user ? (
+            {firebaseUser ? (
               <>
                 Hello,{" "}
                 <span className="font-semibold text-indigo-600">
-                  {user.email}
+                  {firebaseUser.email}
                 </span>
                 ! Explore pet care services in various cities.
               </>
@@ -223,7 +271,7 @@ export default function Dashboard() {
           </p>
 
           {/* Display role badges if user has roles */}
-          {user && (
+          {firebaseUser && (
             <div className="mt-4 flex justify-center space-x-2">
               {/* Client badge - everyone is a client */}
               <div className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium flex items-center">
@@ -279,95 +327,178 @@ export default function Dashboard() {
         </div>
 
         {/* Cities Section */}
-        {isLoading ? (
-          <div className="flex justify-center items-center py-12">
-            <div className="flex flex-col items-center">
-              <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mb-4"></div>
-              <p className="text-indigo-600 text-lg font-medium">
-                Loading cities...
-              </p>
-            </div>
-          </div>
-        ) : (
-          <div className="mb-8 relative">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center">
-                <IconMapPin className="text-indigo-500 mr-2" size={24} />
-                <h2 className="text-2xl font-semibold text-gray-800">
-                  Available Cities
-                </h2>
-              </div>
-
-              {filteredCities.length > 0 && (
-                <div className="flex space-x-2">
-                  <button
-                    onClick={scrollLeft}
-                    className="bg-white/80 backdrop-blur-sm p-2 rounded-full shadow-lg border border-white text-indigo-600 hover:text-indigo-800 transition-all duration-300 hover:scale-110"
-                    aria-label="Scroll left"
-                  >
-                    <IconChevronLeft size={20} />
-                  </button>
-                  <button
-                    onClick={scrollRight}
-                    className="bg-white/80 backdrop-blur-sm p-2 rounded-full shadow-lg border border-white text-indigo-600 hover:text-indigo-800 transition-all duration-300 hover:scale-110"
-                    aria-label="Scroll right"
-                  >
-                    <IconChevronRight size={20} />
-                  </button>
-                </div>
-              )}
+        <div className="mb-8 relative">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center">
+              <IconMapPin className="text-indigo-500 mr-2" size={24} />
+              <h2 className="text-2xl font-semibold text-gray-800">
+                Available Cities
+              </h2>
             </div>
 
-            {filteredCities.length === 0 ? (
-              <div className="text-center py-12 bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-white">
-                <div className="inline-flex items-center justify-center bg-indigo-100 w-16 h-16 rounded-full mb-4">
-                  <IconMapPin className="text-indigo-500" size={28} />
-                </div>
-                <h3 className="text-xl font-medium text-gray-700 mb-2">
-                  No cities found
-                </h3>
-                <p className="text-gray-500">Try adjusting your search query</p>
-              </div>
-            ) : (
-              <div className="relative">
-                <div
-                  ref={carouselRef}
-                  className="flex overflow-x-auto scrollbar-hide space-x-6 pb-6 -mx-4 px-4"
-                  style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+            {filteredCities.length > 0 && (
+              <div className="flex space-x-2">
+                <button
+                  onClick={scrollLeft}
+                  className="bg-white/80 backdrop-blur-sm p-2 rounded-full shadow-lg border border-white text-indigo-600 hover:text-indigo-800 transition-all duration-300 hover:scale-110"
+                  aria-label="Scroll left"
                 >
-                  {filteredCities.map((city) => (
-                    <div
-                      key={city.idCity}
-                      className="flex-none w-80 bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg overflow-hidden border border-white transition-all duration-300 hover:shadow-xl hover:-translate-y-1"
-                    >
-                      <div className="relative h-48 overflow-hidden">
-                        <img
-                          src={city.imageUrl}
-                          alt={city.name}
-                          className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
-                        <div className="absolute bottom-4 left-4">
-                          <h3 className="text-xl font-semibold text-white">
-                            {city.name}
-                          </h3>
-                        </div>
-                      </div>
-                      <div className="p-4">
-                        <p className="text-gray-600 text-sm mb-4">
-                          Discover pet care services in {city.name}
-                        </p>
-                        <button className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-2 rounded-xl font-medium hover:from-indigo-700 hover:to-purple-700 transition-all duration-300 transform hover:-translate-y-0.5 shadow-md hover:shadow-lg text-sm">
-                          Explore Services
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                  <IconChevronLeft size={20} />
+                </button>
+                <button
+                  onClick={scrollRight}
+                  className="bg-white/80 backdrop-blur-sm p-2 rounded-full shadow-lg border border-white text-indigo-600 hover:text-indigo-800 transition-all duration-300 hover:scale-110"
+                  aria-label="Scroll right"
+                >
+                  <IconChevronRight size={20} />
+                </button>
               </div>
             )}
           </div>
-        )}
+
+          {isLoading ? (
+            <div className="flex justify-center items-center py-12">
+              <div className="flex flex-col items-center">
+                <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+                <p className="text-indigo-600 text-lg font-medium">
+                  Loading cities...
+                </p>
+              </div>
+            </div>
+          ) : filteredCities.length === 0 ? (
+            <div className="text-center py-12 bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-white">
+              <div className="inline-flex items-center justify-center bg-indigo-100 w-16 h-16 rounded-full mb-4">
+                <IconMapPin className="text-indigo-500" size={28} />
+              </div>
+              <h3 className="text-xl font-medium text-gray-700 mb-2">
+                No cities found
+              </h3>
+              <p className="text-gray-500">Try adjusting your search query</p>
+            </div>
+          ) : (
+            <div className="relative">
+              <div
+                ref={carouselRef}
+                className="flex overflow-x-auto scrollbar-hide space-x-6 pb-6 -mx-4 px-4"
+                style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+              >
+                {filteredCities.map((city) => (
+                  <div
+                    key={city.idCity}
+                    className="flex-none w-80 bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg overflow-hidden border border-white transition-all duration-300 hover:shadow-xl hover:-translate-y-1"
+                  >
+                    <div className="relative h-48 overflow-hidden">
+                      <Image
+                        src={city.imageUrl}
+                        alt={city.name}
+                        fill
+                        className="object-cover transition-transform duration-500 hover:scale-105"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+                      <div className="absolute bottom-4 left-4">
+                        <h3 className="text-xl font-semibold text-white">
+                          {city.name}
+                        </h3>
+                      </div>
+                    </div>
+                    <div className="p-4">
+                      <p className="text-gray-600 text-sm mb-4">
+                        Discover pet care services in {city.name}
+                      </p>
+                      <button className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-2 rounded-xl font-medium hover:from-indigo-700 hover:to-purple-700 transition-all duration-300 transform hover:-translate-y-0.5 shadow-md hover:shadow-lg text-sm">
+                        Explore Services
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Latest Advertisements Section */}
+        <div className="mb-8">
+          <div className="flex items-center mb-6">
+            <IconPaw className="text-amber-500 mr-2" size={24} />
+            <h2 className="text-2xl font-semibold text-gray-800">
+              Latest Advertisements
+            </h2>
+          </div>
+
+          {isLoading ? (
+            <div className="flex justify-center items-center py-12">
+              <div className="flex flex-col items-center">
+                <div className="w-16 h-16 border-4 border-amber-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+                <p className="text-amber-600 text-lg font-medium">
+                  Loading advertisements...
+                </p>
+              </div>
+            </div>
+          ) : filteredAds.length === 0 ? (
+            <div className="text-center py-12 bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-white">
+              <div className="inline-flex items-center justify-center bg-amber-100 w-16 h-16 rounded-full mb-4">
+                <IconPaw className="text-amber-500" size={28} />
+              </div>
+              <h3 className="text-xl font-medium text-gray-700 mb-2">
+                No advertisements found
+              </h3>
+              <p className="text-gray-500">Try searching for a city</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredAds.map((ad) => (
+                <div
+                  key={ad.id}
+                  className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg overflow-hidden border border-white transition-all duration-300 hover:shadow-xl hover:-translate-y-1"
+                >
+                  <div className="relative h-48 overflow-hidden">
+                    <Image
+                      src={ad.keyImage || "/placeholder-pet.jpg"}
+                      alt={ad.title}
+                      width={400}
+                      height={192}
+                      className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
+                    <div className="absolute bottom-2 left-2 right-2">
+                      <h3 className="text-white font-semibold text-sm truncate">
+                        {ad.title}
+                      </h3>
+                    </div>
+                  </div>
+                  <div className="p-4">
+                    <div className="flex items-center text-sm text-gray-500 mb-2">
+                      <IconMapPin className="mr-1" size={14} />
+                      {ad.city.name}
+                    </div>
+                    <div className="text-sm text-gray-600 mb-3 space-y-1">
+                      <p>
+                        Starts:{" "}
+                        <span className="font-medium">
+                          {new Date(ad.startDate).toLocaleDateString()}
+                        </span>
+                      </p>
+                      {ad.endDate && (
+                        <p>
+                          Ends:{" "}
+                          <span className="font-medium">
+                            {new Date(ad.endDate).toLocaleDateString()}
+                          </span>
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => handleViewAd(ad.id)}
+                      className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-2 rounded-xl font-medium hover:from-indigo-700 hover:to-purple-700 transition-all duration-300 transform hover:-translate-y-0.5 shadow-md hover:shadow-lg text-sm"
+                    >
+                      View Details
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* Features Section */}
         <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg p-8 border border-white">
@@ -430,7 +561,7 @@ export default function Dashboard() {
                   />
                 </svg>
               </div>
-              <h3 className="text-lg font semibold text-gray-800 mb-2">
+              <h3 className="text-lg font-semibold text-gray-800 mb-2">
                 Available 24/7
               </h3>
               <p className="text-gray-600 text-sm">

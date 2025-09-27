@@ -15,7 +15,8 @@ const cities = [
   },
   {
     name: "Wrocław",
-    imageUrl: "https://visitwroclaw.s3.eu-central-1.amazonaws.com/wp-content/uploads/2025/07/trasy-historyczne.jpg",
+    imageUrl:
+      "https://visitwroclaw.s3.eu-central-1.amazonaws.com/wp-content/uploads/2025/07/trasy-historyczne.jpg",
   },
   {
     name: "Poznań",
@@ -63,6 +64,14 @@ const services = [
 ];
 
 async function main() {
+  console.log("Sprawdzam istniejące ogłoszenia...");
+
+  const existingAds = await prisma.advertisement.count();
+  if (existingAds > 0) {
+    console.log(`Znaleziono ${existingAds} ogłoszeń. Czyszczę bazę...`);
+    await prisma.advertisementImage.deleteMany();
+    await prisma.advertisement.deleteMany();
+  }
   console.log("Dodaję miasta z obrazkami...");
 
   // Seed cities
@@ -152,7 +161,7 @@ async function main() {
             price: 80.0,
             status: "ACTIVE" as const,
             startDate: now,
-            endDate: null, // No expiration date
+            endDate: futureDate(365), // No expiration date
             images: [
               "https://images.unsplash.com/photo-1601758228041-f3b2795255f1?w=500",
             ],
@@ -222,7 +231,7 @@ async function main() {
             price: 150.0,
             status: "ACTIVE" as const,
             startDate: now,
-            endDate: null, // No expiration date
+            endDate: futureDate(365),
             images: [
               "https://images.unsplash.com/photo-1601758228041-f3b2795255f1?w=500",
             ],
@@ -256,7 +265,9 @@ async function main() {
         },
       });
       console.log(
-        `Dodano ogłoszenie: ${createdAd.title} z ${createdAd.Images.length} zdjęciami (aktywne do: ${createdAd.endDate || 'bez limitu'})`
+        `Dodano ogłoszenie: ${createdAd.title} z ${
+          createdAd.Images.length
+        } zdjęciami (aktywne do: ${createdAd.endDate || "bez limitu"})`
       );
     } catch (error) {
       console.error(`Błąd przy dodawaniu ogłoszenia "${ad.title}":`, error);

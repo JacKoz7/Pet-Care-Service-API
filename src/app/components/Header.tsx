@@ -1,5 +1,4 @@
 "use client";
-
 import { useAuth } from "../context/AuthContext";
 import { signOut } from "firebase/auth";
 import { auth } from "../firebase";
@@ -9,6 +8,7 @@ import { useEffect, useState } from "react";
 export default function Header() {
   const { user, loading } = useAuth();
   const router = useRouter();
+
   // State to ensure client-side rendering consistency
   const [isClient, setIsClient] = useState(false);
 
@@ -51,9 +51,7 @@ export default function Header() {
         <div className="flex items-center gap-3">
           {/* Docs Button */}
           <button
-            onClick={() =>
-              (window.location.href = "http://localhost:3000/docs")
-            }
+            onClick={() => window.open("http://localhost:3000/docs", "_blank")}
             className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 hover:shadow-md transition-all duration-200"
             aria-label="View documentation"
           >
@@ -70,6 +68,7 @@ export default function Header() {
               >
                 {user.email} {getRoleLabel() && `(${getRoleLabel()})`}
               </button>
+
               {/* Sign Out Button */}
               <button
                 onClick={handleSignOut}
@@ -89,6 +88,7 @@ export default function Header() {
               >
                 Sign In
               </button>
+
               {/* Sign Up Button */}
               <button
                 onClick={() => router.push("/sign-up")}

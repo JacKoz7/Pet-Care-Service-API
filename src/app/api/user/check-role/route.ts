@@ -20,6 +20,7 @@ export async function GET(request: NextRequest) {
     try {
       decodedToken = await adminAuth.verifyIdToken(token);
     } catch (error) {
+      void error
       return NextResponse.json(
         { error: "Invalid or expired token" },
         { status: 401 }
@@ -31,7 +32,11 @@ export async function GET(request: NextRequest) {
       where: { firebaseUid: decodedToken.uid },
       include: {
         Admin: true,
-        ServiceProviders: true,
+        ServiceProviders: {
+          where: {
+            isActive: true,
+          },
+        },
       },
     });
 
@@ -47,7 +52,7 @@ export async function GET(request: NextRequest) {
       roles.push('admin');
     }
 
-    // Check if user is service provider
+    // Check if user is active service provider
     if (user.ServiceProviders && user.ServiceProviders.length > 0) {
       roles.push('service_provider');
     }

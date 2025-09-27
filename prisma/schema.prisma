@@ -23,8 +23,8 @@ model User {
   phoneNumber     String?   @db.Char(9)
   isEmailVerified Boolean   @default(false)
   lastActive      DateTime?
-  City            City?     @relation(fields: [City_idCity], references: [idCity])
-  City_idCity     Int?
+  City            City      @relation(fields: [City_idCity], references: [idCity])
+  City_idCity     Int
 
   // Relacje
   ServiceProviders Service_Provider[]
@@ -46,9 +46,10 @@ model City {
 }
 
 model Service_Provider {
-  idService_Provider Int  @id @default(autoincrement())
-  User               User @relation(fields: [User_idUser], references: [idUser])
+  idService_Provider Int     @id @default(autoincrement())
+  User               User    @relation(fields: [User_idUser], references: [idUser])
   User_idUser        Int
+  isActive           Boolean @default(true)
 
   Advertisements Advertisement[]
   Bookings       Booking[]
@@ -83,7 +84,7 @@ model Advertisement {
   price                               Float?
   status                              StatusAdvertisement @default(ACTIVE)
   startDate                           DateTime            @default(now())
-  endDate                             DateTime?
+  endDate                             DateTime
   createdAt                           DateTime            @default(now())
   Service                             Service             @relation(fields: [Service_idService], references: [idService])
   Service_idService                   Int

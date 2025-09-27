@@ -79,6 +79,10 @@ export default function Page() {
       setError("Password must be at least 6 characters long");
       return false;
     }
+    if (!formData.cityId) {
+      setError("City is required");
+      return false;
+    }
     if (
       formData.phoneNumber &&
       (formData.phoneNumber.length !== 9 || !/^\d+$/.test(formData.phoneNumber))
@@ -116,7 +120,7 @@ export default function Page() {
           firstName: formData.firstName || null,
           lastName: formData.lastName || null,
           phoneNumber: formData.phoneNumber || null,
-          cityId: formData.cityId ? Number(formData.cityId) : null,
+          cityId: Number(formData.cityId),
         }),
       });
 
@@ -230,8 +234,9 @@ export default function Page() {
               onChange={handleInputChange}
               value={formData.cityId}
               className="text-xl px-4 py-2 rounded-md border border-gray-300 mb-4 w-full"
+              required
             >
-              <option value="">Select City (Optional)</option>
+              <option value="">Select City *</option>
               {cities.map((city) => (
                 <option key={city.idCity} value={city.idCity}>
                   {city.name}

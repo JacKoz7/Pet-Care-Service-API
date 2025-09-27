@@ -1,4 +1,3 @@
-// src/app/context/AuthContext.tsx
 "use client";
 
 import { auth } from "../firebase";
@@ -9,8 +8,9 @@ import {
   useEffect,
   useState,
   ReactNode,
+  useCallback,
 } from "react";
-import { getIdToken } from "firebase/auth";
+import { getIdToken, signOut } from "firebase/auth";
 
 interface User {
   email: string | null;
@@ -22,18 +22,76 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   loading: boolean;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
   token: null,
   loading: true,
+  refreshUser: async () => {},
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [firebaseUser, loading] = useAuthState(auth);
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
+
+  const fetchTokenAndRoles = useCallback(
+    async (forceRefresh = false) => {
+      if (!firebaseUser) {
+        setUser(null);
+        setToken(null);
+        return;
+      }
+
+      try {
+        const idToken = await getIdToken(firebaseUser, forceRefresh);
+        setToken(idToken);
+
+        const response = await fetch("/api/user/me", {
+          headers: {
+            Authorization: `Bearer ${idToken}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        if (!data.success) {
+          throw new Error(data.error || "Failed to fetch user data");
+        }
+
+        const roles = [];
+        if (data.user.isAdmin) roles.push("admin");
+        if (data.user.isServiceProvider) roles.push("service_provider");
+        setUser({
+          email: firebaseUser.email,
+          uid: firebaseUser.uid,
+          roles,
+        });
+      } catch (error: unknown) {
+        console.error("Error fetching token or roles:", error);
+        let errorMessage = "An unknown error occurred.";
+        if (error instanceof Error) {
+          errorMessage = error.message;
+        }
+        alert(`Authentication error: ${errorMessage}. Signing you out.`);
+        await signOut(auth);
+        setUser(null);
+        setToken(null);
+      }
+    },
+    [firebaseUser]
+  );
+
+  const refreshUser = useCallback(async () => {
+    if (firebaseUser) {
+      await fetchTokenAndRoles(true);
+    }
+  }, [firebaseUser, fetchTokenAndRoles]);
 
   useEffect(() => {
     if (firebaseUser) {
@@ -43,40 +101,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      // Fetch the ID token and decode roles
-      const fetchTokenAndRoles = async () => {
-        try {
-          const idToken = await getIdToken(firebaseUser);
-          setToken(idToken);
-
-          // Fetch user data from /api/user/me to get roles
-          const response = await fetch("/api/user/me", {
-            headers: {
-              Authorization: `Bearer ${idToken}`,
-            },
-          });
-          const data = await response.json();
-          if (data.success) {
-            const roles = [];
-            if (data.user.isAdmin) roles.push("admin");
-            if (data.user.isServiceProvider) roles.push("service_provider"); // Assuming isServiceProvider exists in schema
-            setUser({
-              email: firebaseUser.email,
-              uid: firebaseUser.uid,
-              roles,
-            });
-          } else {
-            console.error("Failed to fetch user roles:", data.error);
-            setUser(null);
-          }
-        } catch (error) {
-          console.error("Error fetching token or roles:", error);
-          setUser(null);
-        }
-      };
-
       fetchTokenAndRoles();
-      // Set up token refresh
+
+      // Set up token refresh interval
       const interval = setInterval(() => {
         fetchTokenAndRoles();
       }, 10 * 60 * 1000); // Refresh every 10 minutes
@@ -87,10 +114,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setToken(null);
       localStorage.removeItem("userEmail");
     }
-  }, [firebaseUser]);
+  }, [firebaseUser, fetchTokenAndRoles]);
 
   return (
-    <AuthContext.Provider value={{ user, token, loading }}>
+    <AuthContext.Provider value={{ user, token, loading, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

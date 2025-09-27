@@ -24,6 +24,7 @@ export async function DELETE(
     try {
       decodedToken = await adminAuth.verifyIdToken(token);
     } catch (error) {
+      void error
       return NextResponse.json(
         { error: "Invalid or expired token" },
         { status: 401 }
