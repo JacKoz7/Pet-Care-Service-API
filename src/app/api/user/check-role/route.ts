@@ -1,3 +1,4 @@
+// app/api/user/check-role/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { adminAuth } from "@/lib/firebaseAdmin";
@@ -38,6 +39,11 @@ export async function GET(request: NextRequest) {
           },
           // No 'where'—fetch ALL for full ownership support
         },
+        Clients: {
+          select: {
+            idClient: true,
+          },
+        },
       },
     });
 
@@ -48,6 +54,11 @@ export async function GET(request: NextRequest) {
     // Collect ALL service provider IDs (for ownership, active or not)
     const serviceProviderIds = user.ServiceProviders.map(
       (sp) => sp.idService_Provider
+    );
+
+    // Collect all client IDs
+    const clientIds = user.Clients.map(
+      (c) => c.idClient
     );
 
     // Collect all roles the user has
@@ -75,6 +86,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       roles,
       serviceProviderIds,
+      clientIds,
     });
   } catch (error) {
     console.error("Error checking user role:", error);
@@ -91,12 +103,13 @@ export async function GET(request: NextRequest) {
  * @swagger
  * /api/user/check-role:
  *   get:
- *     summary: Check user roles and service provider IDs
+ *     summary: Check user roles and IDs
  *     description: |
- *       Returns all roles and associated service provider IDs of the currently authenticated user.
+ *       Returns all roles and associated service provider and client IDs of the currently authenticated user.
  *       Requires a valid Firebase ID token in the Authorization header.
  *       All users have the 'client' role. Additional roles can be 'admin' and/or 'service_provider' (only if at least one ServiceProvider is active).
  *       serviceProviderIds includes ALL linked providers (active or inactive).
+ *       clientIds includes ALL linked clients.
  *     tags: [Debug]
  *     security:
  *       - BearerAuth: []
@@ -120,6 +133,12 @@ export async function GET(request: NextRequest) {
  *                     type: integer
  *                   example: [1, 2]
  *                   description: Array of all service provider IDs linked to the user
+ *                 clientIds:
+ *                   type: array
+ *                   items:
+ *                     type: integer
+ *                   example: [1]
+ *                   description: Array of all client IDs linked to the user
  *       401:
  *         description: Unauthorized (invalid or missing token)
  *       404:

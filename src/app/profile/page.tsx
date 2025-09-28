@@ -1,3 +1,4 @@
+// app/profile/page.tsx
 "use client";
 
 import { useAuth } from "../context/AuthContext";
@@ -14,7 +15,10 @@ import {
   IconPhone,
   IconMail,
   IconCalendar,
+  IconPlus,
 } from "@tabler/icons-react";
+import Image from "next/image";
+import Link from "next/link";
 
 interface UserData {
   id: number;
@@ -38,13 +42,22 @@ interface City {
   name: string;
 }
 
+interface Pet {
+  id: number;
+  name: string;
+  age: number;
+  keyImage: string | null;
+  breed: string;
+  species: string;
+}
+
 export default function Profile() {
   const { user: contextUser, token, loading: contextLoading } = useAuth();
-  const [firebaseUser] = useAuthState(auth); // For token in role fetch
+  const [firebaseUser] = useAuthState(auth);
   const router = useRouter();
   const [userData, setUserData] = useState<UserData | null>(null);
   const [cities, setCities] = useState<City[]>([]);
-  const [roles, setRoles] = useState<string[]>([]); // NEW: For dynamic roles
+  const [roles, setRoles] = useState<string[]>([]);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [isEditing, setIsEditing] = useState(false);
@@ -54,8 +67,10 @@ export default function Profile() {
     phoneNumber: "",
     cityId: "",
   });
+  const [pets, setPets] = useState<Pet[]>([]);
+  const [petsLoading, setPetsLoading] = useState(true);
+  const [petsError, setPetsError] = useState("");
 
-  // Fetch roles independently (like in Header/Dashboard)
   const fetchRoles = useCallback(async () => {
     if (!firebaseUser) {
       setRoles(["client"]);
@@ -121,9 +136,30 @@ export default function Profile() {
       }
     };
 
+    const fetchPets = async () => {
+      setPetsLoading(true);
+      try {
+        const response = await fetch("/api/pets", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await response.json();
+        if (data.success) {
+          setPets(data.pets || []);
+        } else {
+          setPetsError(data.error || "Failed to fetch pets");
+        }
+      } catch (err) {
+        console.error("Error fetching pets:", err);
+        setPetsError("An error occurred while fetching pets");
+      } finally {
+        setPetsLoading(false);
+      }
+    };
+
     fetchUserData();
     fetchCities();
-    fetchRoles(); // NEW: Fetch dynamic roles
+    fetchRoles();
+    fetchPets();
   }, [contextUser, token, router, fetchRoles]);
 
   const handleInputChange = (
@@ -474,31 +510,87 @@ export default function Profile() {
             )}
           </div>
 
-          {/* Pet Profiles Section */}
+          {/* Pet Profiles Section - Updated with borders and add button */}
           <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-xl border border-white transition-all duration-300 hover:shadow-2xl flex flex-col">
-            <div className="flex items-center mb-6 pb-3 border-b border-gray-100">
-              <div className="bg-amber-100 p-2 rounded-full mr-3">
-                <IconPaw className="text-amber-600" size={20} />
+            <div className="flex items-center justify-between mb-6 pb-3 border-b border-gray-100">
+              <div className="flex items-center">
+                <div className="bg-amber-100 p-2 rounded-full mr-3">
+                  <IconPaw className="text-amber-600" size={20} />
+                </div>
+                <h2 className="text-xl font-semibold text-gray-800">
+                  Pet Profiles
+                </h2>
               </div>
-              <h2 className="text-xl font-semibold text-gray-800">
-                Pet Profiles
-              </h2>
+              <Link
+                href="/profile/add-pet"
+                className="flex items-center text-amber-600 hover:text-amber-800 font-medium transition-all duration-300 hover:scale-105 text-sm"
+              >
+                <IconPlus size={18} className="mr-1" />
+                Add Pet
+              </Link>
             </div>
 
-            <div className="flex flex-col items-center justify-center flex-grow py-8 animate-pulse">
-              <div className="inline-flex items-center justify-center bg-amber-100 w-16 h-16 rounded-full mb-4">
-                <IconPaw className="text-amber-500" size={28} />
+            {petsLoading ? (
+              <div className="flex justify-center py-8">
+                <div className="w-12 h-12 border-4 border-amber-600 border-t-transparent rounded-full animate-spin"></div>
               </div>
-              <h3 className="text-lg font-medium text-gray-700 mb-2">
-                No pet profiles yet
-              </h3>
-              <p className="text-gray-500 text-sm mb-5 text-center">
-                Add your furry friends to get started!
-              </p>
-              <button className="bg-amber-500 text-white px-5 py-2 rounded-xl font-medium hover:bg-amber-600 transition-colors duration-300 transform hover:-translate-y-1 shadow-md hover:shadow-lg text-sm">
-                Add Your First Pet
-              </button>
-            </div>
+            ) : petsError ? (
+              <div className="text-center py-8 text-red-600">{petsError}</div>
+            ) : pets.length === 0 ? (
+              <div className="flex flex-col items-center justify-center flex-grow py-8 animate-pulse">
+                <div className="inline-flex items-center justify-center bg-amber-100 w-16 h-16 rounded-full mb-4">
+                  <IconPaw className="text-amber-500" size={28} />
+                </div>
+                <h3 className="text-lg font-medium text-gray-700 mb-2">
+                  No pet profiles yet
+                </h3>
+                <p className="text-gray-500 text-sm mb-5 text-center">
+                  Add your furry friends to get started!
+                </p>
+                <Link
+                  href="/profile/add-pet"
+                  className="bg-amber-500 text-white px-5 py-2 rounded-xl font-medium hover:bg-amber-600 transition-colors duration-300 transform hover:-translate-y-1 shadow-md hover:shadow-lg text-sm"
+                >
+                  Add Your First Pet
+                </Link>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-4 overflow-y-auto max-h-[400px] pr-2">
+                {pets.map((pet) => (
+                  <Link
+                    key={pet.id}
+                    href={`/profile/${pet.id}`}
+                    className="bg-gray-50 rounded-xl p-4 shadow-sm hover:shadow-md transition-all duration-300 hover:bg-gray-100 border-2 border-gray-200 hover:border-amber-300"
+                  >
+                    <div className="flex items-start gap-4">
+                      <div className="relative h-20 w-20 flex-shrink-0">
+                        <Image
+                          src={pet.keyImage || "/placeholder-pet.jpg"}
+                          alt={pet.name}
+                          fill
+                          className="object-cover rounded-lg border-2 border-amber-200"
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-semibold text-gray-800 mb-1 truncate">
+                          {pet.name}
+                        </h4>
+                        <p className="text-sm text-gray-600 truncate">
+                          Species: {pet.species}
+                        </p>
+                        <p className="text-sm text-gray-600 truncate">
+                          Breed: {pet.breed}
+                        </p>
+                        <p className="text-sm text-gray-600">Age: {pet.age}</p>
+                      </div>
+                      <div className="flex items-center justify-center bg-amber-100 w-8 h-8 rounded-full">
+                        <IconEdit className="text-amber-600" size={16} />
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>

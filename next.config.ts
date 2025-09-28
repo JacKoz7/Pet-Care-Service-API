@@ -16,6 +16,18 @@ const nextConfig = {
       },
       {
         protocol: 'https',
+        hostname: 'akc.org',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'www.akc.org',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
         hostname: 'visitwroclaw.s3.eu-central-1.amazonaws.com',
         port: '',
         pathname: '/**',

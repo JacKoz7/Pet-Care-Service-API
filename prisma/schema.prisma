@@ -160,8 +160,18 @@ model Pet {
   Breed_idBreed   Int
   Client          Client @relation(fields: [Client_idClient], references: [idClient])
   Client_idClient Int
+  Images          PetImage[]
 
   Archives Archive[]
+}
+
+model PetImage {
+  idPetImage Int @id @default(autoincrement())
+  imageUrl   String @db.VarChar(500)
+  order      Int?
+
+  Pet       Pet @relation(fields: [Pet_idPet], references: [idPet])
+  Pet_idPet Int
 }
 
 model Breed {
@@ -176,7 +186,7 @@ model Breed {
 
 model Spiece {
   idSpiece Int    @id @default(autoincrement())
-  name     String @db.VarChar(60)
+  name     String @unique @db.VarChar(60)
 
   Breeds Breed[]
 }
