@@ -97,7 +97,7 @@ export async function GET(request: NextRequest) {
  *       Requires a valid Firebase ID token in the Authorization header.
  *       All users have the 'client' role. Additional roles can be 'admin' and/or 'service_provider' (only if at least one ServiceProvider is active).
  *       serviceProviderIds includes ALL linked providers (active or inactive).
- *     tags: [User]
+ *     tags: [Debug]
  *     security:
  *       - BearerAuth: []
  *     responses:

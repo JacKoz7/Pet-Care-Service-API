@@ -20,7 +20,7 @@ export async function DELETE(request: NextRequest) {
     try {
       decodedToken = await adminAuth.verifyIdToken(token);
     } catch (error) {
-      void error
+      void error;
       return NextResponse.json(
         { error: "Invalid or expired token" },
         { status: 401 }
@@ -72,6 +72,18 @@ export async function DELETE(request: NextRequest) {
       },
     });
 
+    // Set all associated advertisements to INACTIVE
+    await prisma.advertisement.updateMany({
+      where: {
+        Service_Provider_idService_Provider: {
+          in: serviceProviderIds,
+        },
+      },
+      data: {
+        status: "INACTIVE",
+      },
+    });
+
     return NextResponse.json({
       success: true,
       message: "Service provider role deactivated successfully",
@@ -93,7 +105,7 @@ export async function DELETE(request: NextRequest) {
  *   delete:
  *     summary: Deactivate service provider role
  *     description: |
- *       Deactivates the service provider role for the currently authenticated user.
+ *       Deactivates the service provider role for the currently authenticated user and sets all associated advertisements to INACTIVE status.
  *       Requires a valid Firebase ID token in the Authorization header.
  *       User must currently be an active service provider.
  *       This preserves all related data (advertisements, bookings, etc.) for potential reactivation.

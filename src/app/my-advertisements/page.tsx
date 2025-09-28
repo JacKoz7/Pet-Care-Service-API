@@ -1,11 +1,10 @@
-// src/app/my-advertisements/page.tsx
 "use client";
 
 import { auth } from "../firebase";
 import { useAuthState } from "react-firebase-hooks/auth";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   IconArrowLeft,
   IconPlus,
@@ -13,6 +12,10 @@ import {
   IconCalendar,
   IconPhoto,
   IconClock,
+  IconAlertCircle,
+  IconX,
+  IconInfoCircle,
+  IconCircleCheck,
 } from "@tabler/icons-react";
 
 interface MyAdvertisement {
@@ -30,18 +33,77 @@ interface MyAdvertisement {
   };
 }
 
+interface UserRoles {
+  isAdmin: boolean;
+  isServiceProvider: boolean;
+  isClient: boolean;
+}
+
+interface Notification {
+  message: string;
+  type: "info" | "error" | "warning" | "success";
+}
+
 export default function MyAdvertisements() {
   const [user] = useAuthState(auth);
   const router = useRouter();
   const [myAds, setMyAds] = useState<MyAdvertisement[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const [userRoles, setUserRoles] = useState<UserRoles>({
+    isAdmin: false,
+    isServiceProvider: false,
+    isClient: true,
+  });
+  const [isLoadingRole, setIsLoadingRole] = useState(true);
+  const [notification, setNotification] = useState<Notification | null>(null);
+
+  const fetchUserRoles = useCallback(async () => {
+    if (!user) {
+      setIsLoadingRole(false);
+      return;
+    }
+
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch("/api/user/check-role", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // All users are clients by default
+        setUserRoles({
+          isAdmin: data.roles?.includes("admin") || false,
+          isServiceProvider: data.roles?.includes("service_provider") || false, // Only if active
+          isClient: true, // Everyone is a client
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching user roles:", error);
+    } finally {
+      setIsLoadingRole(false);
+    }
+  }, [user]);
 
   useEffect(() => {
     if (!user) {
       router.push("/");
       return;
     }
+
+    const loadData = async () => {
+      setIsLoading(true);
+      try {
+        await Promise.all([fetchMyAds(), fetchUserRoles()]);
+      } catch (err) {
+        console.error("Error loading data:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
     const fetchMyAds = async () => {
       try {
@@ -62,17 +124,27 @@ export default function MyAdvertisements() {
       } catch (err) {
         setError("An error occurred while fetching advertisements");
         console.error("Error fetching my advertisements:", err);
-      } finally {
-        setIsLoading(false);
       }
     };
 
-    fetchMyAds();
-  }, [user, router]);
+    loadData();
+  }, [user, router, fetchUserRoles]);
+
+  const showNotification = (message: string, type: Notification["type"]) => {
+    setNotification({ message, type });
+    // Auto-hide after 4 seconds
+    setTimeout(() => {
+      setNotification(null);
+    }, 4000);
+  };
 
   const handleAddAd = () => {
-    // Non-functional for now
-    alert("Add Advertisement feature coming soon!");
+    if (!userRoles.isServiceProvider) {
+      showNotification("You must be a service provider to add advertisements.", "warning");
+      return;
+    }
+
+    router.push("/my-advertisements/add");
   };
 
   const handleViewAd = (adId: number) => {
@@ -83,7 +155,7 @@ export default function MyAdvertisements() {
     router.push("/");
   };
 
-  if (isLoading) {
+  if (isLoading || isLoadingRole) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50 flex items-center justify-center">
         <div className="flex flex-col items-center">
@@ -145,7 +217,9 @@ export default function MyAdvertisements() {
               No advertisements yet
             </h3>
             <p className="text-gray-500">
-              Create your first advertisement to get started!
+              {userRoles.isServiceProvider
+                ? "Create your first advertisement to get started!"
+                : "You must become a service provider to add advertisements. Past advertisements will appear here if any."}
             </p>
           </div>
         ) : (
@@ -213,6 +287,69 @@ export default function MyAdvertisements() {
         )}
       </div>
 
+      {/* Styled Notification Toast */}
+      {notification && (
+        <div className="fixed bottom-4 right-4 z-50 w-96 max-w-sm">
+          <div
+            className={`bg-white rounded-xl shadow-2xl border-l-4 p-4 flex items-start space-x-3 animate-slide-in-right transform transition-all duration-300 ${
+              notification.type === "success"
+                ? "border-green-500 bg-green-50"
+                : notification.type === "error"
+                ? "border-red-500 bg-red-50"
+                : notification.type === "warning"
+                ? "border-yellow-500 bg-yellow-50"
+                : "border-blue-500 bg-blue-50"
+            }`}
+          >
+            {notification.type === "success" && (
+              <IconCircleCheck
+                className="text-green-500 mt-0.5 flex-shrink-0"
+                size={20}
+              />
+            )}
+            {notification.type === "error" && (
+              <IconAlertCircle
+                className="text-red-500 mt-0.5 flex-shrink-0"
+                size={20}
+              />
+            )}
+            {notification.type === "warning" && (
+              <IconAlertCircle
+                className="text-yellow-500 mt-0.5 flex-shrink-0"
+                size={20}
+              />
+            )}
+            {notification.type === "info" && (
+              <IconInfoCircle
+                className="text-blue-500 mt-0.5 flex-shrink-0"
+                size={20}
+              />
+            )}
+            <div className="flex-1 min-w-0">
+              <p
+                className={`text-sm font-medium ${
+                  notification.type === "success"
+                    ? "text-green-800"
+                    : notification.type === "error"
+                    ? "text-red-800"
+                    : notification.type === "warning"
+                    ? "text-yellow-800"
+                    : "text-blue-800"
+                }`}
+              >
+                {notification.message}
+              </p>
+            </div>
+            <button
+              onClick={() => setNotification(null)}
+              className="ml-2 flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <IconX size={16} />
+            </button>
+          </div>
+        </div>
+      )}
+
       <style jsx global>{`
         @keyframes fade-in {
           from {
@@ -226,6 +363,20 @@ export default function MyAdvertisements() {
         }
         .animate-fade-in {
           animation: fade-in 0.5s ease-out forwards;
+        }
+
+        @keyframes slide-in-right {
+          from {
+            opacity: 0;
+            transform: translateX(100%);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+        .animate-slide-in-right {
+          animation: slide-in-right 0.3s ease-out;
         }
       `}</style>
     </div>

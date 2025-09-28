@@ -78,6 +78,31 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // Get all active service provider IDs for this user
+    const activeServiceProviders = await prisma.service_Provider.findMany({
+      where: {
+        User_idUser: existingUser.idUser,
+        isActive: true,
+      },
+      select: {
+        idService_Provider: true,
+      },
+    });
+
+    const activeIds = activeServiceProviders.map((sp) => sp.idService_Provider);
+
+    // Set all associated advertisements to ACTIVE
+    await prisma.advertisement.updateMany({
+      where: {
+        Service_Provider_idService_Provider: {
+          in: activeIds,
+        },
+      },
+      data: {
+        status: "ACTIVE",
+      },
+    });
+
     return NextResponse.json({
       success: true,
       message: "User is now a service provider",
@@ -102,7 +127,7 @@ export async function POST(request: NextRequest) {
  *     description: |
  *       Converts the currently authenticated user to a service provider role.
  *       Requires a valid Firebase ID token in the Authorization header.
- *       If the user was previously a service provider (but inactive), it reactivates the role.
+ *       If the user was previously a service provider (but inactive), it reactivates the role and sets all associated advertisements back to ACTIVE status.
  *       User must not already be an active service provider.
  *     tags: [Service Provider]
  *     security:

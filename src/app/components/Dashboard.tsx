@@ -251,7 +251,7 @@ export default function Dashboard() {
             </div>
 
             {/* Right Side Button - My Advertisements */}
-            {user && !isLoadingRole && userRoles.isServiceProvider && (
+            {user && !isLoadingRole && (
               <button
                 onClick={handleMyAds}
                 className="flex items-center bg-gradient-to-r from-blue-500 to-blue-600 text-white px-4 py-2 rounded-xl font-medium hover:from-blue-600 hover:to-blue-700 transition-all duration-300 transform hover:-translate-y-0.5 shadow-md hover:shadow-lg"

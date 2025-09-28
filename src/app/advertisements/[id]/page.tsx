@@ -169,6 +169,11 @@ export default function AdvertisementDetails() {
       return;
     }
 
+    if (ad?.status !== "ACTIVE") {
+      showNotification("You cannot book an inactive advertisement.", "error");
+      return;
+    }
+
     // Placeholder for booking implementation
     showNotification("Booking feature coming soon!", "info");
   };
