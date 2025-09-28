@@ -104,6 +104,7 @@ enum StatusAdvertisement {
   ACTIVE
   INACTIVE
   PENDING
+  BOOKED
 }
 
 model Service {
@@ -193,6 +194,26 @@ enum StatusArchive {
   COMPLETED
   CANCELLED
   PENDING
+}
+
+model AdvertisementArchive {
+  idAdvertisementArchive Int @id @default(autoincrement())
+  originalAdvertisementId Int @unique
+  title                  String @db.VarChar(100)
+  description            String? @db.VarChar(1000)
+  price                  Float?
+  status                 StatusAdvertisement @default(INACTIVE)
+  startDate              DateTime
+  endDate                DateTime
+  createdAt              DateTime @default(now())
+  serviceStartTime       DateTime? @db.Time
+  serviceEndTime         DateTime? @db.Time
+  serviceId              Int
+  serviceProviderId      Int
+  deletedAt              DateTime @default(now())
+  imagesUrls             Json?
+
+  @@index([originalAdvertisementId])
 }
 
 model AdvertisementImage {

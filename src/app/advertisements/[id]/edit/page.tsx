@@ -1,8 +1,8 @@
 "use client";
 
-import { auth } from "../../firebase";
+import { auth } from "../../../firebase";
 import { useAuthState } from "react-firebase-hooks/auth";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import {
   IconArrowLeft,
@@ -23,15 +23,52 @@ interface Service {
   name: string;
 }
 
+interface AdvertisementDetails {
+  id: number;
+  title: string;
+  description: string | null;
+  price: number | null;
+  status: string;
+  startDate: string;
+  endDate: string | null;
+  serviceStartTime: string | null;
+  serviceEndTime: string | null;
+  service: string;
+  serviceProviderId: number;
+  provider: {
+    firstName: string | null;
+    lastName: string | null;
+    phoneNumber: string | null;
+  };
+  city: {
+    idCity: number;
+    name: string;
+    imageUrl: string | null;
+  };
+  images: Array<{
+    imageUrl: string;
+    order: number | null;
+  }>;
+}
+
+interface UserRoles {
+  roles: string[];
+  serviceProviderIds: number[];
+}
+
 interface Notification {
   message: string;
   type: "info" | "error" | "warning" | "success";
 }
 
-export default function AddAdvertisement() {
+export default function EditAdvertisement() {
   const [user] = useAuthState(auth);
   const router = useRouter();
+  const params = useParams();
+  const adId = params.id as string;
+  const [ad, setAd] = useState<AdvertisementDetails | null>(null);
   const [services, setServices] = useState<Service[]>([]);
+  const [userRoles, setUserRoles] = useState<UserRoles | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [notification, setNotification] = useState<Notification | null>(null);
@@ -40,13 +77,12 @@ export default function AddAdvertisement() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
-  const [startDate, setStartDate] = useState(
-    new Date().toISOString().split("T")[0]
-  );
+  const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [serviceStartTime, setServiceStartTime] = useState("");
   const [serviceEndTime, setServiceEndTime] = useState("");
   const [selectedService, setSelectedService] = useState("");
+  const [status, setStatus] = useState("ACTIVE");
   const [images, setImages] = useState<string[]>([""]);
 
   useEffect(() => {
@@ -55,25 +91,97 @@ export default function AddAdvertisement() {
       return;
     }
 
-    const fetchServices = async () => {
+    const fetchData = async () => {
+      if (!adId || isNaN(Number(adId))) {
+        setError("Invalid advertisement ID");
+        setIsLoading(false);
+        return;
+      }
+
+      setIsLoading(true);
+      setError("");
+
       try {
-        const response = await fetch("/api/services");
-        if (response.ok) {
-          const data = await response.json();
-          setServices(data.services || []);
+        // Fetch services
+        const servicesResponse = await fetch("/api/services");
+        if (servicesResponse.ok) {
+          const servicesData = await servicesResponse.json();
+          setServices(servicesData.services || []);
         } else {
           setError("Failed to fetch services");
         }
+
+        // Fetch ad details
+        const adResponse = await fetch(`/api/advertisements/${adId}`);
+        if (!adResponse.ok) {
+          throw new Error("Failed to fetch advertisement details");
+        }
+        const adData = await adResponse.json();
+        if (!adData.success) {
+          throw new Error("Advertisement not found");
+        }
+        setAd(adData.advertisement);
+
+        // Fetch user roles
+        const token = await user.getIdToken();
+        const rolesResponse = await fetch("/api/user/check-role", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        if (rolesResponse.ok) {
+          const rolesData = await rolesResponse.json();
+          setUserRoles({
+            roles: rolesData.roles || [],
+            serviceProviderIds: rolesData.serviceProviderIds || [],
+          });
+        } else {
+          console.warn("Failed to fetch user roles:", await rolesResponse.text());
+          setUserRoles({ roles: [], serviceProviderIds: [] });
+        }
+
+        // Pre-fill form (except selectedService)
+        setTitle(adData.advertisement.title);
+        setDescription(adData.advertisement.description || "");
+        setPrice(adData.advertisement.price ? adData.advertisement.price.toString() : "");
+        setStartDate(new Date(adData.advertisement.startDate).toISOString().split("T")[0]);
+        setEndDate(adData.advertisement.endDate ? new Date(adData.advertisement.endDate).toISOString().split("T")[0] : "");
+        setServiceStartTime(adData.advertisement.serviceStartTime || "");
+        setServiceEndTime(adData.advertisement.serviceEndTime || "");
+        setStatus(adData.advertisement.status);
+        setImages(adData.advertisement.images.map((img: { imageUrl: string }) => img.imageUrl) || [""]);
       } catch (err) {
-        setError("An error occurred while fetching services");
-        console.error(err);
+        console.error("Error fetching data:", err);
+        setError(
+          err instanceof Error
+            ? err.message
+            : "An error occurred while fetching data"
+        );
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchServices();
-  }, [user, router]);
+    fetchData();
+  }, [user, router, adId]);
+
+  // Pre-fill selectedService when ad and services are available
+  useEffect(() => {
+    if (ad && services.length > 0) {
+      const service = services.find((s) => s.name === ad.service);
+      if (service) {
+        setSelectedService(service.idService.toString());
+      }
+    }
+  }, [ad, services]);
+
+  // Check if user owns the ad
+  useEffect(() => {
+    if (ad && userRoles && !userRoles.serviceProviderIds.includes(ad.serviceProviderId)) {
+      showNotification("You are not authorized to edit this advertisement.", "error");
+      router.push(`/advertisements/${adId}`);
+    }
+  }, [ad, userRoles, router, adId]);
 
   const handleAddImage = () => {
     setImages([...images, ""]);
@@ -98,18 +206,13 @@ export default function AddAdvertisement() {
     const start = new Date(startDate);
     const end = new Date(endDate);
     if (start > end) return "End date must be on or after start date";
-    if (
-      start.getTime() === end.getTime() &&
-      serviceStartTime &&
-      serviceEndTime &&
-      serviceStartTime >= serviceEndTime
-    ) {
+    if (start.getTime() === end.getTime() && serviceStartTime && serviceEndTime && serviceStartTime >= serviceEndTime) {
       return "End time must be after start time for the same day";
     }
-    if (price && (isNaN(parseFloat(price)) || parseFloat(price) < 0))
-      return "Price must be a non-negative number";
+    if (price && (isNaN(parseFloat(price)) || parseFloat(price) < 0)) return "Price must be a non-negative number";
     const validImages = images.filter((img) => img.trim());
     if (validImages.length === 0) return "At least one image URL is required";
+    if (!["ACTIVE", "INACTIVE"].includes(status)) return "Invalid status";
     return null;
   };
 
@@ -123,8 +226,8 @@ export default function AddAdvertisement() {
 
     try {
       const token = await user!.getIdToken();
-      const response = await fetch("/api/advertisements", {
-        method: "POST",
+      const response = await fetch(`/api/advertisements/${adId}`, {
+        method: "PUT",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
@@ -133,40 +236,29 @@ export default function AddAdvertisement() {
           title,
           description: description || null,
           price: price ? parseFloat(price) : null,
+          status,
           startDate: new Date(startDate),
           endDate: new Date(endDate),
-          serviceStartTime: serviceStartTime
-            ? `1970-01-01T${serviceStartTime}:00`
-            : null,
-          serviceEndTime: serviceEndTime
-            ? `1970-01-01T${serviceEndTime}:00`
-            : null,
+          serviceStartTime: serviceStartTime ? `1970-01-01T${serviceStartTime}:00` : null,
+          serviceEndTime: serviceEndTime ? `1970-01-01T${serviceEndTime}:00` : null,
           serviceId: parseInt(selectedService),
-          images: images
-            .filter((img) => img.trim())
-            .map((img, index) => ({
-              imageUrl: img,
-              order: index + 1,
-            })),
+          images: images.filter((img) => img.trim()).map((img, index) => ({
+            imageUrl: img,
+            order: index + 1,
+          })),
         }),
       });
 
       if (response.ok) {
-        showNotification("Advertisement added successfully!", "success");
-        setTimeout(() => router.push("/my-advertisements"), 1500);
+        showNotification("Advertisement updated successfully!", "success");
+        setTimeout(() => router.push(`/advertisements/${adId}`), 1500);
       } else {
         const errData = await response.json();
-        showNotification(
-          errData.error || "Failed to add advertisement",
-          "error"
-        );
+        showNotification(errData.error || "Failed to update advertisement", "error");
       }
     } catch (err) {
-      console.error("Error adding advertisement:", err);
-      showNotification(
-        "An error occurred while adding the advertisement",
-        "error"
-      );
+      console.error("Error updating advertisement:", err);
+      showNotification("An error occurred while updating the advertisement", "error");
     }
   };
 
@@ -176,7 +268,7 @@ export default function AddAdvertisement() {
   };
 
   const handleBack = () => {
-    router.back();
+    router.push(`/advertisements/${adId}`);
   };
 
   if (isLoading) {
@@ -190,23 +282,40 @@ export default function AddAdvertisement() {
     );
   }
 
+  if (error || !ad) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-flex items-center justify-center bg-red-100 w-16 h-16 rounded-full mb-4 mx-auto">
+            <IconAlertCircle className="text-red-500" size={28} />
+          </div>
+          <h3 className="text-xl font-medium text-gray-700 mb-2">
+            {error || "Advertisement not found"}
+          </h3>
+          <button
+            onClick={handleBack}
+            className="bg-indigo-600 text-white px-6 py-3 rounded-xl font-medium hover:bg-indigo-700 transition-all duration-300"
+          >
+            Go Back
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50 py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto">
-        {/* Back Button */}
         <button
           onClick={handleBack}
           className="flex items-center text-indigo-600 hover:text-indigo-800 mb-6"
         >
           <IconArrowLeft size={20} className="mr-2" />
-          Back to My Advertisements
+          Back to Advertisement
         </button>
 
-        {/* Main Content */}
         <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg overflow-hidden border border-white p-8">
-          <h1 className="text-3xl font-bold text-gray-800 mb-6">
-            Add New Advertisement
-          </h1>
+          <h1 className="text-3xl font-bold text-gray-800 mb-6">Edit Advertisement</h1>
 
           {error && (
             <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4">
@@ -215,12 +324,8 @@ export default function AddAdvertisement() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Title */}
             <div>
-              <label
-                htmlFor="title"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
+              <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
                 Title *
               </label>
               <input
@@ -233,12 +338,8 @@ export default function AddAdvertisement() {
               />
             </div>
 
-            {/* Description */}
             <div>
-              <label
-                htmlFor="description"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
+              <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
                 Description
               </label>
               <textarea
@@ -250,19 +351,12 @@ export default function AddAdvertisement() {
               />
             </div>
 
-            {/* Price */}
             <div>
-              <label
-                htmlFor="price"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
+              <label htmlFor="price" className="block text-sm font-medium text-gray-700 mb-1">
                 Price
               </label>
               <div className="relative">
-                <IconCurrencyDollar
-                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
-                  size={18}
-                />
+                <IconCurrencyDollar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
                 <input
                   id="price"
                   type="number"
@@ -275,20 +369,13 @@ export default function AddAdvertisement() {
               </div>
             </div>
 
-            {/* Dates */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label
-                  htmlFor="startDate"
-                  className="block text-sm font-medium text-gray-700 mb-1"
-                >
+                <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-1">
                   Start Date *
                 </label>
                 <div className="relative">
-                  <IconCalendar
-                    className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
-                    size={18}
-                  />
+                  <IconCalendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
                   <input
                     id="startDate"
                     type="date"
@@ -300,17 +387,11 @@ export default function AddAdvertisement() {
                 </div>
               </div>
               <div>
-                <label
-                  htmlFor="endDate"
-                  className="block text-sm font-medium text-gray-700 mb-1"
-                >
+                <label htmlFor="endDate" className="block text-sm font-medium text-gray-700 mb-1">
                   End Date *
                 </label>
                 <div className="relative">
-                  <IconCalendar
-                    className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
-                    size={18}
-                  />
+                  <IconCalendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
                   <input
                     id="endDate"
                     type="date"
@@ -323,20 +404,13 @@ export default function AddAdvertisement() {
               </div>
             </div>
 
-            {/* Service Times */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label
-                  htmlFor="serviceStartTime"
-                  className="block text-sm font-medium text-gray-700 mb-1"
-                >
+                <label htmlFor="serviceStartTime" className="block text-sm font-medium text-gray-700 mb-1">
                   Service Start Time
                 </label>
                 <div className="relative">
-                  <IconClock
-                    className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
-                    size={18}
-                  />
+                  <IconClock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
                   <input
                     id="serviceStartTime"
                     type="time"
@@ -347,17 +421,11 @@ export default function AddAdvertisement() {
                 </div>
               </div>
               <div>
-                <label
-                  htmlFor="serviceEndTime"
-                  className="block text-sm font-medium text-gray-700 mb-1"
-                >
+                <label htmlFor="serviceEndTime" className="block text-sm font-medium text-gray-700 mb-1">
                   Service End Time
                 </label>
                 <div className="relative">
-                  <IconClock
-                    className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
-                    size={18}
-                  />
+                  <IconClock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
                   <input
                     id="serviceEndTime"
                     type="time"
@@ -369,19 +437,12 @@ export default function AddAdvertisement() {
               </div>
             </div>
 
-            {/* Service */}
             <div>
-              <label
-                htmlFor="service"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
+              <label htmlFor="service" className="block text-sm font-medium text-gray-700 mb-1">
                 Service *
               </label>
               <div className="relative">
-                <IconPaw
-                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
-                  size={18}
-                />
+                <IconPaw className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
                 <select
                   id="service"
                   value={selectedService}
@@ -399,7 +460,22 @@ export default function AddAdvertisement() {
               </div>
             </div>
 
-            {/* Images */}
+            <div>
+              <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">
+                Status *
+              </label>
+              <select
+                id="status"
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                required
+              >
+                <option value="ACTIVE">Active</option>
+                <option value="INACTIVE">Inactive</option>
+              </select>
+            </div>
+
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label className="block text-sm font-medium text-gray-700">
@@ -417,10 +493,7 @@ export default function AddAdvertisement() {
               {images.map((img, index) => (
                 <div key={index} className="flex items-center mb-2">
                   <div className="relative flex-1">
-                    <IconPhoto
-                      className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
-                      size={18}
-                    />
+                    <IconPhoto className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
                     <input
                       type="url"
                       value={img}
@@ -442,18 +515,16 @@ export default function AddAdvertisement() {
               ))}
             </div>
 
-            {/* Submit Button */}
             <button
               type="submit"
               className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3 rounded-xl font-medium hover:from-indigo-700 hover:to-purple-700 transition-all duration-300 transform hover:-translate-y-0.5 shadow-md hover:shadow-lg"
             >
-              Create Advertisement
+              Update Advertisement
             </button>
           </form>
         </div>
       </div>
 
-      {/* Notification */}
       {notification && (
         <div className="fixed bottom-4 right-4 z-50 w-96 max-w-sm">
           <div

@@ -2,7 +2,7 @@
 CREATE TYPE "public"."DayOfWeek" AS ENUM ('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday');
 
 -- CreateEnum
-CREATE TYPE "public"."StatusAdvertisement" AS ENUM ('ACTIVE', 'INACTIVE', 'PENDING');
+CREATE TYPE "public"."StatusAdvertisement" AS ENUM ('ACTIVE', 'INACTIVE', 'PENDING', 'BOOKED');
 
 -- CreateEnum
 CREATE TYPE "public"."StatusArchive" AS ENUM ('COMPLETED', 'CANCELLED', 'PENDING');
@@ -17,7 +17,7 @@ CREATE TABLE "public"."User" (
     "phoneNumber" CHAR(9),
     "isEmailVerified" BOOLEAN NOT NULL DEFAULT false,
     "lastActive" TIMESTAMP(3),
-    "City_idCity" INTEGER,
+    "City_idCity" INTEGER NOT NULL,
 
     CONSTRAINT "User_pkey" PRIMARY KEY ("idUser")
 );
@@ -43,6 +43,7 @@ CREATE TABLE "public"."City" (
 CREATE TABLE "public"."Service_Provider" (
     "idService_Provider" SERIAL NOT NULL,
     "User_idUser" INTEGER NOT NULL,
+    "isActive" BOOLEAN NOT NULL DEFAULT true,
 
     CONSTRAINT "Service_Provider_pkey" PRIMARY KEY ("idService_Provider")
 );
@@ -66,8 +67,10 @@ CREATE TABLE "public"."Advertisement" (
     "price" DOUBLE PRECISION,
     "status" "public"."StatusAdvertisement" NOT NULL DEFAULT 'ACTIVE',
     "startDate" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "endDate" TIMESTAMP(3),
+    "endDate" TIMESTAMP(3) NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "serviceStartTime" TIME,
+    "serviceEndTime" TIME,
     "Service_idService" INTEGER NOT NULL,
     "Service_Provider_idService_Provider" INTEGER NOT NULL,
 
@@ -154,6 +157,27 @@ CREATE TABLE "public"."Archive" (
 );
 
 -- CreateTable
+CREATE TABLE "public"."AdvertisementArchive" (
+    "idAdvertisementArchive" SERIAL NOT NULL,
+    "originalAdvertisementId" INTEGER NOT NULL,
+    "title" VARCHAR(100) NOT NULL,
+    "description" VARCHAR(1000),
+    "price" DOUBLE PRECISION,
+    "status" "public"."StatusAdvertisement" NOT NULL DEFAULT 'INACTIVE',
+    "startDate" TIMESTAMP(3) NOT NULL,
+    "endDate" TIMESTAMP(3) NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "serviceStartTime" TIME,
+    "serviceEndTime" TIME,
+    "serviceId" INTEGER NOT NULL,
+    "serviceProviderId" INTEGER NOT NULL,
+    "deletedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "imagesUrls" JSONB,
+
+    CONSTRAINT "AdvertisementArchive_pkey" PRIMARY KEY ("idAdvertisementArchive")
+);
+
+-- CreateTable
 CREATE TABLE "public"."AdvertisementImage" (
     "idAdvertisementImage" SERIAL NOT NULL,
     "imageUrl" VARCHAR(500) NOT NULL,
@@ -178,8 +202,14 @@ CREATE UNIQUE INDEX "Advertisement_title_Service_Provider_idService_Provider_key
 -- CreateIndex
 CREATE UNIQUE INDEX "Service_name_key" ON "public"."Service"("name");
 
+-- CreateIndex
+CREATE UNIQUE INDEX "AdvertisementArchive_originalAdvertisementId_key" ON "public"."AdvertisementArchive"("originalAdvertisementId");
+
+-- CreateIndex
+CREATE INDEX "AdvertisementArchive_originalAdvertisementId_idx" ON "public"."AdvertisementArchive"("originalAdvertisementId");
+
 -- AddForeignKey
-ALTER TABLE "public"."User" ADD CONSTRAINT "User_City_idCity_fkey" FOREIGN KEY ("City_idCity") REFERENCES "public"."City"("idCity") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "public"."User" ADD CONSTRAINT "User_City_idCity_fkey" FOREIGN KEY ("City_idCity") REFERENCES "public"."City"("idCity") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "public"."Admin" ADD CONSTRAINT "Admin_User_idUser_fkey" FOREIGN KEY ("User_idUser") REFERENCES "public"."User"("idUser") ON DELETE RESTRICT ON UPDATE CASCADE;

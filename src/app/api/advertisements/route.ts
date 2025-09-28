@@ -30,9 +30,6 @@ export async function GET(request: NextRequest) {
       where: { firebaseUid: decodedToken.uid },
       include: {
         ServiceProviders: {
-          where: {
-            isActive: true,
-          },
           include: {
             Advertisements: {
               select: {
@@ -42,6 +39,7 @@ export async function GET(request: NextRequest) {
                 endDate: true,
                 serviceStartTime: true,
                 serviceEndTime: true,
+                status: true,
                 Images: {
                   select: {
                     imageUrl: true,
@@ -51,9 +49,6 @@ export async function GET(request: NextRequest) {
                   },
                   take: 1,
                 },
-              },
-              where: {
-                status: "ACTIVE",
               },
             },
           },
@@ -66,14 +61,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    if (user.ServiceProviders.length === 0) {
-      return NextResponse.json(
-        { error: "To manage your advertisements you must be service provider (now they are inactive)" },
-        { status: 403 }
-      );
-    }
-
-    // Collect all advertisements from all active service providers
+    // Collect all advertisements from all service providers
     const advertisements = user.ServiceProviders.flatMap((sp) =>
       sp.Advertisements.map((ad) => ({
         id: ad.idAdvertisement,
@@ -254,176 +242,14 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function PUT(request: NextRequest) {
-  try {
-    const authHeader = request.headers.get("authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return NextResponse.json(
-        { error: "Authorization header missing or invalid" },
-        { status: 401 }
-      );
-    }
-
-    const token = authHeader.split(" ")[1];
-    let decodedToken;
-    try {
-      decodedToken = await adminAuth.verifyIdToken(token);
-    } catch (error) {
-      console.error("Token verification failed:", error);
-      return NextResponse.json(
-        { error: "Invalid or expired token" },
-        { status: 401 }
-      );
-    }
-
-    const body = await request.json();
-    const {
-      idAdvertisement,
-      title,
-      description,
-      price,
-      startDate,
-      endDate,
-      serviceStartTime,
-      serviceEndTime,
-      serviceId,
-      images,
-    } = body;
-
-    // Basic validation
-    if (
-      !idAdvertisement ||
-      !title ||
-      !startDate ||
-      !endDate ||
-      !serviceId ||
-      !Array.isArray(images) ||
-      images.length === 0
-    ) {
-      return NextResponse.json(
-        { error: "Missing required fields or no images provided" },
-        { status: 400 }
-      );
-    }
-
-    // Validate price
-    if (price !== null && (typeof price !== "number" || price < 0)) {
-      return NextResponse.json(
-        { error: "Price must be a non-negative number" },
-        { status: 400 }
-      );
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { firebaseUid: decodedToken.uid },
-      include: {
-        ServiceProviders: {
-          where: { isActive: true },
-          select: { idService_Provider: true },
-        },
-      },
-    });
-
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
-    }
-
-    if (user.ServiceProviders.length === 0) {
-      return NextResponse.json(
-        { error: "User is not an active service provider" },
-        { status: 403 }
-      );
-    }
-
-    const serviceProviderId = user.ServiceProviders[0].idService_Provider;
-
-    // Check if advertisement exists and belongs to the user
-    const advertisement = await prisma.advertisement.findUnique({
-      where: { idAdvertisement },
-      include: { Images: true },
-    });
-    if (!advertisement) {
-      return NextResponse.json(
-        { error: "Advertisement not found" },
-        { status: 404 }
-      );
-    }
-    if (
-      advertisement.Service_Provider_idService_Provider !== serviceProviderId
-    ) {
-      return NextResponse.json(
-        { error: "You are not authorized to edit this advertisement" },
-        { status: 403 }
-      );
-    }
-
-    // Check if service exists
-    const service = await prisma.service.findUnique({
-      where: { idService: serviceId },
-    });
-    if (!service) {
-      return NextResponse.json({ error: "Service not found" }, { status: 404 });
-    }
-
-    // Update advertisement
-    const updatedAdvertisement = await prisma.advertisement.update({
-      where: { idAdvertisement },
-      data: {
-        title,
-        description,
-        price,
-        startDate: new Date(startDate),
-        endDate: new Date(endDate),
-        serviceStartTime: serviceStartTime ? new Date(serviceStartTime) : null,
-        serviceEndTime: serviceEndTime ? new Date(serviceEndTime) : null,
-        Service_idService: serviceId,
-        Service_Provider_idService_Provider: serviceProviderId,
-        Images: {
-          // Delete existing images and create new ones
-          deleteMany: {},
-          create: images,
-        },
-      },
-      include: {
-        Images: true,
-      },
-    });
-
-    return NextResponse.json({
-      success: true,
-      advertisement: updatedAdvertisement,
-    });
-  } catch (error: unknown) {
-    console.error("Error updating advertisement:", error);
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === "P2002"
-    ) {
-      return NextResponse.json(
-        {
-          error:
-            "An advertisement with this title already exists for your account",
-        },
-        { status: 409 }
-      );
-    }
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
-  } finally {
-    await prisma.$disconnect();
-  }
-}
-
 /**
  * @swagger
  * /api/advertisements:
  *   get:
- *     summary: Get all active advertisements for the authenticated user
+ *     summary: Get all advertisements for the authenticated user
  *     description: |
- *       Returns all active advertisements for the authenticated user who is an active service provider.
- *       Only returns title, startDate, endDate, serviceStartTime, serviceEndTime, keyImage (first image), and the service provider's city information for each advertisement.
+ *       Returns all advertisements for the authenticated user associated with any of their service providers.
+ *       Includes advertisements of all statuses. Only returns title, startDate, endDate, serviceStartTime, serviceEndTime, keyImage (first image), and the service provider's city information for each advertisement.
  *       Requires a valid Firebase authentication token.
  *     tags: [Advertisements]
  *     security:
@@ -515,8 +341,6 @@ export async function PUT(request: NextRequest) {
  *                       example: 3
  *       401:
  *         description: Unauthorized (invalid or missing token)
- *       403:
- *         description: Forbidden (user is not an active service provider)
  *       404:
  *         description: User not found
  *       500:
@@ -597,159 +421,6 @@ export async function PUT(request: NextRequest) {
  *         description: Forbidden (user is not an active service provider)
  *       404:
  *         description: User or service not found
- *       409:
- *         description: Conflict (advertisement with this title already exists for the user)
- *       500:
- *         description: Internal server error
- *   put:
- *     summary: Update an existing advertisement
- *     description: |
- *       Updates an existing advertisement for the authenticated user who is an active service provider and owns the advertisement.
- *       Requires a valid Firebase authentication token.
- *       At least one image must be provided, and price must be a non-negative number if provided.
- *     tags: [Advertisements]
- *     security:
- *       - BearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - idAdvertisement
- *               - title
- *               - startDate
- *               - endDate
- *               - serviceId
- *               - images
- *             properties:
- *               idAdvertisement:
- *                 type: integer
- *                 example: 1
- *               title:
- *                 type: string
- *                 example: "Profesjonalne wyprowadzanie psów w centrum Warszawy"
- *               description:
- *                 type: string
- *                 nullable: true
- *                 example: "Oferuję profesjonalne wyprowadzanie psów..."
- *               price:
- *                 type: number
- *                 nullable: true
- *                 minimum: 0
- *                 example: 25.0
- *               startDate:
- *                 type: string
- *                 format: date-time
- *                 example: "2025-09-26T00:00:00Z"
- *               endDate:
- *                 type: string
- *                 format: date-time
- *                 example: "2025-11-25T00:00:00Z"
- *               serviceStartTime:
- *                 type: string
- *                 nullable: true
- *                 example: "1970-01-01T09:00:00Z"
- *               serviceEndTime:
- *                 type: string
- *                 nullable: true
- *                 example: "1970-01-01T17:00:00Z"
- *               serviceId:
- *                 type: integer
- *                 example: 1
- *               images:
- *                 type: array
- *                 minItems: 1
- *                 items:
- *                   type: object
- *                   properties:
- *                     imageUrl:
- *                       type: string
- *                       example: "https://images.unsplash.com/photo-1552053831-71594a27632d?w=500"
- *                     order:
- *                       type: integer
- *                       example: 1
- *     responses:
- *       200:
- *         description: Advertisement updated successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 advertisement:
- *                   type: object
- *                   properties:
- *                     idAdvertisement:
- *                       type: integer
- *                       example: 1
- *                     title:
- *                       type: string
- *                       example: "Profesjonalne wyprowadzanie psów w centrum Warszawy"
- *                     description:
- *                       type: string
- *                       nullable: true
- *                       example: "Oferuję profesjonalne wyprowadzanie psów..."
- *                     price:
- *                       type: number
- *                       nullable: true
- *                       example: 25.0
- *                     status:
- *                       type: string
- *                       example: "ACTIVE"
- *                     startDate:
- *                       type: string
- *                       format: date-time
- *                       example: "2025-09-26T00:00:00Z"
- *                     endDate:
- *                       type: string
- *                       format: date-time
- *                       example: "2025-11-25T00:00:00Z"
- *                     serviceStartTime:
- *                       type: string
- *                       format: date-time
- *                       nullable: true
- *                       example: "1970-01-01T09:00:00Z"
- *                     serviceEndTime:
- *                       type: string
- *                       format: date-time
- *                       nullable: true
- *                       example: "1970-01-01T17:00:00Z"
- *                     Service_idService:
- *                       type: integer
- *                       example: 1
- *                     Service_Provider_idService_Provider:
- *                       type: integer
- *                       example: 1
- *                     Images:
- *                       type: array
- *                       items:
- *                         type: object
- *                         properties:
- *                           idAdvertisementImage:
- *                             type: integer
- *                             example: 1
- *                           imageUrl:
- *                             type: string
- *                             example: "https://images.unsplash.com/photo-1552053831-71594a27632d?w=500"
- *                           order:
- *                             type: integer
- *                             example: 1
- *                           Advertisement_idAdvertisement:
- *                             type: integer
- *                             example: 1
- *       400:
- *         description: Missing required fields, no images provided, or invalid price
- *       401:
- *         description: Unauthorized (invalid or missing token)
- *       403:
- *         description: Forbidden (user is not an active service provider or does not own the advertisement)
- *       404:
- *         description: User, service, or advertisement not found
  *       409:
  *         description: Conflict (advertisement with this title already exists for the user)
  *       500:

@@ -184,7 +184,7 @@ export default function MyAdvertisements() {
             My Advertisements
           </h1>
           <p className="text-gray-600 max-w-2xl mx-auto">
-            Manage your active pet care services. View details and update as
+            Manage your advertisements. View details and update as
             needed.
           </p>
         </div>

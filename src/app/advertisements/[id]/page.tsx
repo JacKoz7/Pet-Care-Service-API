@@ -20,6 +20,7 @@ import {
   IconAlertCircle,
   IconCircleCheck,
   IconX,
+  IconPencil,
 } from "@tabler/icons-react";
 
 interface AdvertisementDetails {
@@ -103,10 +104,8 @@ export default function AdvertisementDetails() {
             },
           });
           if (!rolesResponse.ok) {
-            console.warn(
-              "Failed to fetch user roles:",
-              await rolesResponse.text()
-            );
+            console.warn("Failed to fetch user roles:", await rolesResponse.text());
+            setUserRoles({ roles: [], serviceProviderIds: [] });
           } else {
             const rolesData = await rolesResponse.json();
             console.log("Fetched user roles:", rolesData); // Debug log
@@ -131,7 +130,7 @@ export default function AdvertisementDetails() {
     fetchData();
   }, [adId, user]);
 
-  // Check if user owns the ad (via serviceProviderId match, regardless of current active status)
+  // Check if user owns the ad
   const isOwner =
     user &&
     userRoles &&
@@ -150,9 +149,45 @@ export default function AdvertisementDetails() {
     router.back();
   };
 
+  const handleEdit = async () => {
+    if (!ad || !user) {
+      showNotification("Please sign in to edit this advertisement.", "warning");
+      return;
+    }
+
+    try {
+      const token = await user.getIdToken();
+      // Make a preliminary check to the backend to verify edit permissions
+      const checkResponse = await fetch(`/api/advertisements/${ad.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ checkPermissions: true }), // Flag to check permissions only
+      });
+
+      if (!checkResponse.ok) {
+        const errData = await checkResponse.json();
+        showNotification(
+          errData.error || "Failed to verify edit permissions",
+          "error"
+        );
+        return;
+      }
+
+      router.push(`/advertisements/${ad.id}/edit`);
+    } catch (err) {
+      console.error("Error checking edit permissions:", err);
+      showNotification(
+        "An error occurred while verifying edit permissions",
+        "error"
+      );
+    }
+  };
+
   const showNotification = (message: string, type: Notification["type"]) => {
     setNotification({ message, type });
-    // Auto-hide after 4 seconds
     setTimeout(() => {
       setNotification(null);
     }, 4000);
@@ -174,7 +209,6 @@ export default function AdvertisementDetails() {
       return;
     }
 
-    // Placeholder for booking implementation
     showNotification("Booking feature coming soon!", "info");
   };
 
@@ -196,7 +230,7 @@ export default function AdvertisementDetails() {
 
       if (response.ok) {
         showNotification("Advertisement deleted successfully!", "success");
-        setTimeout(() => router.back(), 1500); // Back after showing success
+        setTimeout(() => router.back(), 1500);
       } else {
         const errData = await response.json();
         showNotification(
@@ -238,7 +272,7 @@ export default function AdvertisementDetails() {
           </h3>
           <button
             onClick={handleBack}
-            className="bg-indigo-600 text-white px-6 py-2 rounded-xl font-medium hover:bg-indigo-700 transition-all duration-300"
+            className="bg-indigo-600 text-white px-6 py-3 rounded-xl font-medium hover:bg-indigo-700 transition-all duration-300"
           >
             Go Back
           </button>
@@ -394,7 +428,6 @@ export default function AdvertisementDetails() {
                 </div>
               </div>
 
-              {/* Image Gallery */}
               <h2 className="text-xl font-semibold text-gray-800 mb-4">
                 Gallery
               </h2>
@@ -439,13 +472,22 @@ export default function AdvertisementDetails() {
                 Book Now
               </button>
               {isOwner && (
-                <button
-                  onClick={handleDelete}
-                  className="flex-1 sm:flex-none bg-red-500 text-white px-6 py-3 rounded-xl font-medium hover:bg-red-600 transition-all duration-300 flex items-center justify-center"
-                >
-                  <IconTrash size={18} className="mr-2" />
-                  Delete
-                </button>
+                <>
+                  <button
+                    onClick={handleEdit}
+                    className="flex-1 sm:flex-none bg-blue-500 text-white px-6 py-3 rounded-xl font-medium hover:bg-blue-600 transition-all duration-300 flex items-center justify-center"
+                  >
+                    <IconPencil size={18} className="mr-2" />
+                    Edit
+                  </button>
+                  <button
+                    onClick={handleDelete}
+                    className="flex-1 sm:flex-none bg-red-500 text-white px-6 py-3 rounded-xl font-medium hover:bg-red-600 transition-all duration-300 flex items-center justify-center"
+                  >
+                    <IconTrash size={18} className="mr-2" />
+                    Delete
+                  </button>
+                </>
               )}
             </div>
           </div>

@@ -10,6 +10,12 @@ const nextConfig = {
       },
       {
         protocol: 'https',
+        hostname: 'shutterstock.com.pl',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
         hostname: 'visitwroclaw.s3.eu-central-1.amazonaws.com',
         port: '',
         pathname: '/**',
