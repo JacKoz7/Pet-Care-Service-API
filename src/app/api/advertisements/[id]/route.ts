@@ -4,11 +4,144 @@ import { adminAuth } from "@/lib/firebaseAdmin";
 
 const prisma = new PrismaClient();
 
+/**
+ * @swagger
+ * /api/advertisements/{id}:
+ *   get:
+ *     summary: Get an advertisement by ID
+ *     description: Retrieves detailed information about a specific advertisement, including title, description, price, status, dates, service provider details, city, service name, and images.
+ *     tags: [Advertisements]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: The ID of the advertisement to retrieve
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved the advertisement
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 advertisement:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                       description: The ID of the advertisement
+ *                       example: 1
+ *                     title:
+ *                       type: string
+ *                       description: The title of the advertisement
+ *                       example: "Professional Dog Walking"
+ *                     description:
+ *                       type: string
+ *                       nullable: true
+ *                       description: The description of the advertisement
+ *                       example: "Daily dog walking services in Warsaw"
+ *                     price:
+ *                       type: number
+ *                       nullable: true
+ *                       description: The price of the service
+ *                       example: 50.0
+ *                     status:
+ *                       type: string
+ *                       enum: [ACTIVE, INACTIVE, PENDING, BOOKED]
+ *                       description: The status of the advertisement
+ *                       example: ACTIVE
+ *                     startDate:
+ *                       type: string
+ *                       format: date-time
+ *                       description: The start date of the advertisement
+ *                       example: "2025-09-26T00:00:00Z"
+ *                     endDate:
+ *                       type: string
+ *                       format: date-time
+ *                       description: The end date of the advertisement
+ *                       example: "2025-11-25T00:00:00Z"
+ *                     serviceStartTime:
+ *                       type: string
+ *                       nullable: true
+ *                       description: The start time of the service (HH:mm format)
+ *                       example: "09:00"
+ *                     serviceEndTime:
+ *                       type: string
+ *                       nullable: true
+ *                       description: The end time of the service (HH:mm format)
+ *                       example: "17:00"
+ *                     serviceProviderId:
+ *                       type: integer
+ *                       description: The ID of the service provider
+ *                       example: 1
+ *                     service:
+ *                       type: string
+ *                       description: The name of the service
+ *                       example: "Dog Walking"
+ *                     provider:
+ *                       type: object
+ *                       properties:
+ *                         firstName:
+ *                           type: string
+ *                           nullable: true
+ *                           description: The first name of the service provider
+ *                           example: "John"
+ *                         lastName:
+ *                           type: string
+ *                           nullable: true
+ *                           description: The last name of the service provider
+ *                           example: "Doe"
+ *                         phoneNumber:
+ *                           type: string
+ *                           nullable: true
+ *                           description: The phone number of the service provider
+ *                           example: "123456789"
+ *                     city:
+ *                       type: object
+ *                       properties:
+ *                         idCity:
+ *                           type: integer
+ *                           description: The ID of the city
+ *                           example: 1
+ *                         name:
+ *                           type: string
+ *                           description: The name of the city
+ *                           example: "Warsaw"
+ *                         imageUrl:
+ *                           type: string
+ *                           nullable: true
+ *                           description: The URL of the city image
+ *                           example: "https://example.com/city.jpg"
+ *                     images:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           imageUrl:
+ *                             type: string
+ *                             description: The URL of the advertisement image
+ *                             example: "https://example.com/image.jpg"
+ *                           order:
+ *                             type: integer
+ *                             nullable: true
+ *                             description: The order of the image
+ *                             example: 1
+ *       400:
+ *         description: Invalid advertisement ID
+ *       404:
+ *         description: Advertisement not found
+ *       500:
+ *         description: Internal server error
+ */
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  // Unchanged GET endpoint
   try {
     const { id } = await params;
     const idNum = parseInt(id);
@@ -116,6 +249,118 @@ export async function GET(
   }
 }
 
+/**
+ * @swagger
+ * /api/advertisements/{id}:
+ *   put:
+ *     summary: Update an advertisement
+ *     description: |
+ *       Updates an existing advertisement owned by the authenticated service provider.
+ *       Supports updating title, description, price, status, dates, service times, service ID, and images.
+ *       If `checkPermissions` is true in the request body, it verifies permissions without updating.
+ *       Only the advertisement owner (matching service provider) can update, and the service provider must be active.
+ *     tags: [Advertisements]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: The ID of the advertisement to update
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               checkPermissions:
+ *                 type: boolean
+ *                 description: If true, checks permissions without updating the advertisement
+ *                 example: false
+ *               title:
+ *                 type: string
+ *                 description: The updated title of the advertisement
+ *                 example: "Updated Dog Walking Service"
+ *               description:
+ *                 type: string
+ *                 nullable: true
+ *                 description: The updated description of the advertisement
+ *                 example: "Updated daily dog walking services in Warsaw"
+ *               price:
+ *                 type: number
+ *                 nullable: true
+ *                 description: The updated price of the service
+ *                 example: 60.0
+ *               status:
+ *                 type: string
+ *                 enum: [ACTIVE, INACTIVE]
+ *                 description: The updated status of the advertisement
+ *                 example: ACTIVE
+ *               startDate:
+ *                 type: string
+ *                 format: date-time
+ *                 description: The updated start date of the advertisement
+ *                 example: "2025-09-26T00:00:00Z"
+ *               endDate:
+ *                 type: string
+ *                 format: date-time
+ *                 description: The updated end date of the advertisement
+ *                 example: "2025-11-25T00:00:00Z"
+ *               serviceStartTime:
+ *                 type: string
+ *                 format: date-time
+ *                 nullable: true
+ *                 description: The updated start time of the service
+ *                 example: "2025-09-26T09:00:00Z"
+ *               serviceEndTime:
+ *                 type: string
+ *                 format: date-time
+ *                 nullable: true
+ *                 description: The updated end time of the service
+ *                 example: "2025-09-26T17:00:00Z"
+ *               serviceId:
+ *                 type: integer
+ *                 description: The ID of the service
+ *                 example: 1
+ *               images:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     imageUrl:
+ *                       type: string
+ *                       description: The URL of the advertisement image
+ *                       example: "https://example.com/new-image.jpg"
+ *                     order:
+ *                       type: integer
+ *                       nullable: true
+ *                       description: The order of the image
+ *                       example: 1
+ *     responses:
+ *       200:
+ *         description: Successfully updated the advertisement or verified permissions
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *       400:
+ *         description: Invalid advertisement ID or invalid status value
+ *       401:
+ *         description: Unauthorized (missing or invalid token)
+ *       403:
+ *         description: User is not a service provider, not the owner, or not an active service provider
+ *       404:
+ *         description: User or advertisement not found
+ *       500:
+ *         description: Internal server error
+ */
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -157,7 +402,7 @@ export async function PUT(
         ServiceProviders: {
           select: {
             idService_Provider: true,
-            isActive: true, // Assumed field for active status
+            isActive: true,
           },
         },
       },
@@ -203,28 +448,28 @@ export async function PUT(
       );
     }
 
-    // Check for active service provider status
     const isActiveServiceProvider = user.ServiceProviders.some(
       (sp) =>
         sp.idService_Provider ===
-        advertisement.Service_Provider_idService_Provider && sp.isActive
+          advertisement.Service_Provider_idService_Provider && sp.isActive
     );
 
     if (!isActiveServiceProvider) {
       return NextResponse.json(
-        { error: "You must be an active service provider to update this advertisement" },
+        {
+          error:
+            "You must be an active service provider to update this advertisement",
+        },
         { status: 403 }
       );
     }
 
     const body = await request.json();
 
-    // If checkPermissions flag is set, return success without updating
     if (body.checkPermissions) {
       return NextResponse.json({ success: true });
     }
 
-    // Validate status
     if (body.status && !["ACTIVE", "INACTIVE"].includes(body.status)) {
       return NextResponse.json(
         { error: "Invalid status value" },
@@ -232,16 +477,13 @@ export async function PUT(
       );
     }
 
-    // Use transaction to update advertisement and handle images
     await prisma.$transaction(async (tx) => {
-      // Delete existing images
       await tx.advertisementImage.deleteMany({
         where: {
           Advertisement_idAdvertisement: idNum,
         },
       });
 
-      // Create new images
       if (body.images && Array.isArray(body.images)) {
         for (const img of body.images) {
           await tx.advertisementImage.create({
@@ -254,7 +496,6 @@ export async function PUT(
         }
       }
 
-      // Update advertisement
       await tx.advertisement.update({
         where: {
           idAdvertisement: idNum,
@@ -266,8 +507,12 @@ export async function PUT(
           status: body.status,
           startDate: body.startDate,
           endDate: body.endDate,
-          serviceStartTime: body.serviceStartTime ? new Date(body.serviceStartTime) : null,
-          serviceEndTime: body.serviceEndTime ? new Date(body.serviceEndTime) : null,
+          serviceStartTime: body.serviceStartTime
+            ? new Date(body.serviceStartTime)
+            : null,
+          serviceEndTime: body.serviceEndTime
+            ? new Date(body.serviceEndTime)
+            : null,
           Service_idService: body.serviceId,
         },
       });
@@ -285,11 +530,51 @@ export async function PUT(
   }
 }
 
+/**
+ * @swagger
+ * /api/advertisements/{id}:
+ *   delete:
+ *     summary: Delete an advertisement
+ *     description: |
+ *       Archives an advertisement by moving it to the AdvertisementArchive table and deletes it from the Advertisement table.
+ *       Also deletes associated images, feedback, and archive records.
+ *       Only the advertisement owner (matching service provider) can delete the advertisement.
+ *     tags: [Advertisements]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: The ID of the advertisement to delete
+ *     responses:
+ *       200:
+ *         description: Successfully deleted the advertisement
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *       400:
+ *         description: Invalid advertisement ID
+ *       401:
+ *         description: Unauthorized (missing or invalid token)
+ *       403:
+ *         description: User is not a service provider or not the owner
+ *       404:
+ *         description: User or advertisement not found
+ *       500:
+ *         description: Internal server error
+ */
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  // Unchanged DELETE endpoint
   try {
     const { id } = await params;
     const idNum = parseInt(id);

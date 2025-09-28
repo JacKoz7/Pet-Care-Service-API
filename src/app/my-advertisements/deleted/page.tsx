@@ -1,13 +1,12 @@
 "use client";
 
-import { auth } from "../firebase";
+import { auth } from "../../firebase";
 import { useAuthState } from "react-firebase-hooks/auth";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
 import {
   IconArrowLeft,
-  IconPlus,
   IconMapPin,
   IconCalendar,
   IconPhoto,
@@ -16,11 +15,12 @@ import {
   IconX,
   IconInfoCircle,
   IconCircleCheck,
-  IconArchive,
+  IconRestore,
 } from "@tabler/icons-react";
 
-interface MyAdvertisement {
-  id: number;
+interface ArchivedAdvertisement {
+  id: number; // idAdvertisementArchive
+  originalId: number; // originalAdvertisementId
   title: string;
   startDate: string;
   endDate: string | null;
@@ -45,10 +45,10 @@ interface Notification {
   type: "info" | "error" | "warning" | "success";
 }
 
-export default function MyAdvertisements() {
+export default function DeletedAdvertisements() {
   const [user] = useAuthState(auth);
   const router = useRouter();
-  const [myAds, setMyAds] = useState<MyAdvertisement[]>([]);
+  const [archivedAds, setArchivedAds] = useState<ArchivedAdvertisement[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [userRoles, setUserRoles] = useState<UserRoles>({
@@ -97,7 +97,7 @@ export default function MyAdvertisements() {
     const loadData = async () => {
       setIsLoading(true);
       try {
-        await Promise.all([fetchMyAds(), fetchUserRoles()]);
+        await Promise.all([fetchArchivedAds(), fetchUserRoles()]);
       } catch (err) {
         console.error("Error loading data:", err);
       } finally {
@@ -105,10 +105,10 @@ export default function MyAdvertisements() {
       }
     };
 
-    const fetchMyAds = async () => {
+    const fetchArchivedAds = async () => {
       try {
         const token = await user.getIdToken();
-        const response = await fetch("/api/advertisements", {
+        const response = await fetch("/api/advertisements/archived", {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -116,14 +116,14 @@ export default function MyAdvertisements() {
 
         if (response.ok) {
           const data = await response.json();
-          setMyAds(data.advertisements || []);
+          setArchivedAds(data.advertisements || []);
         } else {
           const errData = await response.json();
-          setError(errData.error || "Failed to fetch advertisements");
+          setError(errData.error || "Failed to fetch archived advertisements");
         }
       } catch (err) {
-        setError("An error occurred while fetching advertisements");
-        console.error("Error fetching my advertisements:", err);
+        setError("An error occurred while fetching archived advertisements");
+        console.error("Error fetching archived advertisements:", err);
       }
     };
 
@@ -137,28 +137,46 @@ export default function MyAdvertisements() {
     }, 4000);
   };
 
-  const handleAddAd = () => {
-    if (!userRoles.isServiceProvider) {
-      showNotification(
-        "You must be a service provider to add advertisements.",
-        "warning"
-      );
+  const handleRestoreAd = async (archiveId: number) => {
+    if (!user) {
+      showNotification("Please sign in to restore advertisements.", "warning");
       return;
     }
 
-    router.push("/my-advertisements/add");
-  };
+    if (!userRoles.isServiceProvider) {
+      showNotification("You must be an active service provider to restore advertisements.", "warning");
+      return;
+    }
 
-  const handleViewAd = (adId: number) => {
-    router.push(`/advertisements/${adId}`);
-  };
+    if (!confirm("Are you sure you want to restore this advertisement?")) {
+      return;
+    }
 
-  const handleViewDeletedAds = () => {
-    router.push("/my-advertisements/deleted");
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch(`/api/advertisements/restore/${archiveId}`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        showNotification("Advertisement restored successfully!", "success");
+        // Remove the restored ad from the list
+        setArchivedAds(archivedAds.filter((ad) => ad.id !== archiveId));
+      } else {
+        const errData = await response.json();
+        showNotification(errData.error || "Failed to restore advertisement", "error");
+      }
+    } catch (err) {
+      console.error("Error restoring advertisement:", err);
+      showNotification("An error occurred while restoring the advertisement", "error");
+    }
   };
 
   const handleBack = () => {
-    router.push("/");
+    router.push("/my-advertisements");
   };
 
   if (isLoading || isLoadingRole) {
@@ -167,7 +185,7 @@ export default function MyAdvertisements() {
         <div className="flex flex-col items-center">
           <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mb-4"></div>
           <p className="text-indigo-600 text-lg font-medium">
-            Loading your advertisements...
+            Loading archived advertisements...
           </p>
         </div>
       </div>
@@ -184,32 +202,14 @@ export default function MyAdvertisements() {
             className="flex items-center text-indigo-600 hover:text-indigo-800 mb-4 mx-auto"
           >
             <IconArrowLeft size={20} className="mr-2" />
-            Back to Dashboard
+            Back to My Advertisements
           </button>
           <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600 mb-3">
-            My Advertisements
+            Deleted Advertisements
           </h1>
           <p className="text-gray-600 max-w-2xl mx-auto">
-            Manage your advertisements. View details and update as needed.
+            View and restore your deleted advertisements.
           </p>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="mb-8 flex flex-col sm:flex-row sm:justify-center gap-4">
-          <button
-            onClick={handleAddAd}
-            className="bg-gradient-to-r from-green-500 to-green-600 text-white px-6 py-3 rounded-xl font-medium hover:from-green-600 hover:to-green-700 transition-all duration-300 transform hover:-translate-y-0.5 shadow-md hover:shadow-lg flex items-center justify-center"
-          >
-            <IconPlus size={20} className="mr-2" />
-            Add Advertisement
-          </button>
-          <button
-            onClick={handleViewDeletedAds}
-            className="bg-gradient-to-r from-gray-500 to-gray-600 text-white px-6 py-3 rounded-xl font-medium hover:from-gray-600 hover:to-gray-700 transition-all duration-300 transform hover:-translate-y-0.5 shadow-md hover:shadow-lg flex items-center justify-center"
-          >
-            <IconArchive size={20} className="mr-2" />
-            Deleted Advertisements
-          </button>
         </div>
 
         {/* Error Message */}
@@ -219,24 +219,22 @@ export default function MyAdvertisements() {
           </div>
         )}
 
-        {/* Advertisements Grid */}
-        {myAds.length === 0 ? (
+        {/* Archived Advertisements Grid */}
+        {archivedAds.length === 0 ? (
           <div className="text-center py-12 bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-white">
             <div className="inline-flex items-center justify-center bg-indigo-100 w-16 h-16 rounded-full mb-4 mx-auto">
               <IconPhoto className="text-indigo-500" size={28} />
             </div>
             <h3 className="text-xl font-medium text-gray-700 mb-2">
-              No advertisements yet
+              No deleted advertisements
             </h3>
             <p className="text-gray-500">
-              {userRoles.isServiceProvider
-                ? "Create your first advertisement to get started!"
-                : "You must become a service provider to add advertisements. Past advertisements will appear here if any."}
+              You have not deleted any advertisements yet.
             </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {myAds.map((ad) => (
+            {archivedAds.map((ad) => (
               <div
                 key={ad.id}
                 className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg overflow-hidden border border-white transition-all duration-300 hover:shadow-xl hover:-translate-y-1"
@@ -287,10 +285,11 @@ export default function MyAdvertisements() {
                     )}
                   </div>
                   <button
-                    onClick={() => handleViewAd(ad.id)}
-                    className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-2 rounded-xl font-medium hover:from-indigo-700 hover:to-purple-700 transition-all duration-300 transform hover:-translate-y-0.5 shadow-md hover:shadow-lg text-sm"
+                    onClick={() => handleRestoreAd(ad.id)}
+                    className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-2 rounded-xl font-medium hover:from-blue-700 hover:to-blue-800 transition-all duration-300 transform hover:-translate-y-0.5 shadow-md hover:shadow-lg text-sm flex items-center justify-center"
                   >
-                    View Details
+                    <IconRestore size={16} className="mr-2" />
+                    Restore
                   </button>
                 </div>
               </div>

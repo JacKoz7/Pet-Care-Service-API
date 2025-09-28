@@ -52,6 +52,7 @@ model Service_Provider {
   isActive           Boolean @default(true)
 
   Advertisements Advertisement[]
+  ArchivedAdvertisements AdvertisementArchive[] @relation("ServiceProviderToAdvertisementArchive")
   Bookings       Booking[]
   Availabilities Availability[]
   Feedbacks      Feedback[]
@@ -112,6 +113,7 @@ model Service {
   name      String @unique @db.VarChar(120)
 
   Advertisements Advertisement[]
+  ArchivedAdvertisements AdvertisementArchive[] @relation("ServiceToAdvertisementArchive")
 }
 
 model Booking {
@@ -212,6 +214,9 @@ model AdvertisementArchive {
   serviceProviderId      Int
   deletedAt              DateTime @default(now())
   imagesUrls             Json?
+
+  Service                Service @relation("ServiceToAdvertisementArchive", fields: [serviceId], references: [idService])
+  Service_Provider       Service_Provider @relation("ServiceProviderToAdvertisementArchive", fields: [serviceProviderId], references: [idService_Provider])
 
   @@index([originalAdvertisementId])
 }

@@ -1,3 +1,4 @@
+// src/app/dashboard/page.tsx
 "use client";
 
 import { auth } from "../firebase";
@@ -16,6 +17,7 @@ import {
   IconUser,
   IconFileText,
   IconClock,
+  IconList,
 } from "@tabler/icons-react";
 
 interface City {
@@ -56,7 +58,6 @@ export default function Dashboard() {
   const [isLoadingRole, setIsLoadingRole] = useState(true);
   const carouselRef = useRef<HTMLDivElement>(null);
 
-  // Hoist fetchUserRoles outside useEffect for reuse
   const fetchUserRoles = useCallback(async () => {
     if (!user) {
       setIsLoadingRole(false);
@@ -73,11 +74,10 @@ export default function Dashboard() {
 
       if (response.ok) {
         const data = await response.json();
-        // All users are clients by default
         setUserRoles({
           isAdmin: data.roles?.includes("admin") || false,
-          isServiceProvider: data.roles?.includes("service_provider") || false, // Only if active
-          isClient: true, // Everyone is a client
+          isServiceProvider: data.roles?.includes("service_provider") || false,
+          isClient: true,
         });
       }
     } catch (error) {
@@ -155,20 +155,12 @@ export default function Dashboard() {
       });
 
       if (response.ok) {
-        // Refetch roles for accuracy (instead of local flip)
         await fetchUserRoles();
-
-        const action = userRoles.isServiceProvider
-          ? "removed from"
-          : "added to";
+        const action = userRoles.isServiceProvider ? "removed from" : "added to";
         alert(`Service provider role ${action} successfully!`);
       } else {
         const errorData = await response.json();
-        alert(
-          `Error: ${
-            errorData.error || "Failed to update service provider role"
-          }`
-        );
+        alert(`Error: ${errorData.error || "Failed to update service provider role"}`);
       }
     } catch (error) {
       console.error("Error updating service provider role:", error);
@@ -185,11 +177,8 @@ export default function Dashboard() {
     try {
       const token = await user.getIdToken();
       console.log("JWT Token:", token);
-
-      // Decode the token to see the payload (without verification)
       const payload = JSON.parse(atob(token.split(".")[1]));
       console.log("JWT Payload:", payload);
-
       alert("JWT token logged to console. Check developer tools.");
     } catch (error) {
       console.error("Error getting JWT token:", error);
@@ -205,11 +194,19 @@ export default function Dashboard() {
   );
 
   const handleViewAd = (adId: number) => {
-    router.push(`/advertisements/${adId}`); // FIXED: Singular to match details page
+    router.push(`/advertisements/${adId}`);
   };
 
   const handleMyAds = () => {
     router.push("/my-advertisements");
+  };
+
+  const handleViewAllAds = () => {
+    router.push("/advertisements/all");
+  };
+
+  const handleExploreCity = (cityId: number) => {
+    router.push(`/advertisements/all?cityId=${cityId}`);
   };
 
   return (
@@ -218,9 +215,7 @@ export default function Dashboard() {
         {/* Header Section with Role Management Buttons */}
         <div className="mb-10 text-center relative">
           <div className="flex justify-between items-start mb-4">
-            {/* Left Side Buttons */}
             <div className="flex flex-col space-y-2">
-              {/* Toggle Service Provider Button */}
               {user && !isLoadingRole && (
                 <button
                   onClick={toggleServiceProviderRole}
@@ -231,13 +226,9 @@ export default function Dashboard() {
                   }`}
                 >
                   <IconStar size={18} className="mr-2" />
-                  {userRoles.isServiceProvider
-                    ? "Switch to Client"
-                    : "Become Service Provider"}
+                  {userRoles.isServiceProvider ? "Switch to Client" : "Become Service Provider"}
                 </button>
               )}
-
-              {/* Debug JWT Button */}
               {user && !isLoadingRole && (
                 <button
                   onClick={handleDebugJWT}
@@ -249,17 +240,24 @@ export default function Dashboard() {
                 </button>
               )}
             </div>
-
-            {/* Right Side Button - My Advertisements */}
-            {user && !isLoadingRole && (
+            <div className="flex flex-col space-y-2">
+              {user && !isLoadingRole && (
+                <button
+                  onClick={handleMyAds}
+                  className="flex items-center bg-gradient-to-r from-blue-500 to-blue-600 text-white px-4 py-2 rounded-xl font-medium hover:from-blue-600 hover:to-blue-700 transition-all duration-300 transform hover:-translate-y-0.5 shadow-md hover:shadow-lg"
+                >
+                  <IconFileText size={18} className="mr-2" />
+                  My Advertisements
+                </button>
+              )}
               <button
-                onClick={handleMyAds}
-                className="flex items-center bg-gradient-to-r from-blue-500 to-blue-600 text-white px-4 py-2 rounded-xl font-medium hover:from-blue-600 hover:to-blue-700 transition-all duration-300 transform hover:-translate-y-0.5 shadow-md hover:shadow-lg"
+                onClick={handleViewAllAds}
+                className="flex items-center bg-gradient-to-r from-purple-500 to-purple-600 text-white px-4 py-2 rounded-xl font-medium hover:from-purple-600 hover:to-purple-700 transition-all duration-300 transform hover:-translate-y-0.5 shadow-md hover:shadow-lg"
               >
-                <IconFileText size={18} className="mr-2" />
-                My Advertisements
+                <IconList size={18} className="mr-2" />
+                View All Advertisements
               </button>
-            )}
+            </div>
           </div>
 
           <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600 mb-3">
@@ -269,41 +267,28 @@ export default function Dashboard() {
             {user ? (
               <>
                 Hello,{" "}
-                <span className="font-semibold text-indigo-600">
-                  {user.email}
-                </span>
-                ! Explore pet care services in various cities.
+                <span className="font-semibold text-indigo-600">{user.email}</span>! Explore pet care services in various cities.
               </>
             ) : (
               "Explore pet care services in various cities. Sign in to manage your bookings!"
             )}
           </p>
 
-          {/* Display role badges if user has roles */}
           {user && (
             <div className="mt-4 flex justify-center space-x-2">
-              {/* Client badge - everyone is a client */}
               <div className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium flex items-center">
                 <IconUser size={14} className="mr-1" />
                 Client
               </div>
-
-              {/* Service Provider badge - only if active */}
               {userRoles.isServiceProvider && (
                 <div className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium flex items-center">
                   <IconStar size={14} className="mr-1" />
                   Service Provider
                 </div>
               )}
-
-              {/* Admin badge */}
               {userRoles.isAdmin && (
                 <div className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm font-medium flex items-center">
-                  <svg
-                    className="w-4 h-4 mr-1"
-                    fill="currentColor"
-                    viewBox="0 0 20 20"
-                  >
+                  <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
                     <path
                       fillRule="evenodd"
                       d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v3.586L7.707 9.293a1 1 0 00-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 10.586V7z"
@@ -340,11 +325,8 @@ export default function Dashboard() {
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center">
               <IconMapPin className="text-indigo-500 mr-2" size={24} />
-              <h2 className="text-2xl font-semibold text-gray-800">
-                Available Cities
-              </h2>
+              <h2 className="text-2xl font-semibold text-gray-800">Available Cities</h2>
             </div>
-
             {filteredCities.length > 0 && (
               <div className="flex space-x-2">
                 <button
@@ -369,9 +351,7 @@ export default function Dashboard() {
             <div className="flex justify-center items-center py-12">
               <div className="flex flex-col items-center">
                 <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mb-4"></div>
-                <p className="text-indigo-600 text-lg font-medium">
-                  Loading cities...
-                </p>
+                <p className="text-indigo-600 text-lg font-medium">Loading cities...</p>
               </div>
             </div>
           ) : filteredCities.length === 0 ? (
@@ -379,9 +359,7 @@ export default function Dashboard() {
               <div className="inline-flex items-center justify-center bg-indigo-100 w-16 h-16 rounded-full mb-4">
                 <IconMapPin className="text-indigo-500" size={28} />
               </div>
-              <h3 className="text-xl font-medium text-gray-700 mb-2">
-                No cities found
-              </h3>
+              <h3 className="text-xl font-medium text-gray-700 mb-2">No cities found</h3>
               <p className="text-gray-500">Try adjusting your search query</p>
             </div>
           ) : (
@@ -405,16 +383,17 @@ export default function Dashboard() {
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
                       <div className="absolute bottom-4 left-4">
-                        <h3 className="text-xl font-semibold text-white">
-                          {city.name}
-                        </h3>
+                        <h3 className="text-xl font-semibold text-white">{city.name}</h3>
                       </div>
                     </div>
                     <div className="p-4">
                       <p className="text-gray-600 text-sm mb-4">
                         Discover pet care services in {city.name}
                       </p>
-                      <button className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-2 rounded-xl font-medium hover:from-indigo-700 hover:to-purple-700 transition-all duration-300 transform hover:-translate-y-0.5 shadow-md hover:shadow-lg text-sm">
+                      <button
+                        onClick={() => handleExploreCity(city.idCity)}
+                        className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-2 rounded-xl font-medium hover:from-indigo-700 hover:to-purple-700 transition-all duration-300 transform hover:-translate-y-0.5 shadow-md hover:shadow-lg text-sm"
+                      >
                         Explore Services
                       </button>
                     </div>
@@ -429,18 +408,14 @@ export default function Dashboard() {
         <div className="mb-8">
           <div className="flex items-center mb-6">
             <IconPaw className="text-amber-500 mr-2" size={24} />
-            <h2 className="text-2xl font-semibold text-gray-800">
-              Latest Advertisements
-            </h2>
+            <h2 className="text-2xl font-semibold text-gray-800">Latest Advertisements</h2>
           </div>
 
           {isLoading ? (
             <div className="flex justify-center items-center py-12">
               <div className="flex flex-col items-center">
                 <div className="w-16 h-16 border-4 border-amber-600 border-t-transparent rounded-full animate-spin mb-4"></div>
-                <p className="text-amber-600 text-lg font-medium">
-                  Loading advertisements...
-                </p>
+                <p className="text-amber-600 text-lg font-medium">Loading advertisements...</p>
               </div>
             </div>
           ) : filteredAds.length === 0 ? (
@@ -448,9 +423,7 @@ export default function Dashboard() {
               <div className="inline-flex items-center justify-center bg-amber-100 w-16 h-16 rounded-full mb-4">
                 <IconPaw className="text-amber-500" size={28} />
               </div>
-              <h3 className="text-xl font-medium text-gray-700 mb-2">
-                No advertisements found
-              </h3>
+              <h3 className="text-xl font-medium text-gray-700 mb-2">No advertisements found</h3>
               <p className="text-gray-500">Try searching for a city</p>
             </div>
           ) : (
@@ -470,9 +443,7 @@ export default function Dashboard() {
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
                     <div className="absolute bottom-2 left-2 right-2">
-                      <h3 className="text-white font-semibold text-sm truncate">
-                        {ad.title}
-                      </h3>
+                      <h3 className="text-white font-semibold text-sm truncate">{ad.title}</h3>
                     </div>
                   </div>
                   <div className="p-4">
@@ -482,25 +453,18 @@ export default function Dashboard() {
                     </div>
                     <div className="text-sm text-gray-600 mb-3 space-y-1">
                       <p>
-                        Starts:{" "}
-                        <span className="font-medium">
-                          {new Date(ad.startDate).toLocaleDateString()}
-                        </span>
+                        Starts: <span className="font-medium">{new Date(ad.startDate).toLocaleDateString()}</span>
                       </p>
                       {ad.endDate && (
                         <p>
-                          Ends:{" "}
-                          <span className="font-medium">
-                            {new Date(ad.endDate).toLocaleDateString()}
-                          </span>
+                          Ends: <span className="font-medium">{new Date(ad.endDate).toLocaleDateString()}</span>
                         </p>
                       )}
                       {(ad.serviceStartTime || ad.serviceEndTime) && (
                         <div className="flex items-center">
                           <IconClock className="mr-1" size={14} />
                           <span className="font-medium">
-                            Service hours: {ad.serviceStartTime} -{" "}
-                            {ad.serviceEndTime}
+                            Service hours: {ad.serviceStartTime} - {ad.serviceEndTime}
                           </span>
                         </div>
                       )}
@@ -541,27 +505,20 @@ export default function Dashboard() {
                   />
                 </svg>
               </div>
-              <h3 className="text-lg font-semibold text-gray-800 mb-2">
-                Trusted Professionals
-              </h3>
+              <h3 className="text-lg font-semibold text-gray-800 mb-2">Trusted Professionals</h3>
               <p className="text-gray-600 text-sm">
-                All our service providers are verified and experienced with
-                pets.
+                All our service providers are verified and experienced with pets.
               </p>
             </div>
-
             <div className="text-center p-6 bg-amber-50 rounded-2xl transition-all duration-300 hover:bg-amber-100">
               <div className="inline-flex items-center justify-center bg-amber-100 w-16 h-16 rounded-full mb-4">
                 <IconPaw className="text-amber-600" size={32} />
               </div>
-              <h3 className="text-lg font-semibold text-gray-800 mb-2">
-                Wide Range of Services
-              </h3>
+              <h3 className="text-lg font-semibold text-gray-800 mb-2">Wide Range of Services</h3>
               <p className="text-gray-600 text-sm">
                 From grooming to walking, we offer everything your pet needs.
               </p>
             </div>
-
             <div className="text-center p-6 bg-purple-50 rounded-2xl transition-all duration-300 hover:bg-purple-100">
               <div className="inline-flex items-center justify-center bg-purple-100 w-16 h-16 rounded-full mb-4">
                 <svg
@@ -579,9 +536,7 @@ export default function Dashboard() {
                   />
                 </svg>
               </div>
-              <h3 className="text-lg font-semibold text-gray-800 mb-2">
-                Available 24/7
-              </h3>
+              <h3 className="text-lg font-semibold text-gray-800 mb-2">Available 24/7</h3>
               <p className="text-gray-600 text-sm">
                 Book services anytime, anywhere with our easy-to-use platform.
               </p>
@@ -604,16 +559,12 @@ export default function Dashboard() {
         .animate-fade-in {
           animation: fade-in 0.5s ease-out forwards;
         }
-
-        /* Hide scrollbar for Chrome, Safari and Opera */
         .scrollbar-hide::-webkit-scrollbar {
           display: none;
         }
-
-        /* Hide scrollbar for IE, Edge and Firefox */
         .scrollbar-hide {
-          -ms-overflow-style: none; /* IE and Edge */
-          scrollbar-width: none; /* Firefox */
+          -ms-overflow-style: none;
+          scrollbar-width: none;
         }
       `}</style>
     </div>
