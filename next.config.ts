@@ -92,6 +92,12 @@ const nextConfig = {
         port: '',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'static.boredpanda.com',
+        port: '',
+        pathname: '/**',
+      },
     ],
   },
 };

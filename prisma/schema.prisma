@@ -51,11 +51,11 @@ model Service_Provider {
   User_idUser        Int
   isActive           Boolean @default(true)
 
-  Advertisements Advertisement[]
+  Advertisements         Advertisement[]
   ArchivedAdvertisements AdvertisementArchive[] @relation("ServiceProviderToAdvertisementArchive")
-  Bookings       Booking[]
-  Availabilities Availability[]
-  Feedbacks      Feedback[]
+  Bookings               Booking[]
+  Availabilities         Availability[]
+  Feedbacks              Feedback[]
 }
 
 model Availability {
@@ -112,7 +112,7 @@ model Service {
   idService Int    @id @default(autoincrement())
   name      String @unique @db.VarChar(120)
 
-  Advertisements Advertisement[]
+  Advertisements         Advertisement[]
   ArchivedAdvertisements AdvertisementArchive[] @relation("ServiceToAdvertisementArchive")
 }
 
@@ -150,23 +150,64 @@ model Feedback {
   Service_Provider_idService_Provider Int
 }
 
-model Pet {
-  idPet       Int     @id @default(autoincrement())
-  name        String  @db.VarChar(45)
-  age         Decimal @db.Decimal(3, 0)
-  description String? @db.VarChar(500)
+enum Sex {
+  MALE
+  FEMALE
+  UNKNOWN
+}
 
-  Breed           Breed  @relation(fields: [Breed_idBreed], references: [idBreed])
+enum ActivityLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum DietType {
+  DRY
+  WET
+  BARF
+  HOMEMADE
+  OTHER
+}
+
+enum EnvironmentType {
+  INDOOR
+  OUTDOOR
+  MIXED
+}
+
+enum Severity {
+  LOW
+  MODERATE
+  HIGH
+}
+
+model Pet {
+  idPet               Int              @id @default(autoincrement())
+  name                String           @db.VarChar(45)
+  age                 Decimal          @db.Decimal(3, 0)
+  description         String?          @db.VarChar(500)
+  weight              Decimal?         @db.Decimal(5, 2)
+  sex                 Sex?
+  isSterilized        Boolean?
+  activityLevel       ActivityLevel?
+  dietType            DietType?
+  knownAllergies      String[]         @default([])
+  vaccinationUpToDate Boolean?
+  environmentType     EnvironmentType?
+  chronicDiseases     String[]         @default([])
+
+  Breed           Breed      @relation(fields: [Breed_idBreed], references: [idBreed])
   Breed_idBreed   Int
-  Client          Client @relation(fields: [Client_idClient], references: [idClient])
+  Client          Client     @relation(fields: [Client_idClient], references: [idClient])
   Client_idClient Int
   Images          PetImage[]
-
-  Archives Archive[]
+  Archives        Archive[]
+  Analyses        Analysis[]
 }
 
 model PetImage {
-  idPetImage Int @id @default(autoincrement())
+  idPetImage Int    @id @default(autoincrement())
   imageUrl   String @db.VarChar(500)
   order      Int?
 
@@ -209,24 +250,24 @@ enum StatusArchive {
 }
 
 model AdvertisementArchive {
-  idAdvertisementArchive Int @id @default(autoincrement())
-  originalAdvertisementId Int @unique
-  title                  String @db.VarChar(100)
-  description            String? @db.VarChar(1000)
-  price                  Float?
-  status                 StatusAdvertisement @default(INACTIVE)
-  startDate              DateTime
-  endDate                DateTime
-  createdAt              DateTime @default(now())
-  serviceStartTime       DateTime? @db.Time
-  serviceEndTime         DateTime? @db.Time
-  serviceId              Int
-  serviceProviderId      Int
-  deletedAt              DateTime @default(now())
-  imagesUrls             Json?
+  idAdvertisementArchive  Int                 @id @default(autoincrement())
+  originalAdvertisementId Int                 @unique
+  title                   String              @db.VarChar(100)
+  description             String?             @db.VarChar(1000)
+  price                   Float?
+  status                  StatusAdvertisement @default(INACTIVE)
+  startDate               DateTime
+  endDate                 DateTime
+  createdAt               DateTime            @default(now())
+  serviceStartTime        DateTime?           @db.Time
+  serviceEndTime          DateTime?           @db.Time
+  serviceId               Int
+  serviceProviderId       Int
+  deletedAt               DateTime            @default(now())
+  imagesUrls              Json?
 
-  Service                Service @relation("ServiceToAdvertisementArchive", fields: [serviceId], references: [idService])
-  Service_Provider       Service_Provider @relation("ServiceProviderToAdvertisementArchive", fields: [serviceProviderId], references: [idService_Provider])
+  Service          Service          @relation("ServiceToAdvertisementArchive", fields: [serviceId], references: [idService])
+  Service_Provider Service_Provider @relation("ServiceProviderToAdvertisementArchive", fields: [serviceProviderId], references: [idService_Provider])
 
   @@index([originalAdvertisementId])
 }
@@ -238,4 +279,22 @@ model AdvertisementImage {
 
   Advertisement                 Advertisement @relation(fields: [Advertisement_idAdvertisement], references: [idAdvertisement])
   Advertisement_idAdvertisement Int
+}
+
+model Symptom {
+  idSymptom       Int      @id @default(autoincrement())
+  code            String   @unique @db.VarChar(50)
+  name            String   @db.VarChar(100)
+  description     String?  @db.VarChar(500)
+  defaultSeverity Severity @default(MODERATE)
+}
+
+model Analysis {
+  idAnalysis  Int      @id @default(autoincrement())
+  missingData String[] @default([])
+  diagnoses   Json
+  createdAt   DateTime @default(now())
+
+  Pet       Pet @relation(fields: [Pet_idPet], references: [idPet])
+  Pet_idPet Int
 }
