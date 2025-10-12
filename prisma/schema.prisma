@@ -188,6 +188,7 @@ model Pet {
   age             Decimal  @db.Decimal(3, 0)
   description     String?  @db.VarChar(500)
   chronicDiseases String[] @default([])
+  isHealthy       Boolean? 
 
   Breed           Breed      @relation(fields: [Breed_idBreed], references: [idBreed])
   Breed_idBreed   Int

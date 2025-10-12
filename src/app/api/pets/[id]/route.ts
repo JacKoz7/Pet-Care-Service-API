@@ -233,6 +233,7 @@ export async function PUT(
           name,
           age,
           description: description || null,
+          isHealthy: null,
           Breed_idBreed: breedId,
         },
       });

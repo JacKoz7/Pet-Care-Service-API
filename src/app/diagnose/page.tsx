@@ -1,4 +1,3 @@
-// src/app/diagnose/page.tsx
 "use client";
 
 import { useAuthState } from "react-firebase-hooks/auth";
@@ -231,11 +230,6 @@ export default function DiagnosePet() {
       return;
     }
 
-    if (selectedSymptoms.size === 0) {
-      alert("Proszę wybrać co najmniej jeden symptom.");
-      return;
-    }
-
     // Construct inputData without petId, using selectedPet and form overrides
     const inputData = {
       name: selectedPet.name,
@@ -310,6 +304,9 @@ export default function DiagnosePet() {
 
       const data = await response.json();
       console.log("Analysis Results:", JSON.stringify(data.diagnoses, null, 2));
+
+      // NOWOŚĆ: Przekieruj do wyników zamiast alertu
+      router.push(`/diagnose/results/${data.analysisId}`);
     } catch (error) {
       console.error("Error during analysis:", error);
       alert(
@@ -613,7 +610,7 @@ export default function DiagnosePet() {
           <div className="mb-12">
             <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
               <IconAlertTriangle className="mr-2 text-red-600" size={24} />
-              Wybierz symptomy (co najmniej 1)
+              Wybierz symptomy (opcjonalnie)
             </h2>
             {symptomsError ? (
               <div className="bg-red-50 border border-red-200 rounded-xl p-4">
@@ -695,9 +692,7 @@ export default function DiagnosePet() {
           <div className="flex justify-center">
             <button
               onClick={handleAnalyze}
-              disabled={
-                isAnalyzing || !selectedPetId || selectedSymptoms.size === 0
-              }
+              disabled={isAnalyzing || !selectedPetId}
               className="bg-gradient-to-r from-red-500 to-orange-500 text-white px-8 py-3 rounded-xl font-bold text-lg hover:from-red-600 hover:to-orange-600 transition-all duration-300 transform hover:-translate-y-1 shadow-xl hover:shadow-2xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
             >
               {isAnalyzing ? (

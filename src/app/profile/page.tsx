@@ -49,6 +49,7 @@ interface Pet {
   keyImage: string | null;
   breed: string;
   species: string;
+  isHealthy: boolean | null;
 }
 
 export default function Profile() {
@@ -529,6 +530,10 @@ export default function Profile() {
                 Add Pet
               </Link>
             </div>
+            <p className="text-sm text-gray-500 mb-4 italic text-center">
+              Zachęć usługodawców do opieki nad twoim zwierzęciem, wykonując
+              sprawdzanie jego zdrowia.
+            </p>
 
             {petsLoading ? (
               <div className="flex justify-center py-8">
@@ -582,6 +587,12 @@ export default function Profile() {
                           Breed: {pet.breed}
                         </p>
                         <p className="text-sm text-gray-600">Age: {pet.age}</p>
+                        {/* NOWOŚĆ: Label jeśli isHealthy true */}
+                        {pet.isHealthy === true && (
+                          <div className="mt-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            Zwierzę jest zdrowe
+                          </div>
+                        )}
                       </div>
                       <div className="flex items-center justify-center bg-amber-100 w-8 h-8 rounded-full">
                         <IconEdit className="text-amber-600" size={16} />

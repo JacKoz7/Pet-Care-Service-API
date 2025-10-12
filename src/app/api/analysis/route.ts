@@ -1,4 +1,3 @@
-// src/app/api/analysis/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { adminAuth } from "@/lib/firebaseAdmin";
@@ -6,10 +5,11 @@ import { adminAuth } from "@/lib/firebaseAdmin";
 const prisma = new PrismaClient();
 
 const SYSTEM_PROMPT = `You are a veterinary diagnosis assistant. You receive JSON input describing an animal and its symptoms. 
-You must respond ONLY in JSON with exactly 5 possible diseases in the given schema. No other text, no explanations, no comments.
+You must respond ONLY in JSON with the given schema. No other text, no explanations, no comments.
 
 Schema:
 {
+  "overallHealth": "healthy" | "hard to tell" | "unhealthy",
   "diagnoses": [
     {
       "diseaseName": "string (in Polish)",
@@ -26,7 +26,8 @@ Schema:
   ]
 }
 
-Generate 5 distinct diagnoses based on the input, sorted by probability descending. Use pet details and symptoms to infer likely conditions.`;
+- overallHealth: Based on symptoms and pet details, assess overall health: "healthy" if no serious issues, "hard to tell" if mixed/unclear, "unhealthy" if high risks.
+- Generate exactly 5 distinct diagnoses, sorted by probability descending. Use pet details and symptoms to infer likely conditions.`;
 
 export async function POST(request: NextRequest) {
   try {
@@ -53,13 +54,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { petId, ...inputData } = body; // Extract petId and get the rest as inputData (without petId)
 
-    // Validate inputData (now without petId, but check required fields)
-    if (
-      !inputData ||
-      !inputData.selectedSymptoms ||
-      !Array.isArray(inputData.selectedSymptoms) ||
-      inputData.selectedSymptoms.length === 0
-    ) {
+    // Validate inputData (now without petId, but check required fields) - symptoms are now optional
+    if (!inputData) {
       return NextResponse.json(
         { error: "Invalid input data" },
         { status: 400 }
@@ -184,9 +180,21 @@ export async function POST(request: NextRequest) {
     if (
       !diagnoses.diagnoses ||
       !Array.isArray(diagnoses.diagnoses) ||
-      diagnoses.diagnoses.length !== 5
+      diagnoses.diagnoses.length !== 5 ||
+      !["healthy", "hard to tell", "unhealthy"].includes(
+        diagnoses.overallHealth
+      )
     ) {
       throw new Error("AI response does not match required schema");
+    }
+
+    // NOWOŚĆ: Jeśli overallHealth === "healthy", ustaw isHealthy na true dla peta
+    if (diagnoses.overallHealth === "healthy") {
+      await prisma.pet.update({
+        where: { idPet: petId },
+        data: { isHealthy: true },
+      });
+      console.log(`Pet ${petId} marked as healthy.`);
     }
 
     // Save to database (original body with petId)
@@ -198,12 +206,17 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    console.log("Analysis results:", JSON.stringify(diagnoses, null, 2));
+    // Log analysis results including overallHealth
+    console.log(
+      "Analysis results (including overallHealth):",
+      JSON.stringify(diagnoses, null, 2)
+    );
 
     return NextResponse.json({
       success: true,
       analysisId: analysis.idAnalysis,
       diagnoses: diagnoses.diagnoses,
+      overallHealth: diagnoses.overallHealth, // NOWOŚĆ: Zwróć overallHealth
     });
   } catch (error) {
     console.error("Error performing analysis:", error);
@@ -215,7 +228,6 @@ export async function POST(request: NextRequest) {
     await prisma.$disconnect();
   }
 }
-
 
 /**
  * @swagger
@@ -237,7 +249,6 @@ export async function POST(request: NextRequest) {
  *             type: object
  *             required:
  *               - petId
- *               - selectedSymptoms
  *             properties:
  *               petId:
  *                 type: integer
@@ -302,7 +313,7 @@ export async function POST(request: NextRequest) {
  *                       nullable: true
  *                     defaultSeverity:
  *                       type: string
- *                 minItems: 1
+ *                 # minItems removed - now optional
  *     responses:
  *       200:
  *         description: Analysis performed successfully
@@ -360,6 +371,10 @@ export async function POST(request: NextRequest) {
  *                         items:
  *                           type: string
  *                         example: ["zatrucie pokarmowe", "choroba wrzodowa"]
+ *                 overallHealth:
+ *                   type: string
+ *                   enum: [healthy, hard to tell, unhealthy]
+ *                   example: "healthy"
  *       400:
  *         description: Invalid input data
  *       401:
@@ -368,6 +383,132 @@ export async function POST(request: NextRequest) {
  *         description: Forbidden (user is not a client or not pet owner)
  *       404:
  *         description: User or pet not found
+ *       500:
+ *         description: Internal server error
+ */
+
+export async function GET(request: NextRequest) {
+  try {
+    const authHeader = request.headers.get("authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return NextResponse.json(
+        { error: "Authorization header missing or invalid" },
+        { status: 401 }
+      );
+    }
+
+    const token = authHeader.split(" ")[1];
+    let decodedToken;
+    try {
+      decodedToken = await adminAuth.verifyIdToken(token);
+    } catch (error) {
+      console.error("Token verification failed:", error);
+      return NextResponse.json(
+        { error: "Invalid or expired token" },
+        { status: 401 }
+      );
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { firebaseUid: decodedToken.uid },
+      include: {
+        Clients: true,
+      },
+    });
+
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    if (user.Clients.length === 0) {
+      return NextResponse.json(
+        { error: "User is not a client" },
+        { status: 403 }
+      );
+    }
+
+    const analyses = await prisma.analysis.findMany({
+      where: {
+        Pet: {
+          Client: {
+            idClient: {
+              in: user.Clients.map((c) => c.idClient),
+            },
+          },
+        },
+      },
+      select: {
+        idAnalysis: true,
+        createdAt: true,
+        Pet: {
+          select: {
+            name: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    const summaries = analyses.map((a) => ({
+      idAnalysis: a.idAnalysis,
+      createdAt: a.createdAt.toISOString(),
+      petName: a.Pet.name,
+    }));
+
+    return NextResponse.json({
+      analyses: summaries,
+    });
+  } catch (error) {
+    console.error("Error fetching analyses:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+/**
+ * @swagger
+ * /api/analysis:
+ *   get:
+ *     summary: Get all pet diagnosis analyses for user
+ *     description: Retrieves all analyses for the authenticated user's pets. Requires client role.
+ *     tags: [Analysis]
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Analyses retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 analyses:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       idAnalysis:
+ *                         type: integer
+ *                         example: 1
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *                         example: "2025-10-12T12:00:00.000Z"
+ *                       petName:
+ *                         type: string
+ *                         example: "Bella"
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden (not client)
+ *       404:
+ *         description: User not found
  *       500:
  *         description: Internal server error
  */

@@ -66,6 +66,7 @@ export async function GET(request: NextRequest) {
         keyImage: pet.Images[0]?.imageUrl || null,
         breed: pet.Breed.name,
         species: pet.Breed.Spiece.name,
+        isHealthy: pet.isHealthy, 
       }))
     );
 
@@ -204,6 +205,7 @@ export async function POST(request: NextRequest) {
         name,
         age,
         description: description || null,
+        isHealthy: null,
         Breed_idBreed: breedId,
         Client_idClient: clientId,
         Images: {
