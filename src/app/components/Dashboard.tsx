@@ -18,6 +18,7 @@ import {
   IconFileText,
   IconClock,
   IconList,
+  IconActivity,
 } from "@tabler/icons-react";
 
 interface City {
@@ -156,11 +157,17 @@ export default function Dashboard() {
 
       if (response.ok) {
         await fetchUserRoles();
-        const action = userRoles.isServiceProvider ? "removed from" : "added to";
+        const action = userRoles.isServiceProvider
+          ? "removed from"
+          : "added to";
         alert(`Service provider role ${action} successfully!`);
       } else {
         const errorData = await response.json();
-        alert(`Error: ${errorData.error || "Failed to update service provider role"}`);
+        alert(
+          `Error: ${
+            errorData.error || "Failed to update service provider role"
+          }`
+        );
       }
     } catch (error) {
       console.error("Error updating service provider role:", error);
@@ -209,6 +216,10 @@ export default function Dashboard() {
     router.push(`/advertisements/all?cityId=${cityId}`);
   };
 
+  const handleDiagnosePet = () => {
+    router.push("/diagnose");
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50 py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
@@ -226,7 +237,9 @@ export default function Dashboard() {
                   }`}
                 >
                   <IconStar size={18} className="mr-2" />
-                  {userRoles.isServiceProvider ? "Switch to Client" : "Become Service Provider"}
+                  {userRoles.isServiceProvider
+                    ? "Switch to Client"
+                    : "Become Service Provider"}
                 </button>
               )}
               {user && !isLoadingRole && (
@@ -267,7 +280,10 @@ export default function Dashboard() {
             {user ? (
               <>
                 Hello,{" "}
-                <span className="font-semibold text-indigo-600">{user.email}</span>! Explore pet care services in various cities.
+                <span className="font-semibold text-indigo-600">
+                  {user.email}
+                </span>
+                ! Explore pet care services in various cities.
               </>
             ) : (
               "Explore pet care services in various cities. Sign in to manage your bookings!"
@@ -288,7 +304,11 @@ export default function Dashboard() {
               )}
               {userRoles.isAdmin && (
                 <div className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm font-medium flex items-center">
-                  <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                  <svg
+                    className="w-4 h-4 mr-1"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
                     <path
                       fillRule="evenodd"
                       d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v3.586L7.707 9.293a1 1 0 00-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 10.586V7z"
@@ -325,7 +345,9 @@ export default function Dashboard() {
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center">
               <IconMapPin className="text-indigo-500 mr-2" size={24} />
-              <h2 className="text-2xl font-semibold text-gray-800">Available Cities</h2>
+              <h2 className="text-2xl font-semibold text-gray-800">
+                Available Cities
+              </h2>
             </div>
             {filteredCities.length > 0 && (
               <div className="flex space-x-2">
@@ -351,7 +373,9 @@ export default function Dashboard() {
             <div className="flex justify-center items-center py-12">
               <div className="flex flex-col items-center">
                 <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mb-4"></div>
-                <p className="text-indigo-600 text-lg font-medium">Loading cities...</p>
+                <p className="text-indigo-600 text-lg font-medium">
+                  Loading cities...
+                </p>
               </div>
             </div>
           ) : filteredCities.length === 0 ? (
@@ -359,7 +383,9 @@ export default function Dashboard() {
               <div className="inline-flex items-center justify-center bg-indigo-100 w-16 h-16 rounded-full mb-4">
                 <IconMapPin className="text-indigo-500" size={28} />
               </div>
-              <h3 className="text-xl font-medium text-gray-700 mb-2">No cities found</h3>
+              <h3 className="text-xl font-medium text-gray-700 mb-2">
+                No cities found
+              </h3>
               <p className="text-gray-500">Try adjusting your search query</p>
             </div>
           ) : (
@@ -383,7 +409,9 @@ export default function Dashboard() {
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
                       <div className="absolute bottom-4 left-4">
-                        <h3 className="text-xl font-semibold text-white">{city.name}</h3>
+                        <h3 className="text-xl font-semibold text-white">
+                          {city.name}
+                        </h3>
                       </div>
                     </div>
                     <div className="p-4">
@@ -408,14 +436,18 @@ export default function Dashboard() {
         <div className="mb-8">
           <div className="flex items-center mb-6">
             <IconPaw className="text-amber-500 mr-2" size={24} />
-            <h2 className="text-2xl font-semibold text-gray-800">Latest Advertisements</h2>
+            <h2 className="text-2xl font-semibold text-gray-800">
+              Latest Advertisements
+            </h2>
           </div>
 
           {isLoading ? (
             <div className="flex justify-center items-center py-12">
               <div className="flex flex-col items-center">
                 <div className="w-16 h-16 border-4 border-amber-600 border-t-transparent rounded-full animate-spin mb-4"></div>
-                <p className="text-amber-600 text-lg font-medium">Loading advertisements...</p>
+                <p className="text-amber-600 text-lg font-medium">
+                  Loading advertisements...
+                </p>
               </div>
             </div>
           ) : filteredAds.length === 0 ? (
@@ -423,7 +455,9 @@ export default function Dashboard() {
               <div className="inline-flex items-center justify-center bg-amber-100 w-16 h-16 rounded-full mb-4">
                 <IconPaw className="text-amber-500" size={28} />
               </div>
-              <h3 className="text-xl font-medium text-gray-700 mb-2">No advertisements found</h3>
+              <h3 className="text-xl font-medium text-gray-700 mb-2">
+                No advertisements found
+              </h3>
               <p className="text-gray-500">Try searching for a city</p>
             </div>
           ) : (
@@ -443,7 +477,9 @@ export default function Dashboard() {
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
                     <div className="absolute bottom-2 left-2 right-2">
-                      <h3 className="text-white font-semibold text-sm truncate">{ad.title}</h3>
+                      <h3 className="text-white font-semibold text-sm truncate">
+                        {ad.title}
+                      </h3>
                     </div>
                   </div>
                   <div className="p-4">
@@ -453,18 +489,25 @@ export default function Dashboard() {
                     </div>
                     <div className="text-sm text-gray-600 mb-3 space-y-1">
                       <p>
-                        Starts: <span className="font-medium">{new Date(ad.startDate).toLocaleDateString()}</span>
+                        Starts:{" "}
+                        <span className="font-medium">
+                          {new Date(ad.startDate).toLocaleDateString()}
+                        </span>
                       </p>
                       {ad.endDate && (
                         <p>
-                          Ends: <span className="font-medium">{new Date(ad.endDate).toLocaleDateString()}</span>
+                          Ends:{" "}
+                          <span className="font-medium">
+                            {new Date(ad.endDate).toLocaleDateString()}
+                          </span>
                         </p>
                       )}
                       {(ad.serviceStartTime || ad.serviceEndTime) && (
                         <div className="flex items-center">
                           <IconClock className="mr-1" size={14} />
                           <span className="font-medium">
-                            Service hours: {ad.serviceStartTime} - {ad.serviceEndTime}
+                            Service hours: {ad.serviceStartTime} -{" "}
+                            {ad.serviceEndTime}
                           </span>
                         </div>
                       )}
@@ -481,6 +524,19 @@ export default function Dashboard() {
             </div>
           )}
         </div>
+
+        {/* Diagnose Pet Button - Only for logged-in users */}
+        {user && (
+          <div className="mb-8 text-center">
+            <button
+              onClick={handleDiagnosePet}
+              className="flex items-center justify-center mx-auto bg-gradient-to-r from-red-500 to-orange-500 text-white px-8 py-4 rounded-xl font-bold text-lg hover:from-red-600 hover:to-orange-600 transition-all duration-300 transform hover:-translate-y-1 shadow-xl hover:shadow-2xl"
+            >
+              <IconActivity size={24} className="mr-3" />
+              Diagnose Pet
+            </button>
+          </div>
+        )}
 
         {/* Features Section */}
         <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg p-8 border border-white">
@@ -505,16 +561,21 @@ export default function Dashboard() {
                   />
                 </svg>
               </div>
-              <h3 className="text-lg font-semibold text-gray-800 mb-2">Trusted Professionals</h3>
+              <h3 className="text-lg font-semibold text-gray-800 mb-2">
+                Trusted Professionals
+              </h3>
               <p className="text-gray-600 text-sm">
-                All our service providers are verified and experienced with pets.
+                All our service providers are verified and experienced with
+                pets.
               </p>
             </div>
             <div className="text-center p-6 bg-amber-50 rounded-2xl transition-all duration-300 hover:bg-amber-100">
               <div className="inline-flex items-center justify-center bg-amber-100 w-16 h-16 rounded-full mb-4">
                 <IconPaw className="text-amber-600" size={32} />
               </div>
-              <h3 className="text-lg font-semibold text-gray-800 mb-2">Wide Range of Services</h3>
+              <h3 className="text-lg font-semibold text-gray-800 mb-2">
+                Wide Range of Services
+              </h3>
               <p className="text-gray-600 text-sm">
                 From grooming to walking, we offer everything your pet needs.
               </p>
@@ -536,7 +597,9 @@ export default function Dashboard() {
                   />
                 </svg>
               </div>
-              <h3 className="text-lg font-semibold text-gray-800 mb-2">Available 24/7</h3>
+              <h3 className="text-lg font-semibold text-gray-800 mb-2">
+                Available 24/7
+              </h3>
               <p className="text-gray-600 text-sm">
                 Book services anytime, anywhere with our easy-to-use platform.
               </p>

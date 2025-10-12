@@ -291,7 +291,7 @@ model Symptom {
 
 model Analysis {
   idAnalysis  Int      @id @default(autoincrement())
-  missingData String[] @default([])
+  inputData   Json
   diagnoses   Json
   createdAt   DateTime @default(now())
 

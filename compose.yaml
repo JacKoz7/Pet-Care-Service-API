@@ -1,5 +1,8 @@
 services:
   app:
+    dns:
+      - 8.8.8.8 # for google gemini to work properly inside docker container
+      - 8.8.4.4
     build:
       context: .
     image: nextjs.dev
