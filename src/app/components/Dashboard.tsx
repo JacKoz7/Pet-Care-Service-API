@@ -322,6 +322,19 @@ export default function Dashboard() {
           )}
         </div>
 
+        {/* Diagnose Pet Button - Only for logged-in users */}
+        {user && (
+          <div className="mb-8 text-center">
+            <button
+              onClick={handleDiagnosePet}
+              className="flex items-center justify-center mx-auto bg-gradient-to-r from-red-500 to-orange-500 text-white px-8 py-4 rounded-xl font-bold text-lg hover:from-red-600 hover:to-orange-600 transition-all duration-300 transform hover:-translate-y-1 shadow-xl hover:shadow-2xl"
+            >
+              <IconActivity size={24} className="mr-3" />
+              Sprawdź zdrowie swojego pupila
+            </button>
+          </div>
+        )}
+
         {/* Search Bar */}
         <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg p-6 mb-8 border border-white">
           <div className="flex items-center max-w-2xl mx-auto">
@@ -524,19 +537,6 @@ export default function Dashboard() {
             </div>
           )}
         </div>
-
-        {/* Diagnose Pet Button - Only for logged-in users */}
-        {user && (
-          <div className="mb-8 text-center">
-            <button
-              onClick={handleDiagnosePet}
-              className="flex items-center justify-center mx-auto bg-gradient-to-r from-red-500 to-orange-500 text-white px-8 py-4 rounded-xl font-bold text-lg hover:from-red-600 hover:to-orange-600 transition-all duration-300 transform hover:-translate-y-1 shadow-xl hover:shadow-2xl"
-            >
-              <IconActivity size={24} className="mr-3" />
-              Diagnose Pet
-            </button>
-          </div>
-        )}
 
         {/* Features Section */}
         <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg p-8 border border-white">

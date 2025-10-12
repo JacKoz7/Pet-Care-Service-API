@@ -51,17 +51,24 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const inputData = body;
+    const { petId, ...inputData } = body; // Extract petId and get the rest as inputData (without petId)
 
-    // Validate inputData
+    // Validate inputData (now without petId, but check required fields)
     if (
       !inputData ||
-      !inputData.petId ||
       !inputData.selectedSymptoms ||
-      !Array.isArray(inputData.selectedSymptoms)
+      !Array.isArray(inputData.selectedSymptoms) ||
+      inputData.selectedSymptoms.length === 0
     ) {
       return NextResponse.json(
         { error: "Invalid input data" },
+        { status: 400 }
+      );
+    }
+
+    if (!petId) {
+      return NextResponse.json(
+        { error: "Pet ID is required" },
         { status: 400 }
       );
     }
@@ -86,7 +93,7 @@ export async function POST(request: NextRequest) {
 
     const pet = await prisma.pet.findUnique({
       where: {
-        idPet: inputData.petId,
+        idPet: petId,
       },
       select: {
         Client_idClient: true,
@@ -108,7 +115,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Call Gemini API (free tier, key in env as GEMINI_API_KEY)
+    // Log the inputData for AI (without petId)
+    console.log("Input Data for AI:", JSON.stringify(inputData, null, 2));
+
+    // Call Gemini API with inputData (without petId)
     const fullPrompt = `${SYSTEM_PROMPT}\n\nInput: ${JSON.stringify(
       inputData
     )}`;
@@ -143,11 +153,11 @@ export async function POST(request: NextRequest) {
     }
 
     const aiData = await aiResponse.json();
-    console.log("Full AI response:", JSON.stringify(aiData, null, 2)); // ← DODAJ TO
+    console.log("Full AI response:", JSON.stringify(aiData, null, 2));
 
     const aiContent = aiData.candidates?.[0]?.content?.parts?.[0]?.text;
 
-    console.log("Extracted content:", aiContent); // ← I TO
+    console.log("Extracted content:", aiContent);
 
     if (!aiContent) {
       console.log("AI Response status:", aiResponse.status);
@@ -156,10 +166,9 @@ export async function POST(request: NextRequest) {
       throw new Error("No response from AI");
     }
 
-    // Parse JSON from AI response (assuming it's pure JSON, trim if needed)
+    // Parse JSON from AI response
     let diagnoses;
     try {
-      // Gemini czasem dodaje markdown, więc trimujemy
       const cleanedContent = aiContent.trim().replace(/```json\n?|\n?```/g, "");
       diagnoses = JSON.parse(cleanedContent);
     } catch (parseError) {
@@ -180,12 +189,12 @@ export async function POST(request: NextRequest) {
       throw new Error("AI response does not match required schema");
     }
 
-    // Save to database
+    // Save to database (original body with petId)
     const analysis = await prisma.analysis.create({
       data: {
-        inputData: inputData,
+        inputData: body, // Full body with petId for record
         diagnoses: diagnoses,
-        Pet_idPet: inputData.petId,
+        Pet_idPet: petId,
       },
     });
 
@@ -206,6 +215,7 @@ export async function POST(request: NextRequest) {
     await prisma.$disconnect();
   }
 }
+
 
 /**
  * @swagger

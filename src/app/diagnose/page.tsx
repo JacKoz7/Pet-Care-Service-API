@@ -20,6 +20,8 @@ import {
   IconVaccine,
   IconPaw,
   IconEdit,
+  IconChevronDown,
+  IconChevronUp,
 } from "@tabler/icons-react";
 
 interface Symptom {
@@ -30,7 +32,7 @@ interface Symptom {
   defaultSeverity: string;
 }
 
-interface Pet {
+interface PetBasic {
   id: number;
   name: string;
   age: number;
@@ -39,6 +41,51 @@ interface Pet {
   breed: string;
   species: string;
 }
+
+interface PetFull extends PetBasic {
+  weight?: number | null;
+  sex?: "MALE" | "FEMALE" | "UNKNOWN" | null;
+  isSterilized?: boolean | null;
+  activityLevel?: "LOW" | "MEDIUM" | "HIGH" | null;
+  dietType?: "DRY" | "WET" | "BARF" | "HOMEMADE" | "OTHER" | null;
+  knownAllergies?: string[];
+  vaccinationUpToDate?: boolean | null;
+  environmentType?: "INDOOR" | "OUTDOOR" | "MIXED" | null;
+  chronicDiseases?: string[];
+}
+
+// Mapowania dla polskich nazw enumów
+const SEX_MAP: Record<string, string> = {
+  MALE: "Samiec",
+  FEMALE: "Samica",
+  UNKNOWN: "Nieznany",
+};
+
+const ACTIVITY_LEVEL_MAP: Record<string, string> = {
+  LOW: "Niski",
+  MEDIUM: "Średni",
+  HIGH: "Wysoki",
+};
+
+const DIET_TYPE_MAP: Record<string, string> = {
+  DRY: "Sucha",
+  WET: "Mokra",
+  BARF: "BARF",
+  HOMEMADE: "Domowa",
+  OTHER: "Inna",
+};
+
+const ENVIRONMENT_TYPE_MAP: Record<string, string> = {
+  INDOOR: "Wewnątrz",
+  OUTDOOR: "Na zewnątrz",
+  MIXED: "Mieszany",
+};
+
+const SEVERITY_MAP: Record<string, string> = {
+  LOW: "Niski",
+  MODERATE: "Średni",
+  HIGH: "Wysoki",
+};
 
 export default function DiagnosePet() {
   const [user, loading] = useAuthState(auth);
@@ -49,10 +96,11 @@ export default function DiagnosePet() {
   const [selectedSymptoms, setSelectedSymptoms] = useState<Set<number>>(
     new Set()
   );
-  const [pets, setPets] = useState<Pet[]>([]);
+  const [pets, setPets] = useState<PetBasic[]>([]);
   const [isLoadingPets, setIsLoadingPets] = useState(true);
   const [petsError, setPetsError] = useState<string | null>(null);
   const [selectedPetId, setSelectedPetId] = useState<number | null>(null);
+  const [selectedPet, setSelectedPet] = useState<PetFull | null>(null);
   const [weight, setWeight] = useState<string>("");
   const [sex, setSex] = useState<"MALE" | "FEMALE" | "UNKNOWN" | "">("");
   const [isSterilized, setIsSterilized] = useState<boolean | null>(null);
@@ -71,6 +119,7 @@ export default function DiagnosePet() {
   >("");
   const [chronicDiseases, setChronicDiseases] = useState<string>("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [showAllSymptoms, setShowAllSymptoms] = useState(false); // Nowy state dla collapse/expand symptomów
 
   useEffect(() => {
     if (loading) return;
@@ -97,7 +146,7 @@ export default function DiagnosePet() {
         const symptomsData = await symptomsResponse.json();
         setSymptoms(symptomsData.symptoms || []);
 
-        // Fetch pets
+        // Fetch pets (basic data for selection)
         const petsResponse = await fetch("/api/pets", {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -112,8 +161,10 @@ export default function DiagnosePet() {
         setPets(petsData.pets || []);
       } catch (err) {
         console.error("Error fetching data:", err);
-        setSymptomsError("Failed to load symptoms. Please try again.");
-        setPetsError("Failed to load pets. Please try again.");
+        setSymptomsError(
+          "Nie udało się załadować symptomów. Spróbuj ponownie."
+        );
+        setPetsError("Nie udało się załadować zwierząt. Spróbuj ponownie.");
       } finally {
         setIsLoadingSymptoms(false);
         setIsLoadingPets(false);
@@ -122,6 +173,45 @@ export default function DiagnosePet() {
 
     fetchData();
   }, [user, loading, router]);
+
+  // Load full pet data and prefill form when pet is selected
+  useEffect(() => {
+    const loadPetData = async () => {
+      if (!selectedPetId || !user) return;
+
+      try {
+        const token = await user.getIdToken();
+        const response = await fetch(`/api/pets/${selectedPetId}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch pet details");
+        }
+
+        const data = await response.json();
+        const pet = data.pet as PetFull;
+        setSelectedPet(pet);
+
+        // Prefill form with pet data
+        setWeight(pet.weight?.toString() || "");
+        setSex(pet.sex || "");
+        setIsSterilized(pet.isSterilized || null);
+        setActivityLevel(pet.activityLevel || "");
+        setDietType(pet.dietType || "");
+        setKnownAllergies(pet.knownAllergies?.join(", ") || "");
+        setVaccinationUpToDate(pet.vaccinationUpToDate || null);
+        setEnvironmentType(pet.environmentType || "");
+        setChronicDiseases(pet.chronicDiseases?.join(", ") || "");
+      } catch (err) {
+        console.error("Error loading pet data:", err);
+      }
+    };
+
+    loadPetData();
+  }, [selectedPetId, user]);
 
   const handleSymptomChange = (id: number) => {
     setSelectedSymptoms((prev) => {
@@ -136,33 +226,46 @@ export default function DiagnosePet() {
   };
 
   const handleAnalyze = async () => {
-    if (!selectedPetId) {
-      alert("Please select a pet first.");
+    if (!selectedPetId || !selectedPet) {
+      alert("Proszę najpierw wybrać zwierzę.");
       return;
     }
 
-    // Construct inputData JSON
+    if (selectedSymptoms.size === 0) {
+      alert("Proszę wybrać co najmniej jeden symptom.");
+      return;
+    }
+
+    // Construct inputData without petId, using selectedPet and form overrides
     const inputData = {
-      petId: selectedPetId,
-      weight: weight ? parseFloat(weight) : null,
-      sex: sex || null,
-      isSterilized: isSterilized,
-      activityLevel: activityLevel || null,
-      dietType: dietType || null,
+      name: selectedPet.name,
+      age: Number(selectedPet.age),
+      description: selectedPet.description || null,
+      species: selectedPet.species,
+      breed: selectedPet.breed,
+      weight: weight ? parseFloat(weight) : selectedPet.weight || null,
+      sex: sex || selectedPet.sex || null,
+      isSterilized:
+        isSterilized !== null ? isSterilized : selectedPet.isSterilized || null,
+      activityLevel: activityLevel || selectedPet.activityLevel || null,
+      dietType: dietType || selectedPet.dietType || null,
       knownAllergies: knownAllergies
         ? knownAllergies
             .split(",")
             .map((s) => s.trim())
             .filter((s) => s)
-        : [],
-      vaccinationUpToDate: vaccinationUpToDate,
-      environmentType: environmentType || null,
+        : selectedPet.knownAllergies || [],
+      vaccinationUpToDate:
+        vaccinationUpToDate !== null
+          ? vaccinationUpToDate
+          : selectedPet.vaccinationUpToDate || null,
+      environmentType: environmentType || selectedPet.environmentType || null,
       chronicDiseases: chronicDiseases
         ? chronicDiseases
             .split(",")
             .map((s) => s.trim())
             .filter((s) => s)
-        : [],
+        : selectedPet.chronicDiseases || [],
       selectedSymptoms: Array.from(selectedSymptoms)
         .map((id) => {
           const symptom = symptoms.find((s) => s.idSymptom === id);
@@ -176,22 +279,28 @@ export default function DiagnosePet() {
               }
             : null;
         })
-        .filter((s) => s),
+        .filter((s): s is NonNullable<typeof s> => s !== null),
     };
 
-    console.log("Input Data JSON:", JSON.stringify(inputData, null, 2));
+    // Log the exact inputData sent to AI (without petId)
+    console.log(
+      "Input Data JSON (for AI):",
+      JSON.stringify(inputData, null, 2)
+    );
 
     setIsAnalyzing(true);
 
     try {
       const token = await user!.getIdToken();
+      // Add petId back only for backend validation and DB save
+      const body = { ...inputData, petId: selectedPetId };
       const response = await fetch("/api/analysis", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(inputData),
+        body: JSON.stringify(body),
       });
 
       if (!response.ok) {
@@ -204,8 +313,8 @@ export default function DiagnosePet() {
     } catch (error) {
       console.error("Error during analysis:", error);
       alert(
-        `Analysis failed: ${
-          error instanceof Error ? error.message : "Unknown error"
+        `Analiza nie powiodła się: ${
+          error instanceof Error ? error.message : "Nieznany błąd"
         }`
       );
     } finally {
@@ -214,7 +323,7 @@ export default function DiagnosePet() {
   };
 
   const handleBack = () => {
-    router.push("/dashboard");
+    router.push("/");
   };
 
   if (loading || isLoadingSymptoms || isLoadingPets) {
@@ -222,11 +331,15 @@ export default function DiagnosePet() {
       <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50 flex items-center justify-center">
         <div className="flex flex-col items-center">
           <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mb-4"></div>
-          <p className="text-indigo-600 text-lg font-medium">Loading...</p>
+          <p className="text-indigo-600 text-lg font-medium">Ładowanie...</p>
         </div>
       </div>
     );
   }
+
+  // Oblicz liczbę wyświetlanych symptomów: pierwsze 10, reszta pod collapse
+  const visibleSymptoms = showAllSymptoms ? symptoms : symptoms.slice(0, 10);
+  const hiddenSymptomsCount = symptoms.length - 10;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50 py-8 px-4 sm:px-6 lg:px-8">
@@ -236,26 +349,47 @@ export default function DiagnosePet() {
           className="flex items-center text-indigo-600 hover:text-indigo-800 mb-6 transition-colors"
         >
           <IconArrowLeft className="mr-2" size={20} />
-          Back to Dashboard
+          Powrót do dashboardu
         </button>
 
         <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg p-8 border border-white">
           <div className="flex items-center justify-center mb-8">
-            <IconActivity className="text-red-500 mr-3" size={32} />
+            <IconActivity className="text-blue-500 mr-3" size={32} />
             <h1 className="text-3xl font-bold text-gray-800">
-              Diagnose Your Pet
+              Sprawdź zdrowie swojego pupila
             </h1>
           </div>
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-8">
+            <div className="flex items-start">
+              <IconAlertTriangle
+                className="text-amber-600 mt-0.5 mr-3 flex-shrink-0"
+                size={20}
+              />
+              <div className="text-sm text-amber-800">
+                <p className="font-medium mb-1">Ważna informacja:</p>
+                <p>
+                  Nasza platforma ma charakter wyłącznie edukacyjny i nie
+                  stanowi substytutu profesjonalnej opieki weterynaryjnej.
+                  Narzędzie to może pomóc w zidentyfikowaniu potencjalnych
+                  obszarów zainteresowania na podstawie podanych symptomów, ale
+                  wyniki są jedynie sugestiami opartymi na ogólnej wiedzy.
+                  Zawsze konsultuj się z certyfikowanym weterynarzem, aby
+                  uzyskać dokładną diagnozę i zalecenia medyczne dostosowane do
+                  stanu zdrowia Twojego pupila.
+                </p>
+              </div>
+            </div>
+          </div>
           <p className="text-gray-600 text-center mb-12">
-            Select a pet, provide additional details if available, and choose
-            symptoms.
+            Wybierz zwierzę, uzupełnij dodatkowe informacje o jego stanie i
+            zaznacz obserwowane symptomy, aby uzyskać wstępne wskazówki.
           </p>
 
           {/* Pet Selection */}
           <div className="mb-12">
             <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
               <IconPaw className="mr-2 text-amber-600" size={24} />
-              Select Pet
+              Wybierz zwierzę
             </h2>
             {petsError ? (
               <div className="bg-red-50 border border-red-200 rounded-xl p-4">
@@ -271,10 +405,10 @@ export default function DiagnosePet() {
                   size={48}
                 />
                 <h3 className="text-lg font-medium text-gray-700 mb-2">
-                  No pets found
+                  Nie znaleziono zwierząt
                 </h3>
                 <p className="text-gray-500">
-                  Add a pet in your profile to start diagnosis.
+                  Dodaj zwierzę w swoim profilu, aby rozpocząć diagnozę.
                 </p>
               </div>
             ) : (
@@ -302,7 +436,7 @@ export default function DiagnosePet() {
                         {pet.name}
                       </h3>
                       <p className="text-sm text-gray-600">
-                        {pet.species} - {pet.breed}, Age: {pet.age}
+                        {pet.species} - {pet.breed}, Wiek: {pet.age}
                       </p>
                     </div>
                   </div>
@@ -315,19 +449,19 @@ export default function DiagnosePet() {
           <div className="mb-12">
             <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
               <IconEdit className="mr-2 text-blue-600" size={24} />
-              Additional Pet Details (Optional)
+              Dodatkowe szczegóły pupila (opcjonalne)
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="text-sm font-medium text-gray-700 mb-2 flex items-center">
                   <IconScale className="mr-2 text-gray-500" size={16} />
-                  Weight (kg)
+                  Waga (kg)
                 </label>
                 <input
                   type="number"
                   value={weight}
                   onChange={(e) => setWeight(e.target.value)}
-                  placeholder="e.g., 15.5"
+                  placeholder="np. 15.5"
                   className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                   min="0"
                   step="0.1"
@@ -336,17 +470,19 @@ export default function DiagnosePet() {
               <div>
                 <label className="text-sm font-medium text-gray-700 mb-2 flex items-center">
                   <IconGenderMale className="mr-2 text-gray-500" size={16} />
-                  Sex
+                  Płeć
                 </label>
                 <select
                   value={sex}
                   onChange={(e) => setSex(e.target.value as typeof sex)}
                   className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 >
-                  <option value="">Select sex</option>
-                  <option value="MALE">Male</option>
-                  <option value="FEMALE">Female</option>
-                  <option value="UNKNOWN">Unknown</option>
+                  <option value="">Wybierz płeć</option>
+                  {Object.entries(SEX_MAP).map(([key, label]) => (
+                    <option key={key} value={key}>
+                      {label}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div className="flex items-center">
@@ -362,7 +498,7 @@ export default function DiagnosePet() {
                   className="ml-2 text-sm font-medium text-gray-700 flex items-center"
                 >
                   <IconCheck className="mr-2 text-gray-500" size={16} />
-                  Sterilized
+                  Wysterylizowany
                 </label>
               </div>
               <div>
@@ -371,7 +507,7 @@ export default function DiagnosePet() {
                     className="mr-2 text-gray-500"
                     size={16}
                   />
-                  Activity Level
+                  Poziom aktywności
                 </label>
                 <select
                   value={activityLevel}
@@ -380,16 +516,18 @@ export default function DiagnosePet() {
                   }
                   className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 >
-                  <option value="">Select activity level</option>
-                  <option value="LOW">Low</option>
-                  <option value="MEDIUM">Medium</option>
-                  <option value="HIGH">High</option>
+                  <option value="">Wybierz poziom aktywności</option>
+                  {Object.entries(ACTIVITY_LEVEL_MAP).map(([key, label]) => (
+                    <option key={key} value={key}>
+                      {label}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div>
                 <label className="text-sm font-medium text-gray-700 mb-2 flex items-center">
                   <IconApple className="mr-2 text-gray-500" size={16} />
-                  Diet Type
+                  Typ diety
                 </label>
                 <select
                   value={dietType}
@@ -398,24 +536,24 @@ export default function DiagnosePet() {
                   }
                   className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 >
-                  <option value="">Select diet type</option>
-                  <option value="DRY">Dry</option>
-                  <option value="WET">Wet</option>
-                  <option value="BARF">BARF</option>
-                  <option value="HOMEMADE">Homemade</option>
-                  <option value="OTHER">Other</option>
+                  <option value="">Wybierz typ diety</option>
+                  {Object.entries(DIET_TYPE_MAP).map(([key, label]) => (
+                    <option key={key} value={key}>
+                      {label}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div>
                 <label className="text-sm font-medium text-gray-700 mb-2 flex items-center">
                   <IconVirus className="mr-2 text-gray-500" size={16} />
-                  Known Allergies (comma-separated)
+                  Znane alergie (oddzielone przecinkami)
                 </label>
                 <input
                   type="text"
                   value={knownAllergies}
                   onChange={(e) => setKnownAllergies(e.target.value)}
-                  placeholder="e.g., peanuts, dairy"
+                  placeholder="np. orzechy, nabiał"
                   className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 />
               </div>
@@ -432,13 +570,13 @@ export default function DiagnosePet() {
                   className="ml-2 text-sm font-medium text-gray-700 flex items-center"
                 >
                   <IconVaccine className="mr-2 text-gray-500" size={16} />
-                  Vaccinations Up to Date
+                  Szczepienia na bieżąco
                 </label>
               </div>
               <div>
                 <label className="text-sm font-medium text-gray-700 mb-2 flex items-center">
                   <IconHome className="mr-2 text-gray-500" size={16} />
-                  Environment Type
+                  Typ środowiska
                 </label>
                 <select
                   value={environmentType}
@@ -447,22 +585,24 @@ export default function DiagnosePet() {
                   }
                   className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 >
-                  <option value="">Select environment type</option>
-                  <option value="INDOOR">Indoor</option>
-                  <option value="OUTDOOR">Outdoor</option>
-                  <option value="MIXED">Mixed</option>
+                  <option value="">Wybierz typ środowiska</option>
+                  {Object.entries(ENVIRONMENT_TYPE_MAP).map(([key, label]) => (
+                    <option key={key} value={key}>
+                      {label}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div className="md:col-span-2">
                 <label className="text-sm font-medium text-gray-700 mb-2 flex items-center">
                   <IconVirus className="mr-2 text-gray-500" size={16} />
-                  Chronic Diseases (comma-separated)
+                  Przewlekłe choroby (oddzielone przecinkami)
                 </label>
                 <input
                   type="text"
                   value={chronicDiseases}
                   onChange={(e) => setChronicDiseases(e.target.value)}
-                  placeholder="e.g., diabetes, arthritis"
+                  placeholder="np. cukrzyca, artretyzm"
                   className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 />
               </div>
@@ -473,7 +613,7 @@ export default function DiagnosePet() {
           <div className="mb-12">
             <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
               <IconAlertTriangle className="mr-2 text-red-600" size={24} />
-              Select Symptoms
+              Wybierz symptomy (co najmniej 1)
             </h2>
             {symptomsError ? (
               <div className="bg-red-50 border border-red-200 rounded-xl p-4">
@@ -489,15 +629,15 @@ export default function DiagnosePet() {
                   size={48}
                 />
                 <h3 className="text-lg font-medium text-gray-700 mb-2">
-                  No symptoms available
+                  Brak dostępnych objawów
                 </h3>
                 <p className="text-gray-500">
-                  Please check back later or contact support.
+                  Sprawdź później lub skontaktuj się z pomocą.
                 </p>
               </div>
             ) : (
               <div className="space-y-3">
-                {symptoms.map((symptom) => (
+                {visibleSymptoms.map((symptom) => (
                   <div
                     key={symptom.idSymptom}
                     className="flex items-start p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
@@ -522,11 +662,31 @@ export default function DiagnosePet() {
                         </p>
                       )}
                       <span className="text-xs text-gray-500">
-                        Severity: {symptom.defaultSeverity}
+                        Ciężkość:{" "}
+                        {SEVERITY_MAP[symptom.defaultSeverity] ||
+                          symptom.defaultSeverity}
                       </span>
                     </label>
                   </div>
                 ))}
+                {hiddenSymptomsCount > 0 && (
+                  <button
+                    onClick={() => setShowAllSymptoms(!showAllSymptoms)}
+                    className="w-full flex items-center justify-center p-3 bg-indigo-100 text-indigo-700 rounded-xl hover:bg-indigo-200 transition-colors"
+                  >
+                    {showAllSymptoms ? (
+                      <>
+                        <IconChevronUp className="mr-2" size={16} />
+                        Ukryj dodatkowe symptomy ({hiddenSymptomsCount})
+                      </>
+                    ) : (
+                      <>
+                        <IconChevronDown className="mr-2" size={16} />
+                        Pokaż wszystkie symptomy ({hiddenSymptomsCount} więcej)
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -535,13 +695,15 @@ export default function DiagnosePet() {
           <div className="flex justify-center">
             <button
               onClick={handleAnalyze}
-              disabled={isAnalyzing || !selectedPetId}
+              disabled={
+                isAnalyzing || !selectedPetId || selectedSymptoms.size === 0
+              }
               className="bg-gradient-to-r from-red-500 to-orange-500 text-white px-8 py-3 rounded-xl font-bold text-lg hover:from-red-600 hover:to-orange-600 transition-all duration-300 transform hover:-translate-y-1 shadow-xl hover:shadow-2xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
             >
               {isAnalyzing ? (
                 <>
                   <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  <span>Analyzing...</span>
+                  <span>Analizowanie...</span>
                 </>
               ) : (
                 <span>Wykonaj analizę</span>

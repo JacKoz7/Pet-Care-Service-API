@@ -183,19 +183,11 @@ enum Severity {
 }
 
 model Pet {
-  idPet               Int              @id @default(autoincrement())
-  name                String           @db.VarChar(45)
-  age                 Decimal          @db.Decimal(3, 0)
-  description         String?          @db.VarChar(500)
-  weight              Decimal?         @db.Decimal(5, 2)
-  sex                 Sex?
-  isSterilized        Boolean?
-  activityLevel       ActivityLevel?
-  dietType            DietType?
-  knownAllergies      String[]         @default([])
-  vaccinationUpToDate Boolean?
-  environmentType     EnvironmentType?
-  chronicDiseases     String[]         @default([])
+  idPet           Int      @id @default(autoincrement())
+  name            String   @db.VarChar(45)
+  age             Decimal  @db.Decimal(3, 0)
+  description     String?  @db.VarChar(500)
+  chronicDiseases String[] @default([])
 
   Breed           Breed      @relation(fields: [Breed_idBreed], references: [idBreed])
   Breed_idBreed   Int
@@ -290,10 +282,10 @@ model Symptom {
 }
 
 model Analysis {
-  idAnalysis  Int      @id @default(autoincrement())
-  inputData   Json
-  diagnoses   Json
-  createdAt   DateTime @default(now())
+  idAnalysis Int      @id @default(autoincrement())
+  inputData  Json
+  diagnoses  Json
+  createdAt  DateTime @default(now())
 
   Pet       Pet @relation(fields: [Pet_idPet], references: [idPet])
   Pet_idPet Int

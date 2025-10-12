@@ -82,6 +82,168 @@ const symptoms = [
     description: "Intensywne swędzenie skóry.",
     defaultSeverity: "LOW" as Severity,
   },
+  {
+    code: "diarrhea",
+    name: "Biegunka",
+    description: "Luźne lub wodniste stolce.",
+    defaultSeverity: "MODERATE" as Severity,
+  },
+  {
+    code: "coughing",
+    name: "Kaszel",
+    description: "Suchy lub produktywny kaszel.",
+    defaultSeverity: "MODERATE" as Severity,
+  },
+  {
+    code: "sneezing",
+    name: "Kichanie",
+    description: "Powtarzające się kichanie.",
+    defaultSeverity: "LOW" as Severity,
+  },
+  {
+    code: "runny_nose",
+    name: "Katar",
+    description: "Wyciek z nosa.",
+    defaultSeverity: "LOW" as Severity,
+  },
+  {
+    code: "fever",
+    name: "Gorączka",
+    description: "Podwyższona temperatura ciała.",
+    defaultSeverity: "HIGH" as Severity,
+  },
+  {
+    code: "lethargy",
+    name: "Letarg",
+    description: "Osłabienie, brak energii.",
+    defaultSeverity: "MODERATE" as Severity,
+  },
+  {
+    code: "watery_eyes",
+    name: "Łzawiące oczy",
+    description: "Nadmierne łzawienie oczu.",
+    defaultSeverity: "LOW" as Severity,
+  },
+  {
+    code: "polydipsia",
+    name: "Zwiększone pragnienie",
+    description: "Nadmierne picie wody.",
+    defaultSeverity: "MODERATE" as Severity,
+  },
+  {
+    code: "polyuria",
+    name: "Zwiększone oddawanie moczu",
+    description: "Częstsze lub obfitsze oddawanie moczu.",
+    defaultSeverity: "MODERATE" as Severity,
+  },
+  {
+    code: "weight_loss",
+    name: "Utrata wagi",
+    description: "Niezamierzona utrata masy ciała.",
+    defaultSeverity: "MODERATE" as Severity,
+  },
+  {
+    code: "hair_loss",
+    name: "Wypadanie sierści",
+    description: "Utrata włosów lub sierści.",
+    defaultSeverity: "LOW" as Severity,
+  },
+  {
+    code: "seizures",
+    name: "Napady padaczkowe",
+    description: "Drgawki lub konwulsje.",
+    defaultSeverity: "HIGH" as Severity,
+  },
+  {
+    code: "lameness",
+    name: "Kulawizna",
+    description: "Chromanie lub trudności w chodzeniu.",
+    defaultSeverity: "MODERATE" as Severity,
+  },
+  {
+    code: "ear_discharge",
+    name: "Wyciek z ucha",
+    description: "Wydzielina z ucha.",
+    defaultSeverity: "MODERATE" as Severity,
+  },
+  {
+    code: "limping",
+    name: "Kuleje",
+    description: "Trudności w chodzeniu na jednej łapie.",
+    defaultSeverity: "MODERATE" as Severity,
+  },
+  {
+    code: "dehydration",
+    name: "Odwodnienie",
+    description: "Suchość dziąseł, brak elastyczności skóry.",
+    defaultSeverity: "HIGH" as Severity,
+  },
+  {
+    code: "bad_breath",
+    name: "Zły oddech",
+    description: "Nieprzyjemny zapach z pyska.",
+    defaultSeverity: "LOW" as Severity,
+  },
+  {
+    code: "drooling",
+    name: "Nadmierne ślinienie",
+    description: "Zwiększone ślinienie się.",
+    defaultSeverity: "LOW" as Severity,
+  },
+  {
+    code: "straining_defecation",
+    name: "Parcie na stolec",
+    description: "Trudności w defekacji.",
+    defaultSeverity: "MODERATE" as Severity,
+  },
+  {
+    code: "increased_appetite",
+    name: "Zwiększony apetyt",
+    description: "Nadmierny głód.",
+    defaultSeverity: "LOW" as Severity,
+  },
+  {
+    code: "hyperactivity",
+    name: "Nadpobudliwość",
+    description: "Nadmierna aktywność.",
+    defaultSeverity: "LOW" as Severity,
+  },
+  {
+    code: "weakness",
+    name: "Słabość",
+    description: "Ogólne osłabienie mięśni.",
+    defaultSeverity: "MODERATE" as Severity,
+  },
+  {
+    code: "runny_eyes",
+    name: "Wyciek z oczu",
+    description: "Kapiący wyciek z oczu.",
+    defaultSeverity: "LOW" as Severity,
+  },
+  {
+    code: "pot_belly",
+    name: "Wydęty brzuch",
+    description: "Opuchnięty lub powiększony brzuch.",
+    defaultSeverity: "MODERATE" as Severity,
+  },
+  {
+    code: "poor_growth",
+    name: "Słaby wzrost",
+    description: "Opóźniony rozwój u młodych zwierząt.",
+    defaultSeverity: "MODERATE" as Severity,
+  },
+  {
+    code: "dandruff",
+    name: "Łupież",
+    description: "Sucha, łuszcząca się skóra.",
+    defaultSeverity: "LOW" as Severity,
+  },
+  {
+    code: "painful_defecation",
+    name: "Bolesna defekacja",
+    description: "Ból podczas wypróżniania.",
+    defaultSeverity: "HIGH" as Severity,
+  },
 ];
 
 async function main() {
@@ -330,58 +492,70 @@ async function main() {
     );
   }
 
-  console.log("Dodaję dwa pety dla clienta...");
+  console.log("Sprawdzam czy istnieją pety dla clienta...");
 
-  // Sample pets data
-  const samplePets = [
-    {
-      name: "Max",
-      age: 5,
-      description: "Lojalny i energiczny labrador, uwielbia spacery.",
-      breedId: labradorBreed.idBreed,
-      clientId: client.idClient,
-      images: [
-        "https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=500",
-      ],
-    },
-    {
-      name: "Bella",
-      age: 3,
-      description: "Słodka labradorka, spokojna i przyjazna.",
-      breedId: labradorBreed.idBreed,
-      clientId: client.idClient,
-      images: [
-        "https://images.unsplash.com/photo-1573865526739-10659fec78a5?w=500",
-      ],
-    },
-  ];
+  const existingPetsCount = await prisma.pet.count({
+    where: { Client_idClient: client.idClient },
+  });
 
-  // Seed sample pets
-  for (const pet of samplePets) {
-    try {
-      const createdPet = await prisma.pet.create({
-        data: {
-          name: pet.name,
-          age: pet.age,
-          description: pet.description,
-          Breed_idBreed: pet.breedId,
-          Client_idClient: pet.clientId,
-          Images: {
-            create: pet.images.map((imageUrl, index) => ({
-              imageUrl,
-              order: index + 1,
-            })),
+  if (existingPetsCount > 0) {
+    console.log(
+      `Znaleziono ${existingPetsCount} petów dla clienta. Pomijam dodawanie nowych petów.`
+    );
+  } else {
+    console.log("Dodaję dwa pety dla clienta...");
+
+    // Sample pets data
+    const samplePets = [
+      {
+        name: "Max",
+        age: 5,
+        description: "Lojalny i energiczny labrador, uwielbia spacery.",
+        breedId: labradorBreed.idBreed,
+        clientId: client.idClient,
+        images: [
+          "https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=500",
+        ],
+      },
+      {
+        name: "Bella",
+        age: 3,
+        description: "Słodka labradorka, spokojna i przyjazna.",
+        breedId: labradorBreed.idBreed,
+        clientId: client.idClient,
+        images: [
+          "https://warsawdog.com/wp-content/uploads/2021/06/labrador-retriever.jpg",
+        ],
+      },
+    ];
+
+    // Seed sample pets
+    for (const pet of samplePets) {
+      try {
+        const createdPet = await prisma.pet.create({
+          data: {
+            name: pet.name,
+            age: pet.age,
+            description: pet.description,
+            Breed_idBreed: pet.breedId,
+            Client_idClient: pet.clientId,
+            Images: {
+              create: pet.images.map((imageUrl, index) => ({
+                imageUrl,
+                order: index + 1,
+              })),
+            },
           },
-        },
-        include: {
-          Images: true,
-        },
-      });
-      console.log(
-        `Dodano peta: ${createdPet.name} (wiek: ${createdPet.age}, rasa: Labrador Retriever) z ${createdPet.Images.length} zdjęciami`
-      );
-    } catch (error) {
-      console.error(`Błąd przy dodawaniu peta "${pet.name}":`, error);
+          include: {
+            Images: true,
+          },
+        });
+        console.log(
+          `Dodano peta: ${createdPet.name} (wiek: ${createdPet.age}, rasa: Labrador Retriever) z ${createdPet.Images.length} zdjęciami`
+        );
+      } catch (error) {
+        console.error(`Błąd przy dodawaniu peta "${pet.name}":`, error);
+      }
     }
   }
 
