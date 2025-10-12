@@ -218,6 +218,36 @@ export default function Profile() {
     }
   };
 
+  const handleDeleteAccount = useCallback(async () => {
+    if (
+      !window.confirm(
+        "Are you sure you want to delete your account? This action is permanent and will remove all your data, including pets, advertisements, and bookings."
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setError("");
+      setSuccess("");
+      const response = await fetch("/api/user/delete", {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json();
+      if (data.success) {
+        setSuccess("Account deleted successfully. Redirecting...");
+        await auth.signOut();
+        setTimeout(() => router.push("/sign-in"), 2000);
+      } else {
+        setError(data.error || "Failed to delete account");
+      }
+    } catch (err) {
+      console.error("Error deleting account:", err);
+      setError("An error occurred while deleting the account");
+    }
+  }, [token, router]);
+
   if (contextLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50 flex items-center justify-center">
@@ -494,6 +524,17 @@ export default function Profile() {
                     </p>
                   </div>
                 </div>
+
+                {userData && (
+                  <div className="mt-6 pt-4 border-t border-gray-200">
+                    <button
+                      onClick={handleDeleteAccount}
+                      className="w-full bg-red-600 text-white py-2 rounded-xl font-semibold hover:bg-red-700 transition-all duration-300 transform hover:-translate-y-0.5 shadow-lg hover:shadow-xl text-base"
+                    >
+                      Delete Account
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="flex justify-center py-6">
