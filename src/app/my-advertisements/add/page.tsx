@@ -1,3 +1,4 @@
+// app/my-advertisements/add/page.tsx
 "use client";
 
 import { auth } from "../../firebase";
@@ -6,7 +7,6 @@ import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import {
   IconArrowLeft,
-  IconPlus,
   IconTrash,
   IconAlertCircle,
   IconCircleCheck,
@@ -15,8 +15,12 @@ import {
   IconClock,
   IconCurrencyDollar,
   IconPaw,
-  IconPhoto,
+  IconUpload,
 } from "@tabler/icons-react";
+import { useDropzone } from "react-dropzone";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { storage } from "../../firebase";
+import Image from "next/image";
 
 interface Service {
   idService: number;
@@ -26,6 +30,14 @@ interface Service {
 interface Notification {
   message: string;
   type: "info" | "error" | "warning" | "success";
+}
+
+interface ImageFile {
+  file?: File;
+  url: string;
+  preview?: string;
+  isUploading?: boolean;
+  order: number;
 }
 
 export default function AddAdvertisement() {
@@ -47,7 +59,7 @@ export default function AddAdvertisement() {
   const [serviceStartTime, setServiceStartTime] = useState("");
   const [serviceEndTime, setServiceEndTime] = useState("");
   const [selectedService, setSelectedService] = useState("");
-  const [images, setImages] = useState<string[]>([""]);
+  const [images, setImages] = useState<ImageFile[]>([]);
 
   useEffect(() => {
     if (!user) {
@@ -75,19 +87,52 @@ export default function AddAdvertisement() {
     fetchServices();
   }, [user, router]);
 
-  const handleAddImage = () => {
-    setImages([...images, ""]);
+  const onDrop = (acceptedFiles: File[]) => {
+    const newImages = acceptedFiles.map((file, index) => ({
+      file,
+      url: "",
+      preview: URL.createObjectURL(file),
+      order: images.length + index + 1,
+    }));
+    setImages((prev) => [...prev, ...newImages]);
   };
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: { "image/*": [".jpeg", ".jpg", ".png", ".gif"] },
+    multiple: true,
+  });
 
   const handleRemoveImage = (index: number) => {
-    const newImages = images.filter((_, i) => i !== index);
-    setImages(newImages.length === 0 ? [""] : newImages);
+    setImages((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleImageChange = (index: number, value: string) => {
-    const newImages = [...images];
-    newImages[index] = value;
-    setImages(newImages);
+  const uploadImages = async (): Promise<
+    { imageUrl: string; order: number }[]
+  > => {
+    const uploaded: { imageUrl: string; order: number }[] = [];
+    for (const [index, img] of images.entries()) {
+      if (img.file) {
+        setImages((prev) =>
+          prev.map((p, i) => (i === index ? { ...p, isUploading: true } : p))
+        );
+        const storageRef = ref(
+          storage,
+          `advertisements/${user!.uid}/${Date.now()}_${img.file.name}`
+        );
+        await uploadBytes(storageRef, img.file);
+        const url = await getDownloadURL(storageRef);
+        uploaded.push({ imageUrl: url, order: img.order });
+        setImages((prev) =>
+          prev.map((p, i) =>
+            i === index ? { ...p, url, isUploading: false } : p
+          )
+        );
+      } else if (img.url) {
+        uploaded.push({ imageUrl: img.url, order: img.order });
+      }
+    }
+    return uploaded;
   };
 
   const validateForm = () => {
@@ -108,8 +153,7 @@ export default function AddAdvertisement() {
     }
     if (price && (isNaN(parseFloat(price)) || parseFloat(price) < 0))
       return "Price must be a non-negative number";
-    const validImages = images.filter((img) => img.trim());
-    if (validImages.length === 0) return "At least one image URL is required";
+    if (images.length === 0) return "At least one image is required";
     return null;
   };
 
@@ -122,6 +166,11 @@ export default function AddAdvertisement() {
     }
 
     try {
+      const uploadedImages = await uploadImages();
+      if (uploadedImages.length !== images.length) {
+        throw new Error("Failed to upload all images");
+      }
+
       const token = await user!.getIdToken();
       const response = await fetch("/api/advertisements", {
         method: "POST",
@@ -142,12 +191,7 @@ export default function AddAdvertisement() {
             ? `1970-01-01T${serviceEndTime}:00`
             : null,
           serviceId: parseInt(selectedService),
-          images: images
-            .filter((img) => img.trim())
-            .map((img, index) => ({
-              imageUrl: img,
-              order: index + 1,
-            })),
+          images: uploadedImages,
         }),
       });
 
@@ -399,47 +443,59 @@ export default function AddAdvertisement() {
               </div>
             </div>
 
-            {/* Images */}
+            {/* Images Dropzone */}
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="block text-sm font-medium text-gray-700">
-                  Images * (at least one)
-                </label>
-                <button
-                  type="button"
-                  onClick={handleAddImage}
-                  className="flex items-center text-indigo-600 hover:text-indigo-800"
-                >
-                  <IconPlus size={16} className="mr-1" />
-                  Add Image
-                </button>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Images * (at least one)
+              </label>
+              <div
+                {...getRootProps()}
+                className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${
+                  isDragActive
+                    ? "border-indigo-500 bg-indigo-50"
+                    : "border-gray-300 hover:border-indigo-500"
+                }`}
+              >
+                <input {...getInputProps()} />
+                <IconUpload className="mx-auto text-gray-400 mb-2" size={32} />
+                <p className="text-gray-600">
+                  {isDragActive
+                    ? "Drop the images here"
+                    : "Drag & drop images here, or click to select"}
+                </p>
+                <p className="text-sm text-gray-500 mt-1">
+                  Supported formats: JPG, PNG, GIF
+                </p>
               </div>
-              {images.map((img, index) => (
-                <div key={index} className="flex items-center mb-2">
-                  <div className="relative flex-1">
-                    <IconPhoto
-                      className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
-                      size={18}
-                    />
-                    <input
-                      type="url"
-                      value={img}
-                      onChange={(e) => handleImageChange(index, e.target.value)}
-                      placeholder="https://example.com/image.jpg"
-                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    />
-                  </div>
-                  {images.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveImage(index)}
-                      className="ml-2 text-red-500 hover:text-red-700"
-                    >
-                      <IconTrash size={18} />
-                    </button>
-                  )}
+              {images.length > 0 && (
+                <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                  {images.map((img, index) => (
+                    <div key={index} className="relative group">
+                      <Image
+                        src={img.preview || img.url}
+                        alt={`Image ${index + 1}`}
+                        width={200}
+                        height={128}
+                        className={`w-full h-32 object-cover rounded-lg ${
+                          img.isUploading ? "opacity-50" : ""
+                        }`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveImage(index)}
+                        className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <IconTrash size={16} />
+                      </button>
+                      {img.isUploading && (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
 
             {/* Submit Button */}

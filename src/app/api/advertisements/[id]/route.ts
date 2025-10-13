@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient, Prisma } from "@prisma/client";
 import { adminAuth } from "@/lib/firebaseAdmin";
+import { getStorage } from "firebase-admin/storage";
 
 const prisma = new PrismaClient();
 
@@ -537,7 +538,7 @@ export async function PUT(
  *     summary: Delete an advertisement
  *     description: |
  *       Archives an advertisement by moving it to the AdvertisementArchive table and deletes it from the Advertisement table.
- *       Also deletes associated images, feedback, and archive records.
+ *       Also deletes associated images from Firebase Storage, feedback, and archive records.
  *       Only the advertisement owner (matching service provider) can delete the advertisement.
  *     tags: [Advertisements]
  *     security:
@@ -715,6 +716,29 @@ export async function DELETE(
         },
       });
     });
+
+    // Delete images from Firebase Storage
+    const bucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
+    if (!bucketName) {
+      console.error("FIREBASE_STORAGE_BUCKET env var not set");
+      return NextResponse.json({ success: true }); // Proceed without deleting images if env missing
+    }
+    const bucket = getStorage().bucket(bucketName);
+    for (const img of imagesUrls) {
+      if (img.url) {
+        const path = decodeURIComponent(
+          img.url.split("/o/")[1]?.split("?")[0] || ""
+        );
+        if (path) {
+          try {
+            await bucket.file(path).delete();
+            console.log(`Deleted image from Storage: ${path}`);
+          } catch (deleteErr) {
+            console.error(`Failed to delete image ${path}:`, deleteErr);
+          }
+        }
+      }
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

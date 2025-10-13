@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient, Prisma } from "@prisma/client";
 import { adminAuth } from "@/lib/firebaseAdmin";
+import { getStorage } from "firebase-admin/storage";
 
 const prisma = new PrismaClient();
 
@@ -318,6 +319,12 @@ export async function DELETE(
       },
       select: {
         Client_idClient: true,
+        Images: {
+          select: {
+            imageUrl: true,
+            order: true,
+          },
+        },
       },
     });
 
@@ -336,6 +343,11 @@ export async function DELETE(
       );
     }
 
+    const imagesUrls = pet.Images.map((img: { imageUrl: string; order: number | null }) => ({
+      url: img.imageUrl,
+      order: img.order,
+    }));
+
     await prisma.$transaction(async (tx) => {
       await tx.petImage.deleteMany({
         where: {
@@ -353,6 +365,29 @@ export async function DELETE(
         },
       });
     });
+
+    // Delete images from Firebase Storage
+    const bucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
+    if (!bucketName) {
+      console.error("FIREBASE_STORAGE_BUCKET env var not set");
+      return NextResponse.json({ success: true }); // Proceed without deleting images if env missing
+    }
+    const bucket = getStorage().bucket(bucketName);
+    for (const img of imagesUrls) {
+      if (img.url) {
+        const path = decodeURIComponent(
+          img.url.split("/o/")[1]?.split("?")[0] || ""
+        );
+        if (path) {
+          try {
+            await bucket.file(path).delete();
+            console.log(`Deleted image from Storage: ${path}`);
+          } catch (deleteErr) {
+            console.error(`Failed to delete image ${path}:`, deleteErr);
+          }
+        }
+      }
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -517,7 +552,7 @@ export async function DELETE(
  *   delete:
  *     summary: Delete a pet
  *     description: |
- *       Deletes an existing pet and all associated data (images, archives).
+ *       Deletes an existing pet and all associated data (images from Firebase Storage, archives).
  *       Only the pet owner can delete the pet.
  *       Requires a valid Firebase authentication token.
  *     tags: [Pets]
