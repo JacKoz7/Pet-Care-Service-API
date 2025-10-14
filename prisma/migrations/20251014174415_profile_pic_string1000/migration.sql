@@ -1,0 +1,8 @@
+-- AlterTable
+ALTER TABLE "AdvertisementImage" ALTER COLUMN "imageUrl" SET DATA TYPE VARCHAR(1000);
+
+-- AlterTable
+ALTER TABLE "PetImage" ALTER COLUMN "imageUrl" SET DATA TYPE VARCHAR(1000);
+
+-- AlterTable
+ALTER TABLE "User" ALTER COLUMN "profilePictureUrl" SET DATA TYPE VARCHAR(1000);

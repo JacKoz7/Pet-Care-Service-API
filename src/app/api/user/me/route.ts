@@ -57,6 +57,7 @@ export async function GET(request: NextRequest) {
         lastName: user.lastName,
         email: user.email,
         phoneNumber: user.phoneNumber,
+        profilePictureUrl: user.profilePictureUrl,
         city: {
           idCity: user.City.idCity,
           name: user.City.name,
@@ -159,6 +160,7 @@ export async function PUT(request: NextRequest) {
         lastName: updatedUser.lastName,
         email: updatedUser.email,
         phoneNumber: updatedUser.phoneNumber,
+        profilePictureUrl: updatedUser.profilePictureUrl,
         city: {
           idCity: updatedUser.City.idCity,
           name: updatedUser.City.name,
@@ -227,6 +229,10 @@ export async function PUT(request: NextRequest) {
  *                       type: string
  *                       nullable: true
  *                       example: "123456789"
+ *                     profilePictureUrl:
+ *                       type: string
+ *                       nullable: true
+ *                       example: "https://storage.googleapis.com/bucket/profile_pictures/1_123456789_image.jpg?..."
  *                     city:
  *                       type: object
  *                       properties:
@@ -325,6 +331,10 @@ export async function PUT(request: NextRequest) {
  *                       type: string
  *                       nullable: true
  *                       example: "123456789"
+ *                     profilePictureUrl:
+ *                       type: string
+ *                       nullable: true
+ *                       example: "https://storage.googleapis.com/bucket/profile_pictures/1_123456789_image.jpg?..."
  *                     city:
  *                       type: object
  *                       properties:

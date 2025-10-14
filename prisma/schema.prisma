@@ -15,16 +15,17 @@ datasource db {
 }
 
 model User {
-  idUser          Int       @id @default(autoincrement())
-  firebaseUid     String    @unique
-  firstName       String?   @db.VarChar(45)
-  lastName        String?   @db.VarChar(45)
-  email           String?   @db.VarChar(70)
-  phoneNumber     String?   @db.Char(9)
-  isEmailVerified Boolean   @default(false)
-  lastActive      DateTime?
-  City            City      @relation(fields: [City_idCity], references: [idCity])
-  City_idCity     Int
+  idUser            Int       @id @default(autoincrement())
+  firebaseUid       String    @unique
+  firstName         String?   @db.VarChar(45)
+  lastName          String?   @db.VarChar(45)
+  email             String?   @db.VarChar(70)
+  phoneNumber       String?   @db.Char(9)
+  isEmailVerified   Boolean   @default(false)
+  lastActive        DateTime?
+  profilePictureUrl String?   @db.VarChar(1000)
+  City              City      @relation(fields: [City_idCity], references: [idCity])
+  City_idCity       Int
 
   // Relacje
   ServiceProviders Service_Provider[]
@@ -201,7 +202,7 @@ model Pet {
 
 model PetImage {
   idPetImage Int    @id @default(autoincrement())
-  imageUrl   String @db.VarChar(500)
+  imageUrl   String @db.VarChar(1000)
   order      Int?
 
   Pet       Pet @relation(fields: [Pet_idPet], references: [idPet])
@@ -267,7 +268,7 @@ model AdvertisementArchive {
 
 model AdvertisementImage {
   idAdvertisementImage Int    @id @default(autoincrement())
-  imageUrl             String @db.VarChar(500)
+  imageUrl             String @db.VarChar(1000)
   order                Int?
 
   Advertisement                 Advertisement @relation(fields: [Advertisement_idAdvertisement], references: [idAdvertisement])

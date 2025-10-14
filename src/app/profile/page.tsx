@@ -16,6 +16,7 @@ import {
   IconMail,
   IconCalendar,
   IconPlus,
+  IconTrash,
 } from "@tabler/icons-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -35,6 +36,7 @@ interface UserData {
   isAdmin: boolean;
   isServiceProvider: boolean;
   lastActive: string;
+  profilePictureUrl: string | null;
 }
 
 interface City {
@@ -71,6 +73,7 @@ export default function Profile() {
   const [pets, setPets] = useState<Pet[]>([]);
   const [petsLoading, setPetsLoading] = useState(true);
   const [petsError, setPetsError] = useState("");
+  const [uploading, setUploading] = useState(false);
 
   const fetchRoles = useCallback(async () => {
     if (!firebaseUser) {
@@ -247,6 +250,36 @@ export default function Profile() {
       setError("An error occurred while deleting the account");
     }
   }, [token, router]);
+
+  const handleDeleteProfilePicture = useCallback(async () => {
+    if (
+      !window.confirm("Are you sure you want to remove your profile picture?")
+    ) {
+      return;
+    }
+
+    try {
+      setError("");
+      setSuccess("");
+      const response = await fetch("/api/user/profile-picture", {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json();
+      if (data.success) {
+        setUserData((prev) =>
+          prev ? { ...prev, profilePictureUrl: null } : null
+        );
+        setSuccess("Profile picture removed successfully!");
+        setTimeout(() => setSuccess(""), 3000);
+      } else {
+        setError(data.error || "Failed to remove profile picture");
+      }
+    } catch (err) {
+      console.error("Error deleting profile picture:", err);
+      setError("An error occurred while deleting the profile picture");
+    }
+  }, [token]);
 
   if (contextLoading) {
     return (
@@ -429,6 +462,99 @@ export default function Profile() {
               </div>
             ) : userData ? (
               <div className="space-y-3 text-gray-700 animate-fade-in">
+                <div className="flex flex-col items-center mb-4">
+                  <div className="relative w-32 h-32 rounded-full overflow-hidden bg-gray-200 mb-4">
+                    {userData.profilePictureUrl ? (
+                      <Image
+                        src={userData.profilePictureUrl}
+                        alt="Profile picture"
+                        fill
+                        className="object-cover"
+                      />
+                    ) : (
+                      <div className="flex items-center justify-center h-full">
+                        <IconUser className="text-gray-400" size={64} />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-2 w-full justify-center">
+                    <label
+                      htmlFor="profile-picture"
+                      className={`px-4 py-2 rounded-xl font-medium transition-all duration-300 shadow-md hover:shadow-lg text-sm cursor-pointer flex-1 text-center ${
+                        uploading
+                          ? "bg-gray-400 text-gray-700 cursor-not-allowed"
+                          : "bg-indigo-600 text-white hover:bg-indigo-700"
+                      }`}
+                    >
+                      {uploading
+                        ? "Uploading..."
+                        : userData.profilePictureUrl
+                        ? "Change Profile Picture"
+                        : "Set Profile Picture"}
+                      <input
+                        id="profile-picture"
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        disabled={uploading}
+                        onChange={async (e) => {
+                          const selectedFile = e.target.files?.[0];
+                          if (!selectedFile) return;
+                          setUploading(true);
+                          const formData = new FormData();
+                          formData.append("image", selectedFile);
+                          try {
+                            const endpoint = "/api/user/profile-picture";
+                            const method = userData.profilePictureUrl
+                              ? "PATCH"
+                              : "POST";
+                            const res = await fetch(endpoint, {
+                              method,
+                              headers: { Authorization: `Bearer ${token}` },
+                              body: formData,
+                            });
+                            if (res.ok) {
+                              const data = await res.json();
+                              setUserData((prev) =>
+                                prev
+                                  ? {
+                                      ...prev,
+                                      profilePictureUrl: data.profilePictureUrl,
+                                    }
+                                  : null
+                              );
+                              setSuccess(
+                                "Profile picture updated successfully!"
+                              );
+                              setTimeout(() => setSuccess(""), 3000);
+                            } else {
+                              const errData = await res.json();
+                              setError(
+                                errData.error || "Failed to upload picture"
+                              );
+                            }
+                          } catch (err) {
+                            console.error("Upload error:", err);
+                            setError("An error occurred while uploading");
+                          } finally {
+                            setUploading(false);
+                            e.target.value = ""; // Reset input
+                          }
+                        }}
+                      />
+                    </label>
+                    {userData.profilePictureUrl && (
+                      <button
+                        onClick={handleDeleteProfilePicture}
+                        className="px-4 py-2 bg-red-600 text-white rounded-xl font-medium hover:bg-red-700 transition-all duration-300 shadow-md hover:shadow-lg text-sm flex items-center justify-center gap-1"
+                      >
+                        <IconTrash size={16} />
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                </div>
+
                 <div className="flex items-center p-3 bg-gray-50 rounded-xl">
                   <IconMail className="text-indigo-500 mr-3" size={20} />
                   <div>
