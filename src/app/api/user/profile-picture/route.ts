@@ -155,17 +155,28 @@ export async function PATCH(request: NextRequest) {
 
     // Delete old image
     if (user.profilePictureUrl) {
-      const oldPath = decodeURIComponent(
-        user.profilePictureUrl.split("/o/")[1]?.split("?")[0] || ""
-      );
+      const oldPath = extractPathFromSignedUrl(user.profilePictureUrl);
+      console.log("PATCH: Attempting to delete old image path:", oldPath); // Added log
+      console.log("PATCH: Full URL:", user.profilePictureUrl); // Added log
       if (oldPath) {
         try {
-          await bucket.file(oldPath).delete();
-          console.log(`Deleted old image: ${oldPath}`);
+          const [exists] = await bucket.file(oldPath).exists(); // Check if exists
+          console.log("PATCH: File exists:", exists); // Added log
+          if (exists) {
+            await bucket.file(oldPath).delete();
+            console.log(`PATCH: Deleted old image: ${oldPath}`);
+          } else {
+            console.log(`PATCH: File not found in storage: ${oldPath}`);
+          }
         } catch (deleteErr) {
-          console.error(`Failed to delete old image ${oldPath}:`, deleteErr);
+          console.error(
+            `PATCH: Failed to delete old image ${oldPath}:`,
+            deleteErr
+          );
           // Continue even if delete fails
         }
+      } else {
+        console.log("PATCH: Could not extract old image path from URL");
       }
     }
 
@@ -244,29 +255,53 @@ export async function DELETE(request: NextRequest) {
 
     const bucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
     if (!bucketName) {
+      console.error("DELETE: Storage bucket not configured"); // Added log
       return NextResponse.json(
         { error: "Storage bucket not configured" },
         { status: 500 }
       );
     }
 
+    console.log("DELETE: Bucket name:", bucketName); // Added log
+
     const bucket = getStorage().bucket(bucketName);
 
     // Delete image from Firebase Storage
-    const imagePath = decodeURIComponent(
-      user.profilePictureUrl.split("/o/")[1]?.split("?")[0] || ""
-    );
+    const imagePath = extractPathFromSignedUrl(user.profilePictureUrl);
+    console.log("DELETE: Attempting to delete image path:", imagePath); // Added log
+    console.log("DELETE: Full URL:", user.profilePictureUrl); // Added log
     if (imagePath) {
       try {
-        await bucket.file(imagePath).delete();
-        console.log(`Deleted profile picture from Storage: ${imagePath}`);
+        const [exists] = await bucket.file(imagePath).exists(); // Check if exists
+        console.log("DELETE: File exists:", exists); // Added log
+        if (exists) {
+          await bucket.file(imagePath).delete();
+          console.log(
+            `DELETE: Deleted profile picture from Storage: ${imagePath}`
+          );
+        } else {
+          console.log(`DELETE: File not found in storage: ${imagePath}`);
+          // Optionally return error if file not found
+          return NextResponse.json(
+            { error: "Profile picture file not found in storage" },
+            { status: 404 }
+          );
+        }
       } catch (deleteErr) {
         console.error(
-          `Failed to delete profile picture ${imagePath}:`,
+          `DELETE: Failed to delete profile picture ${imagePath}:`,
           deleteErr
         );
-        // Continue even if delete fails
+        // Optionally throw to fail the operation
+        // throw deleteErr;
+        // For now, continue but log
       }
+    } else {
+      console.error("DELETE: Could not extract image path from URL");
+      return NextResponse.json(
+        { error: "Invalid profile picture URL" },
+        { status: 400 }
+      );
     }
 
     // Update database to set profilePictureUrl to null
@@ -286,6 +321,22 @@ export async function DELETE(request: NextRequest) {
     );
   } finally {
     await prisma.$disconnect();
+  }
+}
+
+function extractPathFromSignedUrl(url: string): string | null {
+  try {
+    // Match the pattern: https://storage.googleapis.com/{bucket}/{path}?params
+    const match = url.match(
+      /https:\/\/storage\.googleapis\.com\/[^\/]+\/(.+?)\?/
+    );
+    if (match && match[1]) {
+      return decodeURIComponent(match[1]);
+    }
+    return null;
+  } catch (error) {
+    console.error("Error extracting path from URL:", error);
+    return null;
   }
 }
 
