@@ -1,3 +1,4 @@
+// src/app/components/EmailVerificationPopUp.tsx
 "use client";
 import { useState, useEffect } from "react";
 import { User } from "firebase/auth";
@@ -24,21 +25,7 @@ export default function EmailVerificationPopup({
     setIsChecking(true);
     await user.reload();
     if (user.emailVerified) {
-      try {
-        const response = await fetch("/api/user/verify-email", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ firebaseUid: user.uid }),
-        });
-
-        if (response.ok) {
-          onVerified();
-        } else {
-          console.error("Failed to update verification status in database");
-        }
-      } catch (error) {
-        console.error("Error updating verification status:", error);
-      }
+      onVerified();
     }
     setIsChecking(false);
   };
@@ -81,21 +68,7 @@ export default function EmailVerificationPopup({
     const interval = setInterval(async () => {
       await user.reload();
       if (user.emailVerified) {
-        try {
-          const response = await fetch("/api/user/verify-email", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ firebaseUid: user.uid }),
-          });
-
-          if (response.ok) {
-            onVerified();
-          } else {
-            console.error("Failed to update verification status in database");
-          }
-        } catch (error) {
-          console.error("Error updating verification status:", error);
-        }
+        onVerified();
       }
     }, 3000);
 
@@ -109,7 +82,7 @@ export default function EmailVerificationPopup({
           <IconMail size={64} className="mx-auto text-blue-500 mb-4" />
           <h2 className="text-2xl font-bold mb-4">Verify Your Email</h2>
           <p className="text-gray-600 mb-6">
-            We've sent a verification email to{" "}
+            We ve sent a verification email to{" "}
             <span className="font-semibold">{user.email}</span>
           </p>
           <p className="text-gray-500 text-sm mb-6">

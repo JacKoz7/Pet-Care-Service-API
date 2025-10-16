@@ -1,6 +1,7 @@
 // src/app/sign-up/page.tsx
 "use client";
 
+import { User } from "firebase/auth";
 import { auth } from "../firebase";
 import { IconFidgetSpinner, IconArrowLeft } from "@tabler/icons-react";
 import { useRouter } from "next/navigation";
@@ -20,12 +21,13 @@ interface City {
 export default function Page() {
   const router = useRouter();
   const { user, loading } = useAuth(); // Get auth state
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [createUser, createdUser, createLoading, firebaseError] =
     useCreateUserWithEmailAndPassword(auth);
   const [sendEmailVerification] = useSendEmailVerification(auth);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showVerificationPopup, setShowVerificationPopup] = useState(false);
-  const [createdUserState, setCreatedUserState] = useState<any>(null);
+  const [createdUserState, setCreatedUserState] = useState<User | null>(null);
   const [cities, setCities] = useState<City[]>([]);
   const [formData, setFormData] = useState({
     email: "",
@@ -111,37 +113,11 @@ export default function Page() {
 
       await sendEmailVerification();
 
-      const response = await fetch("/api/user/attributes", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          firebaseUid: firebaseResult.user.uid,
-          email: formData.email,
-          firstName: formData.firstName || null,
-          lastName: formData.lastName || null,
-          phoneNumber: formData.phoneNumber || null,
-          cityId: Number(formData.cityId),
-        }),
-      });
-
-      if (response.ok) {
-        setCreatedUserState(firebaseResult.user);
-        setShowVerificationPopup(true);
-      } else {
-        await firebaseResult.user.delete();
-        const data = await response.json();
-        setError(data.error || "Registration failed");
-      }
+      setCreatedUserState(firebaseResult.user);
+      setShowVerificationPopup(true);
     } catch (error) {
-      console.error("Registration error:", error);
-      setError("Registration failed. Please try again.");
-      if (createdUser) {
-        try {
-          await createdUser.user.delete();
-        } catch (deleteErr) {
-          console.error("Failed to delete user:", deleteErr);
-        }
-      }
+      console.error("Firebase creation error:", error);
+      setError("Failed to create Firebase account. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -151,12 +127,40 @@ export default function Page() {
     if (createdUserState) {
       try {
         await createdUserState.reload();
-      } catch (reloadErr) {
-        console.error("Failed to reload user:", reloadErr);
+
+        const response = await fetch("/api/user/attributes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            firebaseUid: createdUserState.uid,
+            email: formData.email,
+            firstName: formData.firstName || null,
+            lastName: formData.lastName || null,
+            phoneNumber: formData.phoneNumber || null,
+            cityId: Number(formData.cityId),
+          }),
+        });
+
+        if (response.ok) {
+          setShowVerificationPopup(false);
+          router.push("/");
+        } else {
+          // Delete Firebase user on failure
+          await createdUserState.delete();
+          const data = await response.json();
+          setError(data.error || "Registration failed");
+        }
+      } catch (error) {
+        console.error("Registration completion error:", error);
+        setError("Failed to complete registration. Please try again.");
+        // Attempt to delete Firebase user
+        try {
+          await createdUserState.delete();
+        } catch (deleteErr) {
+          console.error("Failed to delete user:", deleteErr);
+        }
       }
     }
-    setShowVerificationPopup(false);
-    router.push("/");
   };
 
   // Show loading state while checking auth
