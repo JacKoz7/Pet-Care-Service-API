@@ -26,7 +26,6 @@ model User {
   City              City      @relation(fields: [City_idCity], references: [idCity])
   City_idCity       Int
 
-  // Relacje
   ServiceProviders Service_Provider[]
   Clients          Client[]
   Admin            Admin?
@@ -121,10 +120,23 @@ model Booking {
   startDateTime DateTime
   endDateTime   DateTime
 
+  message String?       @db.VarChar(1000)
+  status  BookingStatus @default(PENDING)
+
   Client                              Client           @relation(fields: [Client_idClient], references: [idClient])
   Client_idClient                     Int
   Service_Provider                    Service_Provider @relation(fields: [Service_Provider_idService_Provider], references: [idService_Provider])
   Service_Provider_idService_Provider Int
+
+  Pet       Pet @relation(fields: [Pet_idPet], references: [idPet])
+  Pet_idPet Int
+}
+
+enum BookingStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  CANCELLED
 }
 
 model Client {
@@ -188,7 +200,7 @@ model Pet {
   age             Decimal  @db.Decimal(3, 0)
   description     String?  @db.VarChar(500)
   chronicDiseases String[] @default([])
-  isHealthy       Boolean? 
+  isHealthy       Boolean?
 
   Breed           Breed      @relation(fields: [Breed_idBreed], references: [idBreed])
   Breed_idBreed   Int
@@ -197,6 +209,7 @@ model Pet {
   Images          PetImage[]
   Archives        Archive[]
   Analyses        Analysis[]
+  Booking         Booking[]
 }
 
 model PetImage {
