@@ -1,3 +1,4 @@
+// src/app/components/ActionButtons.tsx
 import { User } from "firebase/auth";
 import {
   IconStar,
@@ -5,6 +6,7 @@ import {
   IconFileText,
   IconList,
   IconUserShield,
+  IconBell,
 } from "@tabler/icons-react";
 import { useRouter } from "next/navigation";
 
@@ -24,6 +26,8 @@ interface ActionButtonsProps {
   onViewAllAds: () => void;
   onToggleDiagnoses: () => void;
   showDiagnoses: boolean;
+  onToggleNotifications: () => void;
+  showNotifications: boolean;
 }
 
 export default function ActionButtons({
@@ -36,6 +40,8 @@ export default function ActionButtons({
   onViewAllAds,
   onToggleDiagnoses,
   showDiagnoses,
+  onToggleNotifications,
+  showNotifications,
 }: ActionButtonsProps) {
   const router = useRouter();
 
@@ -99,6 +105,15 @@ export default function ActionButtons({
               {showDiagnoses ? "Ukryj Diagnozy" : "Diagnozy"}
             </button>
           </>
+        )}
+        {user && !isLoadingRole && userRoles.isServiceProvider && (
+          <button
+            onClick={onToggleNotifications}
+            className="flex items-center bg-gradient-to-r from-yellow-500 to-yellow-600 text-white px-4 py-2 rounded-xl font-medium hover:from-yellow-600 hover:to-yellow-700 transition-all duration-300 transform hover:-translate-y-0.5 shadow-md hover:shadow-lg"
+          >
+            <IconBell size={18} className="mr-2" />
+            {showNotifications ? "Hide Notifications" : "Notifications"}
+          </button>
         )}
         <button
           onClick={onViewAllAds}
