@@ -1,11 +1,9 @@
-// src/app/api/cities/route.ts
 import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
-import { withCors } from "@/lib/cors";
 
 const prisma = new PrismaClient();
 
-async function handler() {
+export async function GET() {
   try {
     const cities = await prisma.city.findMany({
       orderBy: { idCity: "asc" },
@@ -21,8 +19,6 @@ async function handler() {
     await prisma.$disconnect();
   }
 }
-
-export const GET = withCors(handler);
 
 /**
  * @swagger

@@ -1,16 +1,16 @@
 // src/app/api/user/attributes/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
-import { withCors } from "@/lib/cors";
 
 const prisma = new PrismaClient();
 
-async function handler(request: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { firebaseUid, email, firstName, lastName, phoneNumber, cityId } =
       body;
 
+    // Walidacja wymaganych pól
     if (!firebaseUid || !email || !cityId) {
       return NextResponse.json(
         { error: "Firebase UID, email, and cityId are required" },
@@ -18,6 +18,7 @@ async function handler(request: NextRequest) {
       );
     }
 
+    // Walidacja numeru telefonu (opcjonalna)
     if (
       phoneNumber &&
       (phoneNumber.length !== 9 || !/^\d+$/.test(phoneNumber))
@@ -28,6 +29,7 @@ async function handler(request: NextRequest) {
       );
     }
 
+    // Sprawdź czy miasto istnieje
     const city = await prisma.city.findUnique({
       where: { idCity: Number(cityId) },
     });
@@ -35,8 +37,11 @@ async function handler(request: NextRequest) {
       return NextResponse.json({ error: "Invalid city ID" }, { status: 400 });
     }
 
+    // Sprawdź czy użytkownik już istnieje w bazie danych
     const existingUser = await prisma.user.findFirst({
-      where: { OR: [{ email }, { firebaseUid }] },
+      where: {
+        OR: [{ email: email }, { firebaseUid: firebaseUid }],
+      },
     });
 
     if (existingUser) {
@@ -46,21 +51,29 @@ async function handler(request: NextRequest) {
       );
     }
 
+    // Dodaj użytkownika do bazy danych
     const newUser = await prisma.user.create({
       data: {
-        firebaseUid,
+        firebaseUid: firebaseUid,
         firstName: firstName || null,
         lastName: lastName || null,
-        email,
+        email: email,
         phoneNumber: phoneNumber || null,
         City_idCity: Number(cityId),
         lastActive: new Date(),
       },
-      include: { City: true },
+      include: {
+        City: true,
+      },
     });
 
+    // Sprawdź, czy email to ADMIN_EMAIL z .env.local i utwórz Admina jeśli tak
     if (email === process.env.ADMIN_EMAIL) {
-      await prisma.admin.create({ data: { User_idUser: newUser.idUser } });
+      await prisma.admin.create({
+        data: {
+          User_idUser: newUser.idUser,
+        },
+      });
     }
 
     return NextResponse.json({
@@ -85,8 +98,6 @@ async function handler(request: NextRequest) {
     await prisma.$disconnect();
   }
 }
-
-export const POST = withCors(handler);
 
 /**
  * @swagger
