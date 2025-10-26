@@ -154,7 +154,7 @@ export async function GET(request: NextRequest) {
 
 /**
  * @swagger
- * /api/bookings/notifications/service-provider:
+ * /api/bookings/service-provider/notifications:
  *   get:
  *     summary: Get pending booking notifications for service provider
  *     description: |

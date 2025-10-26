@@ -42,14 +42,22 @@ interface Booking {
   client: Client;
 }
 
+interface UserRoles {
+  isAdmin: boolean;
+  isServiceProvider: boolean;
+  isClient: boolean;
+}
+
 interface NotificationsSectionProps {
   showNotifications: boolean;
   onToggleNotifications: () => void;
+  userRoles: UserRoles;
 }
 
 export default function NotificationsSection({
   showNotifications,
   onToggleNotifications,
+  userRoles,
 }: NotificationsSectionProps) {
   const [user] = useAuthState(auth);
   const [notifications, setNotifications] = useState<Booking[]>([]);
@@ -58,14 +66,14 @@ export default function NotificationsSection({
     useState<Booking | null>(null);
 
   useEffect(() => {
-    if (!user || !showNotifications) return;
+    if (!user || !showNotifications || !userRoles.isServiceProvider) return;
 
     const fetchNotifications = async () => {
       setIsLoading(true);
       try {
         const token = await user.getIdToken();
         const response = await fetch(
-          "/api/bookings/notifications/service-provider",
+          "/api/bookings/service-provider/notifications",
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -84,7 +92,7 @@ export default function NotificationsSection({
     };
 
     fetchNotifications();
-  }, [user, showNotifications]);
+  }, [user, showNotifications, userRoles.isServiceProvider]);
 
   const handleAccept = (id: number) => {
     // TODO: Implement accept functionality
@@ -95,6 +103,10 @@ export default function NotificationsSection({
     // TODO: Implement decline functionality
     console.log(`Decline booking ${id}`);
   };
+
+  if (!userRoles.isServiceProvider) {
+    return null;
+  }
 
   return (
     <>

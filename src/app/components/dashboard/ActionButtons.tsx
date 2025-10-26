@@ -106,7 +106,7 @@ export default function ActionButtons({
             </button>
           </>
         )}
-        {user && !isLoadingRole && userRoles.isServiceProvider && (
+        {user && !isLoadingRole && (
           <button
             onClick={onToggleNotifications}
             className="flex items-center bg-gradient-to-r from-yellow-500 to-yellow-600 text-white px-4 py-2 rounded-xl font-medium hover:from-yellow-600 hover:to-yellow-700 transition-all duration-300 transform hover:-translate-y-0.5 shadow-md hover:shadow-lg"

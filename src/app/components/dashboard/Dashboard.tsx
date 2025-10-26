@@ -311,6 +311,7 @@ export default function Dashboard() {
         <NotificationsSection
           showNotifications={showNotifications}
           onToggleNotifications={handleToggleNotifications}
+          userRoles={userRoles}
         />
         <SearchBar searchQuery={searchQuery} onSearchChange={setSearchQuery} />
         <CitiesSection
