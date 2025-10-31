@@ -28,13 +28,19 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { petId, serviceProviderId, startDateTime, endDateTime, message } =
+    const { petIds, serviceProviderId, startDateTime, endDateTime, message } =
       body;
 
     // Validate required fields
-    if (!petId || !serviceProviderId || !startDateTime || !endDateTime) {
+    if (
+      !Array.isArray(petIds) ||
+      petIds.length === 0 ||
+      !serviceProviderId ||
+      !startDateTime ||
+      !endDateTime
+    ) {
       return NextResponse.json(
-        { error: "Missing required fields" },
+        { error: "Missing required fields or invalid petIds" },
         { status: 400 }
       );
     }
@@ -73,19 +79,6 @@ export async function POST(request: NextRequest) {
       clientId = user.Clients[0].idClient;
     }
 
-    // Verify pet belongs to the client
-    const pet = await prisma.pet.findUnique({
-      where: { idPet: petId },
-      select: { Client_idClient: true },
-    });
-
-    if (!pet || pet.Client_idClient !== clientId) {
-      return NextResponse.json(
-        { error: "Invalid pet selection" },
-        { status: 400 }
-      );
-    }
-
     // Verify service provider exists
     const serviceProvider = await prisma.service_Provider.findUnique({
       where: { idService_Provider: serviceProviderId },
@@ -99,7 +92,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create booking
+    // Validate all pets belong to the client
+    const pets = await prisma.pet.findMany({
+      where: {
+        idPet: { in: petIds },
+        Client_idClient: clientId,
+      },
+      select: { idPet: true },
+    });
+
+    if (pets.length !== petIds.length) {
+      return NextResponse.json(
+        { error: "One or more selected pets do not belong to you" },
+        { status: 400 }
+      );
+    }
+
+    // Create the booking
     const booking = await prisma.booking.create({
       data: {
         startDateTime: start,
@@ -107,8 +116,15 @@ export async function POST(request: NextRequest) {
         message: message || null,
         Client_idClient: clientId,
         Service_Provider_idService_Provider: serviceProviderId,
-        Pet_idPet: petId,
       },
+    });
+
+    // Create BookingPet entries for each pet
+    await prisma.bookingPet.createMany({
+      data: petIds.map((petId: number) => ({
+        Booking_idBooking: booking.idBooking,
+        Pet_idPet: petId,
+      })),
     });
 
     // Update user's lastActive
@@ -136,12 +152,12 @@ export async function POST(request: NextRequest) {
  * @swagger
  * /api/bookings:
  *   post:
- *     summary: Create a new booking
+ *     summary: Create a new booking with multiple pets
  *     description: |
- *       Creates a new booking request for a service provider.
+ *       Creates a new booking request for a service provider, supporting multiple pets in a single booking.
  *       Requires a valid Firebase authentication token.
  *       The user must be a client (creates client record if none exists).
- *       The pet must belong to the client.
+ *       All pets must belong to the client.
  *       The service provider must exist and be active.
  *     tags: [Bookings]
  *     security:
@@ -153,14 +169,16 @@ export async function POST(request: NextRequest) {
  *           schema:
  *             type: object
  *             required:
- *               - petId
+ *               - petIds
  *               - serviceProviderId
  *               - startDateTime
  *               - endDateTime
  *             properties:
- *               petId:
- *                 type: integer
- *                 example: 1
+ *               petIds:
+ *                 type: array
+ *                 items:
+ *                   type: integer
+ *                 example: [1, 2]
  *               serviceProviderId:
  *                 type: integer
  *                 example: 42
@@ -209,10 +227,8 @@ export async function POST(request: NextRequest) {
  *                       type: integer
  *                     Service_Provider_idService_Provider:
  *                       type: integer
- *                     Pet_idPet:
- *                       type: integer
  *       400:
- *         description: Missing/invalid fields, invalid pet/provider, or date issues
+ *         description: Missing/invalid fields, invalid pets/provider, or date issues
  *       401:
  *         description: Unauthorized (invalid or missing token)
  *       404:

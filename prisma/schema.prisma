@@ -128,8 +128,7 @@ model Booking {
   Service_Provider                    Service_Provider @relation(fields: [Service_Provider_idService_Provider], references: [idService_Provider])
   Service_Provider_idService_Provider Int
 
-  Pet       Pet @relation(fields: [Pet_idPet], references: [idPet])
-  Pet_idPet Int
+  Pets BookingPet[]
 }
 
 enum BookingStatus {
@@ -137,6 +136,16 @@ enum BookingStatus {
   ACCEPTED
   REJECTED
   CANCELLED
+}
+
+model BookingPet {
+  idBookingPet      Int     @id @default(autoincrement())
+  Booking           Booking @relation(fields: [Booking_idBooking], references: [idBooking])
+  Booking_idBooking Int
+  Pet               Pet     @relation(fields: [Pet_idPet], references: [idPet])
+  Pet_idPet         Int
+
+  @@unique([Booking_idBooking, Pet_idPet])
 }
 
 model Client {
@@ -202,14 +211,14 @@ model Pet {
   chronicDiseases String[] @default([])
   isHealthy       Boolean?
 
-  Breed           Breed      @relation(fields: [Breed_idBreed], references: [idBreed])
+  Breed           Breed        @relation(fields: [Breed_idBreed], references: [idBreed])
   Breed_idBreed   Int
-  Client          Client     @relation(fields: [Client_idClient], references: [idClient])
+  Client          Client       @relation(fields: [Client_idClient], references: [idClient])
   Client_idClient Int
   Images          PetImage[]
   Archives        Archive[]
   Analyses        Analysis[]
-  Booking         Booking[]
+  Bookings        BookingPet[]
 }
 
 model PetImage {

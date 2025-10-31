@@ -47,7 +47,7 @@ export default function BookingForm({
 }: BookingFormProps) {
   const [user] = useAuthState(auth);
   const [pets, setPets] = useState<Pet[]>([]);
-  const [selectedPet, setSelectedPet] = useState<number | null>(null);
+  const [selectedPets, setSelectedPets] = useState<number[]>([]);
   const [message, setMessage] = useState("");
   const [startDateTime, setStartDateTime] = useState("");
   const [endDateTime, setEndDateTime] = useState("");
@@ -78,6 +78,12 @@ export default function BookingForm({
 
     fetchPets();
   }, [user]);
+
+  const togglePet = (id: number) => {
+    setSelectedPets((prev) =>
+      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]
+    );
+  };
 
   const validateDates = (start: string, end: string): string | null => {
     const bookingStart = new Date(start);
@@ -114,8 +120,8 @@ export default function BookingForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedPet || !startDateTime || !endDateTime) {
-      setError("Please select a pet and provide start/end times");
+    if (!selectedPets.length || !startDateTime || !endDateTime) {
+      setError("Please select at least one pet and provide start/end times");
       return;
     }
 
@@ -138,7 +144,7 @@ export default function BookingForm({
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          petId: selectedPet,
+          petIds: selectedPets,
           serviceProviderId,
           startDateTime: new Date(startDateTime).toISOString(),
           endDateTime: new Date(endDateTime).toISOString(),
@@ -195,20 +201,28 @@ export default function BookingForm({
           <div>
             <label className="text-sm font-medium text-gray-700 mb-2 flex items-center">
               <IconPaw className="mr-2 text-indigo-500" size={18} />
-              Select Pet
+              Select Pets
             </label>
-            <select
-              value={selectedPet || ""}
-              onChange={(e) => setSelectedPet(Number(e.target.value))}
-              className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500"
-            >
-              <option value="">Choose a pet</option>
-              {pets.map((pet) => (
-                <option key={pet.id} value={pet.id}>
-                  {pet.name} ({pet.species}, {pet.breed}, Age: {pet.age})
-                </option>
-              ))}
-            </select>
+            <div className="max-h-40 overflow-y-auto border border-gray-200 rounded-xl p-3 space-y-2">
+              {pets.length > 0 ? (
+                pets.map((pet) => (
+                  <label
+                    key={pet.id}
+                    className="flex items-center cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedPets.includes(pet.id)}
+                      onChange={() => togglePet(pet.id)}
+                      className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 mr-2"
+                    />
+                    {pet.name} ({pet.species}, {pet.breed}, Age: {pet.age})
+                  </label>
+                ))
+              ) : (
+                <p className="text-gray-500 text-sm">No pets available</p>
+              )}
+            </div>
           </div>
 
           <div>
