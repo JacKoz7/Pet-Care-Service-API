@@ -1,4 +1,3 @@
-// src/app/components/EmailVerificationPopUp.tsx
 "use client";
 import { useState, useEffect } from "react";
 import { User } from "firebase/auth";
@@ -23,11 +22,16 @@ export default function EmailVerificationPopup({
 
   const checkEmailVerification = async () => {
     setIsChecking(true);
-    await user.reload();
-    if (user.emailVerified) {
-      onVerified();
+    try {
+      await user.reload();
+      if (user.emailVerified) {
+        onVerified();
+      }
+    } catch (err) {
+      console.error("Error checking verification:", err);
+    } finally {
+      setIsChecking(false);
     }
-    setIsChecking(false);
   };
 
   const handleResendEmail = async () => {
@@ -50,11 +54,12 @@ export default function EmailVerificationPopup({
           return c - 1;
         });
       }, 1000);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error resending verification email:", error);
       setResendStatus("error");
 
-      if (error.code === "auth/too-many-requests") {
+      const errorCode = (error as { code?: string }).code;
+      if (errorCode === "auth/too-many-requests") {
         setErrorMessage(
           "Too many requests. Please wait a few minutes before trying again."
         );
@@ -66,9 +71,13 @@ export default function EmailVerificationPopup({
 
   useEffect(() => {
     const interval = setInterval(async () => {
-      await user.reload();
-      if (user.emailVerified) {
-        onVerified();
+      try {
+        await user.reload();
+        if (user.emailVerified) {
+          onVerified();
+        }
+      } catch (err) {
+        console.error("Error in interval check:", err);
       }
     }, 3000);
 
@@ -82,7 +91,7 @@ export default function EmailVerificationPopup({
           <IconMail size={64} className="mx-auto text-blue-500 mb-4" />
           <h2 className="text-2xl font-bold mb-4">Verify Your Email</h2>
           <p className="text-gray-600 mb-6">
-            We ve sent a verification email to{" "}
+            We have sent a verification email to{" "}
             <span className="font-semibold">{user.email}</span>
           </p>
           <p className="text-gray-500 text-sm mb-6">

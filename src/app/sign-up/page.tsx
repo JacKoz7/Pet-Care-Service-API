@@ -1,4 +1,4 @@
-// src/app/sign-up/page.tsx
+// src/app/sign-up/page.tsx (updated)
 "use client";
 
 import { User } from "firebase/auth";
@@ -113,6 +113,27 @@ export default function Page() {
 
       await sendEmailVerification();
 
+      // Immediately create DB user with isVerified: false
+      const dbResponse = await fetch("/api/user/attributes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firebaseUid: firebaseResult.user.uid,
+          email: formData.email,
+          firstName: formData.firstName || null,
+          lastName: formData.lastName || null,
+          phoneNumber: formData.phoneNumber || null,
+          cityId: Number(formData.cityId),
+        }),
+      });
+
+      if (!dbResponse.ok) {
+        const errorData = await dbResponse.json();
+        await firebaseResult.user.delete(); // Cleanup on failure
+        setError(errorData.error || "Failed to create user profile");
+        return;
+      }
+
       setCreatedUserState(firebaseResult.user);
       setShowVerificationPopup(true);
     } catch (error) {
@@ -128,37 +149,24 @@ export default function Page() {
       try {
         await createdUserState.reload();
 
-        const response = await fetch("/api/user/attributes", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            firebaseUid: createdUserState.uid,
-            email: formData.email,
-            firstName: formData.firstName || null,
-            lastName: formData.lastName || null,
-            phoneNumber: formData.phoneNumber || null,
-            cityId: Number(formData.cityId),
-          }),
-        });
+        const verifyResponse = await fetch(
+          `/api/user/verify-email/${createdUserState.uid}`,
+          {
+            method: "PATCH", // Zmiana na PATCH
+          }
+        );
 
-        if (response.ok) {
+        if (verifyResponse.ok) {
           setShowVerificationPopup(false);
           router.push("/");
         } else {
-          // Delete Firebase user on failure
-          await createdUserState.delete();
-          const data = await response.json();
-          setError(data.error || "Registration failed");
+          const data = await verifyResponse.json();
+          setError(data.error || "Verification failed");
+          // Optional: cleanup if needed
         }
       } catch (error) {
         console.error("Registration completion error:", error);
         setError("Failed to complete registration. Please try again.");
-        // Attempt to delete Firebase user
-        try {
-          await createdUserState.delete();
-        } catch (deleteErr) {
-          console.error("Failed to delete user:", deleteErr);
-        }
       }
     }
   };

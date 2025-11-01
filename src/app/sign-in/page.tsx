@@ -1,27 +1,25 @@
-// src/app/sign-in/page.tsx
 "use client";
 
 import { auth } from "../firebase";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { useSignInWithEmailAndPassword } from "react-firebase-hooks/auth";
-import { sendEmailVerification } from "firebase/auth";
-import { IconRefresh, IconArrowLeft } from "@tabler/icons-react";
+import { IconArrowLeft } from "@tabler/icons-react";
 import { useAuth } from "../context/AuthContext";
+import { User } from "firebase/auth";
+import EmailVerificationPopup from "../components/EmailVerificationPopUp";
 
 export default function Page() {
   const router = useRouter();
   const { user, loading } = useAuth(); // Get auth state
-  const [signInUserWithEmailAndPassword, signedInUser, signInLoading, error] =
+  const [signInUserWithEmailAndPassword, , signInLoading, error] =
     useSignInWithEmailAndPassword(auth);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [customError, setCustomError] = useState("");
   const [isVerifying, setIsVerifying] = useState(false);
-  const [resendStatus, setResendStatus] = useState<
-    "idle" | "sending" | "sent" | "error"
-  >("idle");
-  const [unverifiedUser, setUnverifiedUser] = useState<any>(null);
+  const [showVerificationPopup, setShowVerificationPopup] = useState(false);
+  const [unverifiedUser, setUnverifiedUser] = useState<User | null>(null);
 
   // Redirect if user is logged in
   useEffect(() => {
@@ -39,61 +37,75 @@ export default function Page() {
 
       if (result?.user) {
         if (!result.user.emailVerified) {
-          setCustomError(
-            "Please verify your email before signing in. Check your inbox!"
-          );
           setUnverifiedUser(result.user);
+          setShowVerificationPopup(true);
           await auth.signOut();
           setIsVerifying(false);
+          setCustomError("Please verify your email before signing in."); // NEW: Clearer message
           return;
         }
 
-        try {
-          const response = await fetch("/api/user/verify-email", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ firebaseUid: result.user.uid }),
-          });
-
-          if (!response.ok) {
-            const errorData = await response.json();
-            if (errorData.error === "Email not verified") {
-              setCustomError(
-                "Please verify your email before signing in. Check your inbox!"
-              );
-              setUnverifiedUser(result.user);
-              await auth.signOut();
-              setIsVerifying(false);
-              return;
-            }
-            console.error("Failed to update verification status in database");
+        // If emailVerified in Firebase, update DB
+        const verifyResponse = await fetch(
+          `/api/user/verify-email/${result.user.uid}`,
+          {
+            method: "PATCH",
           }
-        } catch (err) {
-          console.error("Error updating verification status:", err);
+        );
+
+        if (!verifyResponse.ok) {
+          const errorData = await verifyResponse.json();
+          if (errorData.error === "Email not verified") {
+            setUnverifiedUser(result.user);
+            setShowVerificationPopup(true);
+            await auth.signOut();
+            setIsVerifying(false);
+            setCustomError(
+              "Email verification not synced. Please verify again."
+            ); // NEW: Clearer
+            return;
+          }
+          console.error("Failed to update verification status in database");
+          setCustomError("Database sync error. Please try again.");
         }
 
         router.push("/");
       }
     } catch (err) {
       console.error("Sign in error:", err);
-      setCustomError("An error occurred during sign in");
+      setCustomError(
+        "An error occurred during sign in. Check credentials or verify email."
+      );
     } finally {
       setIsVerifying(false);
     }
   };
 
-  const handleResendVerification = async () => {
-    if (!unverifiedUser) return;
+  const handleVerificationSuccess = async () => {
+    if (unverifiedUser) {
+      try {
+        await unverifiedUser.reload();
 
-    try {
-      setResendStatus("sending");
-      await sendEmailVerification(unverifiedUser);
-      setResendStatus("sent");
-      setTimeout(() => setResendStatus("idle"), 3000);
-    } catch (err) {
-      console.error("Error sending verification email:", err);
-      setResendStatus("error");
-      setTimeout(() => setResendStatus("idle"), 3000);
+        const verifyResponse = await fetch(
+          `/api/user/verify-email/${unverifiedUser.uid}`,
+          {
+            method: "PATCH",
+          }
+        );
+
+        if (verifyResponse.ok) {
+          setShowVerificationPopup(false);
+          // Re-sign in after verification
+          await signInUserWithEmailAndPassword(email, password);
+          router.push("/");
+        } else {
+          const data = await verifyResponse.json();
+          setCustomError(data.error || "Verification failed");
+        }
+      } catch (error) {
+        console.error("Verification completion error:", error);
+        setCustomError("Failed to complete verification. Please try again.");
+      }
     }
   };
 
@@ -134,24 +146,6 @@ export default function Page() {
         {(error || customError) && (
           <div className="text-red-500 mb-4 text-center">
             <p>{customError || error?.message}</p>
-            {customError &&
-              customError.includes("verify your email") &&
-              unverifiedUser && (
-                <button
-                  className="mt-2 flex items-center justify-center gap-1 text-blue-500 hover:text-blue-700 disabled:opacity-50 mx-auto"
-                  onClick={handleResendVerification}
-                  disabled={resendStatus === "sending"}
-                >
-                  <IconRefresh size={16} />
-                  {resendStatus === "sending"
-                    ? "Sending..."
-                    : resendStatus === "sent"
-                    ? "Email sent!"
-                    : resendStatus === "error"
-                    ? "Error, try again"
-                    : "Resend verification email"}
-                </button>
-              )}
           </div>
         )}
 
@@ -163,6 +157,13 @@ export default function Page() {
           {signInLoading || isVerifying ? "Signing in..." : "SIGN IN"}
         </button>
       </div>
+
+      {showVerificationPopup && unverifiedUser && (
+        <EmailVerificationPopup
+          user={unverifiedUser}
+          onVerified={handleVerificationSuccess}
+        />
+      )}
     </div>
   );
 }

@@ -23,6 +23,8 @@ model User {
   phoneNumber       String?   @db.Char(9)
   lastActive        DateTime?
   profilePictureUrl String?   @db.VarChar(1000)
+  isVerified        Boolean   @default(false)
+  verifiedAt        DateTime?
   City              City      @relation(fields: [City_idCity], references: [idCity])
   City_idCity       Int
 
