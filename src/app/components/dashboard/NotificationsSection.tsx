@@ -12,6 +12,7 @@ import {
   IconMessage,
   IconCheck,
   IconX,
+  IconAlertCircle,
 } from "@tabler/icons-react";
 
 interface Pet {
@@ -35,6 +36,7 @@ interface Client {
 
 interface Booking {
   id: number;
+  status: "PENDING" | "ACCEPTED" | "REJECTED" | "CANCELLED";
   startDateTime: string;
   endDateTime: string;
   message: string | null;
@@ -64,6 +66,19 @@ export default function NotificationsSection({
   const [isLoading, setIsLoading] = useState(false);
   const [selectedNotification, setSelectedNotification] =
     useState<Booking | null>(null);
+
+  // Status badge component
+  const StatusBadge = ({ status }: { status: Booking["status"] }) => {
+    if (status === "CANCELLED") {
+      return (
+        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+          <IconAlertCircle size={14} className="mr-1" />
+          Cancelled
+        </span>
+      );
+    }
+    return null; // For now, only show for cancelled; extend for others later
+  };
 
   useEffect(() => {
     if (!user || !showNotifications || !userRoles.isServiceProvider) return;
@@ -115,7 +130,7 @@ export default function NotificationsSection({
           <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-xl border border-white transition-all duration-300">
             <div className="flex justify-between items-center mb-6 pb-3 border-b border-gray-100">
               <h2 className="text-xl font-semibold text-gray-800">
-                Pending Bookings
+                My Recent Bookings
               </h2>
               <button
                 onClick={onToggleNotifications}
@@ -131,7 +146,7 @@ export default function NotificationsSection({
               </div>
             ) : notifications.length === 0 ? (
               <div className="text-center py-8 text-gray-600">
-                No pending bookings
+                No recent bookings
               </div>
             ) : (
               <div className="space-y-4">
@@ -142,12 +157,15 @@ export default function NotificationsSection({
                     onClick={() => setSelectedNotification(booking)}
                   >
                     <div className="flex items-start justify-between">
-                      <div>
-                        <h4 className="font-semibold text-gray-800">
-                          Booking for {booking.pets.length} pet
-                          {booking.pets.length > 1 ? "s" : ""}:{" "}
-                          {booking.pets.map((p) => p.name).join(", ")}
-                        </h4>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="font-semibold text-gray-800">
+                            Booking for {booking.pets.length} pet
+                            {booking.pets.length > 1 ? "s" : ""}:{" "}
+                            {booking.pets.map((p) => p.name).join(", ")}
+                          </h4>
+                          <StatusBadge status={booking.status} />
+                        </div>
                         <p className="text-sm text-gray-600">
                           From:{" "}
                           {new Date(booking.startDateTime).toLocaleString()}
@@ -156,26 +174,28 @@ export default function NotificationsSection({
                           To: {new Date(booking.endDateTime).toLocaleString()}
                         </p>
                       </div>
-                      <div className="flex space-x-2">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleAccept(booking.id);
-                          }}
-                          className="p-2 bg-green-100 text-green-600 rounded-lg hover:bg-green-200"
-                        >
-                          <IconCheck size={20} />
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDecline(booking.id);
-                          }}
-                          className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200"
-                        >
-                          <IconX size={20} />
-                        </button>
-                      </div>
+                      {booking.status === "PENDING" && (
+                        <div className="flex space-x-2 ml-4">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleAccept(booking.id);
+                            }}
+                            className="p-2 bg-green-100 text-green-600 rounded-lg hover:bg-green-200"
+                          >
+                            <IconCheck size={20} />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDecline(booking.id);
+                            }}
+                            className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200"
+                          >
+                            <IconX size={20} />
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -189,9 +209,12 @@ export default function NotificationsSection({
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[99999] p-4">
           <div className="bg-white rounded-2xl p-8 w-full max-w-2xl lg:max-w-4xl mx-auto shadow-2xl relative z-[100000] max-h-[90vh] flex flex-col">
             <div className="flex justify-between items-center mb-6 pb-3 border-b border-gray-100">
-              <h2 className="text-2xl font-bold text-gray-800">
-                Booking Details
-              </h2>
+              <div className="flex items-center">
+                <h2 className="text-2xl font-bold text-gray-800">
+                  Booking Details
+                </h2>
+                <StatusBadge status={selectedNotification.status} />
+              </div>
               <button
                 onClick={() => setSelectedNotification(null)}
                 className="text-gray-500 hover:text-gray-700"
@@ -271,18 +294,22 @@ export default function NotificationsSection({
             </div>
 
             <div className="border-t pt-6 mt-auto flex justify-end space-x-4">
-              <button
-                onClick={() => handleDecline(selectedNotification.id)}
-                className="px-6 py-2 bg-red-500 text-white rounded-xl hover:bg-red-600"
-              >
-                Decline
-              </button>
-              <button
-                onClick={() => handleAccept(selectedNotification.id)}
-                className="px-6 py-2 bg-green-500 text-white rounded-xl hover:bg-green-600"
-              >
-                Accept
-              </button>
+              {selectedNotification.status === "PENDING" && (
+                <>
+                  <button
+                    onClick={() => handleDecline(selectedNotification.id)}
+                    className="px-6 py-2 bg-red-500 text-white rounded-xl hover:bg-red-600"
+                  >
+                    Decline
+                  </button>
+                  <button
+                    onClick={() => handleAccept(selectedNotification.id)}
+                    className="px-6 py-2 bg-green-500 text-white rounded-xl hover:bg-green-600"
+                  >
+                    Accept
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>
