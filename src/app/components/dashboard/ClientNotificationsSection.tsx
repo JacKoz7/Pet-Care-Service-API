@@ -12,6 +12,7 @@ import {
   IconMessage,
   IconX,
   IconAlertCircle,
+  IconCheck,
 } from "@tabler/icons-react";
 
 interface Pet {
@@ -68,15 +69,47 @@ export default function ClientNotificationsSection({
 
   // Status badge component
   const StatusBadge = ({ status }: { status: Booking["status"] }) => {
-    if (status === "CANCELLED") {
-      return (
-        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
-          <IconAlertCircle size={14} className="mr-1" />
-          Cancelled
-        </span>
-      );
-    }
-    return null; // For now, only show for cancelled; extend for others later
+    const getColor = () => {
+      switch (status) {
+        case "PENDING":
+          return "bg-yellow-100 text-yellow-800";
+        case "ACCEPTED":
+          return "bg-green-100 text-green-800";
+        case "REJECTED":
+        case "CANCELLED":
+          return "bg-red-100 text-red-800";
+      }
+    };
+    const getIcon = () => {
+      switch (status) {
+        case "PENDING":
+          return <IconCalendarClock size={14} />;
+        case "ACCEPTED":
+          return <IconCheck size={14} />;
+        case "REJECTED":
+        case "CANCELLED":
+          return <IconAlertCircle size={14} />;
+      }
+    };
+    const getText = () => {
+      switch (status) {
+        case "PENDING":
+          return "Pending";
+        case "ACCEPTED":
+          return "Accepted";
+        case "REJECTED":
+          return "Rejected";
+        case "CANCELLED":
+          return "Cancelled";
+      }
+    };
+    return (
+      <span
+        className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getColor()}`}
+      >
+        {getIcon()} {getText()}
+      </span>
+    );
   };
 
   useEffect(() => {
@@ -120,9 +153,12 @@ export default function ClientNotificationsSection({
       const data = await response.json();
       if (data.success) {
         // Refetch notifications to update the list
-        const fetchResponse = await fetch("/api/bookings/client/notifications", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const fetchResponse = await fetch(
+          "/api/bookings/client/notifications",
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
         const fetchData = await fetchResponse.json();
         if (fetchData.success) {
           setNotifications(fetchData.bookings || []);
@@ -182,8 +218,8 @@ export default function ClientNotificationsSection({
                         <div className="flex items-center justify-between mb-2">
                           <h4 className="font-semibold text-gray-800">
                             Booking with {booking.provider.firstName}{" "}
-                            {booking.provider.lastName} for {booking.pets.length}{" "}
-                            pet
+                            {booking.provider.lastName} for{" "}
+                            {booking.pets.length} pet
                             {booking.pets.length > 1 ? "s" : ""}:{" "}
                             {booking.pets.map((p) => p.name).join(", ")}
                           </h4>

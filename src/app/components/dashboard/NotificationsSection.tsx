@@ -69,54 +69,135 @@ export default function NotificationsSection({
 
   // Status badge component
   const StatusBadge = ({ status }: { status: Booking["status"] }) => {
-    if (status === "CANCELLED") {
-      return (
-        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
-          <IconAlertCircle size={14} className="mr-1" />
-          Cancelled
-        </span>
+    const getColor = () => {
+      switch (status) {
+        case "PENDING":
+          return "bg-yellow-100 text-yellow-800";
+        case "ACCEPTED":
+          return "bg-green-100 text-green-800";
+        case "REJECTED":
+        case "CANCELLED":
+          return "bg-red-100 text-red-800";
+      }
+    };
+    const getIcon = () => {
+      switch (status) {
+        case "PENDING":
+          return <IconCalendarClock size={14} />;
+        case "ACCEPTED":
+          return <IconCheck size={14} />;
+        case "REJECTED":
+        case "CANCELLED":
+          return <IconAlertCircle size={14} />;
+      }
+    };
+    const getText = () => {
+      switch (status) {
+        case "PENDING":
+          return "Pending";
+        case "ACCEPTED":
+          return "Accepted";
+        case "REJECTED":
+          return "Rejected";
+        case "CANCELLED":
+          return "Cancelled";
+      }
+    };
+    return (
+      <span
+        className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getColor()}`}
+      >
+        {getIcon()} {getText()}
+      </span>
+    );
+  };
+
+  const fetchNotifications = async () => {
+    if (!user) return;
+    setIsLoading(true);
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch(
+        "/api/bookings/service-provider/notifications",
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
       );
+      const data = await response.json();
+      if (data.success) {
+        setNotifications(data.bookings || []);
+      } else {
+        console.error("Failed to fetch notifications");
+      }
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+    } finally {
+      setIsLoading(false);
     }
-    return null; // For now, only show for cancelled; extend for others later
   };
 
   useEffect(() => {
     if (!user || !showNotifications || !userRoles.isServiceProvider) return;
 
-    const fetchNotifications = async () => {
-      setIsLoading(true);
-      try {
-        const token = await user.getIdToken();
-        const response = await fetch(
-          "/api/bookings/service-provider/notifications",
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
-        const data = await response.json();
-        if (data.success) {
-          setNotifications(data.bookings || []);
-        } else {
-          console.error("Failed to fetch notifications");
-        }
-      } catch (error) {
-        console.error("Error fetching notifications:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     fetchNotifications();
   }, [user, showNotifications, userRoles.isServiceProvider]);
 
-  const handleAccept = (id: number) => {
-    // TODO: Implement accept functionality
-    console.log(`Accept booking ${id}`);
+  const handleAccept = async (id: number) => {
+    if (!user) return;
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch("/api/bookings/service-provider/accept", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ bookingId: id }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        // Refetch notifications to update the list
+        await fetchNotifications();
+        // Close modal if open
+        if (selectedNotification?.id === id) {
+          setSelectedNotification(null);
+        }
+        console.log("Booking accepted successfully");
+      } else {
+        console.error("Failed to accept booking:", data.error);
+      }
+    } catch (error) {
+      console.error("Error accepting booking:", error);
+    }
   };
 
-  const handleDecline = (id: number) => {
-    // TODO: Implement decline functionality
-    console.log(`Decline booking ${id}`);
+  const handleDecline = async (id: number) => {
+    if (!user) return;
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch("/api/bookings/service-provider/reject", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ bookingId: id }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        // Refetch notifications to update the list
+        await fetchNotifications();
+        // Close modal if open
+        if (selectedNotification?.id === id) {
+          setSelectedNotification(null);
+        }
+        console.log("Booking rejected successfully");
+      } else {
+        console.error("Failed to reject booking:", data.error);
+      }
+    } catch (error) {
+      console.error("Error rejecting booking:", error);
+    }
   };
 
   if (!userRoles.isServiceProvider) {
@@ -231,7 +312,10 @@ export default function NotificationsSection({
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-96 overflow-y-auto">
                   {selectedNotification.pets.map((pet) => (
-                    <div key={pet.id} className="border rounded-lg p-4 bg-gray-50">
+                    <div
+                      key={pet.id}
+                      className="border rounded-lg p-4 bg-gray-50"
+                    >
                       <div className="text-center mb-4">
                         <div className="relative h-32 w-32 mx-auto rounded-full overflow-hidden border-4 border-indigo-200">
                           <Image
@@ -244,10 +328,21 @@ export default function NotificationsSection({
                         <h4 className="font-semibold mt-2">{pet.name}</h4>
                       </div>
                       <div className="space-y-2 text-sm">
-                        <p><span className="font-medium">Age:</span> {pet.age}</p>
-                        <p><span className="font-medium">Species:</span> {pet.species}</p>
-                        <p><span className="font-medium">Breed:</span> {pet.breed}</p>
-                        <p><span className="font-medium">Description:</span> {pet.description || "None"}</p>
+                        <p>
+                          <span className="font-medium">Age:</span> {pet.age}
+                        </p>
+                        <p>
+                          <span className="font-medium">Species:</span>{" "}
+                          {pet.species}
+                        </p>
+                        <p>
+                          <span className="font-medium">Breed:</span>{" "}
+                          {pet.breed}
+                        </p>
+                        <p>
+                          <span className="font-medium">Description:</span>{" "}
+                          {pet.description || "None"}
+                        </p>
                         {pet.isHealthy === true && (
                           <p className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                             Healthy
@@ -265,9 +360,19 @@ export default function NotificationsSection({
                   Client Information
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                  <p><span className="font-medium">Name:</span> {selectedNotification.client.firstName}{" "}{selectedNotification.client.lastName}</p>
-                  <p><span className="font-medium">Email:</span> {selectedNotification.client.email}</p>
-                  <p><span className="font-medium">Phone:</span> {selectedNotification.client.phoneNumber}</p>
+                  <p>
+                    <span className="font-medium">Name:</span>{" "}
+                    {selectedNotification.client.firstName}{" "}
+                    {selectedNotification.client.lastName}
+                  </p>
+                  <p>
+                    <span className="font-medium">Email:</span>{" "}
+                    {selectedNotification.client.email}
+                  </p>
+                  <p>
+                    <span className="font-medium">Phone:</span>{" "}
+                    {selectedNotification.client.phoneNumber}
+                  </p>
                 </div>
               </div>
 
@@ -277,8 +382,18 @@ export default function NotificationsSection({
                   Booking Times
                 </h3>
                 <div className="text-sm space-y-1">
-                  <p><span className="font-medium">Start:</span> {new Date(selectedNotification.startDateTime).toLocaleString()}</p>
-                  <p><span className="font-medium">End:</span> {new Date(selectedNotification.endDateTime).toLocaleString()}</p>
+                  <p>
+                    <span className="font-medium">Start:</span>{" "}
+                    {new Date(
+                      selectedNotification.startDateTime
+                    ).toLocaleString()}
+                  </p>
+                  <p>
+                    <span className="font-medium">End:</span>{" "}
+                    {new Date(
+                      selectedNotification.endDateTime
+                    ).toLocaleString()}
+                  </p>
                 </div>
               </div>
 
