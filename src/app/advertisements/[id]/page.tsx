@@ -22,6 +22,7 @@ import {
   IconX,
   IconPencil,
 } from "@tabler/icons-react";
+import BookingForm from "../../components/BookingForm";
 
 interface AdvertisementDetails {
   id: number;
@@ -71,6 +72,7 @@ export default function AdvertisementDetails() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [notification, setNotification] = useState<Notification | null>(null);
+  const [isBookingOpen, setIsBookingOpen] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -104,7 +106,10 @@ export default function AdvertisementDetails() {
             },
           });
           if (!rolesResponse.ok) {
-            console.warn("Failed to fetch user roles:", await rolesResponse.text());
+            console.warn(
+              "Failed to fetch user roles:",
+              await rolesResponse.text()
+            );
             setUserRoles({ roles: [], serviceProviderIds: [] });
           } else {
             const rolesData = await rolesResponse.json();
@@ -209,7 +214,7 @@ export default function AdvertisementDetails() {
       return;
     }
 
-    showNotification("Booking feature coming soon!", "info");
+    setIsBookingOpen(true);
   };
 
   const handleDelete = async () => {
@@ -555,6 +560,22 @@ export default function AdvertisementDetails() {
             </button>
           </div>
         </div>
+      )}
+
+      {isBookingOpen && ad && (
+        <BookingForm
+          adId={ad.id}
+          serviceProviderId={ad.serviceProviderId}
+          providerPhone={ad.provider.phoneNumber}
+          adStartDate={ad.startDate}
+          adEndDate={ad.endDate}
+          adServiceStartTime={ad.serviceStartTime}
+          adServiceEndTime={ad.serviceEndTime}
+          onClose={() => setIsBookingOpen(false)}
+          onSuccess={() =>
+            showNotification("Booking created successfully!", "success")
+          }
+        />
       )}
 
       <style jsx global>{`

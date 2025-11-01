@@ -1,3 +1,4 @@
+// src/app/dashboard/page.tsx
 "use client";
 
 import { auth } from "../../firebase";
@@ -12,6 +13,8 @@ import SearchBar from "./SearchBar";
 import CitiesSection from "./CitiesSection";
 import AdsSection from "./AdsSection";
 import FeaturesSection from "./FeaturesSection";
+import NotificationsSection from "./NotificationsSection";
+import ClientNotificationsSection from "./ClientNotificationsSection";
 
 interface City {
   idCity: number;
@@ -52,6 +55,9 @@ export default function Dashboard() {
   const [isLoadingAnalyses, setIsLoadingAnalyses] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [showDiagnoses, setShowDiagnoses] = useState(false);
+  const [showProviderNotifications, setShowProviderNotifications] =
+    useState(false);
+  const [showClientNotifications, setShowClientNotifications] = useState(false);
   const [userRoles, setUserRoles] = useState<UserRoles>({
     isAdmin: false,
     isServiceProvider: false,
@@ -272,10 +278,22 @@ export default function Dashboard() {
     }
   };
 
+  const handleToggleProviderNotifications = () => {
+    setShowProviderNotifications(!showProviderNotifications);
+  };
+
+  const handleToggleClientNotifications = () => {
+    setShowClientNotifications(!showClientNotifications);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50 py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
-        <HeaderSection user={user} userRoles={userRoles} isLoadingRole={isLoadingRole} />
+        <HeaderSection
+          user={user}
+          userRoles={userRoles}
+          isLoadingRole={isLoadingRole}
+        />
         <ActionButtons
           user={user}
           userRoles={userRoles}
@@ -286,6 +304,10 @@ export default function Dashboard() {
           onViewAllAds={handleViewAllAds}
           onToggleDiagnoses={handleToggleDiagnoses}
           showDiagnoses={showDiagnoses}
+          onToggleProviderNotifications={handleToggleProviderNotifications}
+          showProviderNotifications={showProviderNotifications}
+          onToggleClientNotifications={handleToggleClientNotifications}
+          showClientNotifications={showClientNotifications}
         />
         <DiagnoseSection
           user={user}
@@ -295,6 +317,16 @@ export default function Dashboard() {
           analyses={analyses}
           isLoadingAnalyses={isLoadingAnalyses}
           onViewDiagnosis={handleViewDiagnosis}
+        />
+        <NotificationsSection
+          showNotifications={showProviderNotifications}
+          onToggleNotifications={handleToggleProviderNotifications}
+          userRoles={userRoles}
+        />
+        <ClientNotificationsSection
+          showNotifications={showClientNotifications}
+          onToggleNotifications={handleToggleClientNotifications}
+          userRoles={userRoles}
         />
         <SearchBar searchQuery={searchQuery} onSearchChange={setSearchQuery} />
         <CitiesSection
