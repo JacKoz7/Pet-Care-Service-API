@@ -1,3 +1,4 @@
+// src/app/dashboard/page.tsx
 "use client";
 
 import { auth } from "../../firebase";
@@ -13,6 +14,7 @@ import CitiesSection from "./CitiesSection";
 import AdsSection from "./AdsSection";
 import FeaturesSection from "./FeaturesSection";
 import NotificationsSection from "./NotificationsSection";
+import ClientNotificationsSection from "./ClientNotificationsSection";
 
 interface City {
   idCity: number;
@@ -53,7 +55,9 @@ export default function Dashboard() {
   const [isLoadingAnalyses, setIsLoadingAnalyses] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [showDiagnoses, setShowDiagnoses] = useState(false);
-  const [showNotifications, setShowNotifications] = useState(false);
+  const [showProviderNotifications, setShowProviderNotifications] =
+    useState(false);
+  const [showClientNotifications, setShowClientNotifications] = useState(false);
   const [userRoles, setUserRoles] = useState<UserRoles>({
     isAdmin: false,
     isServiceProvider: false,
@@ -274,8 +278,12 @@ export default function Dashboard() {
     }
   };
 
-  const handleToggleNotifications = () => {
-    setShowNotifications(!showNotifications);
+  const handleToggleProviderNotifications = () => {
+    setShowProviderNotifications(!showProviderNotifications);
+  };
+
+  const handleToggleClientNotifications = () => {
+    setShowClientNotifications(!showClientNotifications);
   };
 
   return (
@@ -296,8 +304,10 @@ export default function Dashboard() {
           onViewAllAds={handleViewAllAds}
           onToggleDiagnoses={handleToggleDiagnoses}
           showDiagnoses={showDiagnoses}
-          onToggleNotifications={handleToggleNotifications}
-          showNotifications={showNotifications}
+          onToggleProviderNotifications={handleToggleProviderNotifications}
+          showProviderNotifications={showProviderNotifications}
+          onToggleClientNotifications={handleToggleClientNotifications}
+          showClientNotifications={showClientNotifications}
         />
         <DiagnoseSection
           user={user}
@@ -309,8 +319,13 @@ export default function Dashboard() {
           onViewDiagnosis={handleViewDiagnosis}
         />
         <NotificationsSection
-          showNotifications={showNotifications}
-          onToggleNotifications={handleToggleNotifications}
+          showNotifications={showProviderNotifications}
+          onToggleNotifications={handleToggleProviderNotifications}
+          userRoles={userRoles}
+        />
+        <ClientNotificationsSection
+          showNotifications={showClientNotifications}
+          onToggleNotifications={handleToggleClientNotifications}
           userRoles={userRoles}
         />
         <SearchBar searchQuery={searchQuery} onSearchChange={setSearchQuery} />

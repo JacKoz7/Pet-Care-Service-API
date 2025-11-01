@@ -1,11 +1,11 @@
-// src/app/api/bookings/route.ts
+// src/app/api/bookings/notifications/service-provider/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { adminAuth } from "@/lib/firebaseAdmin";
 
 const prisma = new PrismaClient();
 
-export async function POST(request: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
     const authHeader = request.headers.get("authorization");
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -27,38 +27,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const body = await request.json();
-    const { petIds, serviceProviderId, startDateTime, endDateTime, message } =
-      body;
-
-    // Validate required fields
-    if (
-      !Array.isArray(petIds) ||
-      petIds.length === 0 ||
-      !serviceProviderId ||
-      !startDateTime ||
-      !endDateTime
-    ) {
-      return NextResponse.json(
-        { error: "Missing required fields or invalid petIds" },
-        { status: 400 }
-      );
-    }
-
-    // Validate dates
-    const start = new Date(startDateTime);
-    const end = new Date(endDateTime);
-    if (isNaN(start.getTime()) || isNaN(end.getTime()) || start >= end) {
-      return NextResponse.json(
-        { error: "Invalid start or end date/time" },
-        { status: 400 }
-      );
-    }
-
     const user = await prisma.user.findUnique({
       where: { firebaseUid: decodedToken.uid },
       include: {
-        Clients: true,
+        ServiceProviders: {
+          where: { isActive: true },
+        },
       },
     });
 
@@ -66,68 +40,112 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // Ensure user has a client record
-    let clientId;
-    if (user.Clients.length === 0) {
-      const newClient = await prisma.client.create({
-        data: {
-          User_idUser: user.idUser,
-        },
-      });
-      clientId = newClient.idClient;
-    } else {
-      clientId = user.Clients[0].idClient;
-    }
-
-    // Verify service provider exists
-    const serviceProvider = await prisma.service_Provider.findUnique({
-      where: { idService_Provider: serviceProviderId },
-      select: { isActive: true },
-    });
-
-    if (!serviceProvider || !serviceProvider.isActive) {
+    if (user.ServiceProviders.length === 0) {
       return NextResponse.json(
-        { error: "Invalid or inactive service provider" },
-        { status: 400 }
+        { error: "User is not an active service provider" },
+        { status: 403 }
       );
     }
 
-    // Validate all pets belong to the client
-    const pets = await prisma.pet.findMany({
+    const serviceProviderIds = user.ServiceProviders.map(
+      (sp) => sp.idService_Provider
+    );
+
+    // Calculate time thresholds
+    const oneMonthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const threeMonthsAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+
+    const bookings = await prisma.booking.findMany({
       where: {
-        idPet: { in: petIds },
-        Client_idClient: clientId,
+        Service_Provider_idService_Provider: {
+          in: serviceProviderIds,
+        },
+        OR: [
+          { status: "PENDING" },
+          { status: "CANCELLED", updatedAt: { gte: oneMonthAgo } },
+          { status: "REJECTED", updatedAt: { gte: oneMonthAgo } },
+          { status: "ACCEPTED", updatedAt: { gte: threeMonthsAgo } },
+        ],
       },
-      select: { idPet: true },
+      include: {
+        Pets: {
+          include: {
+            Pet: {
+              select: {
+                idPet: true,
+                name: true,
+                age: true,
+                description: true,
+                chronicDiseases: true,
+                isHealthy: true,
+                Breed: {
+                  select: {
+                    name: true,
+                    Spiece: {
+                      select: {
+                        name: true,
+                      },
+                    },
+                  },
+                },
+                Images: {
+                  orderBy: {
+                    order: "asc",
+                  },
+                  take: 1,
+                  select: {
+                    imageUrl: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        Client: {
+          include: {
+            User: {
+              select: {
+                firstName: true,
+                lastName: true,
+                email: true,
+                phoneNumber: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        idBooking: "desc",
+      },
     });
 
-    if (pets.length !== petIds.length) {
-      return NextResponse.json(
-        { error: "One or more selected pets do not belong to you" },
-        { status: 400 }
-      );
-    }
-
-    // Create the booking
-    const booking = await prisma.booking.create({
-      data: {
-        startDateTime: start,
-        endDateTime: end,
-        message: message || null,
-        Client_idClient: clientId,
-        Service_Provider_idService_Provider: serviceProviderId,
-      },
-    });
-
-    // Create BookingPet entries for each pet
-    await prisma.bookingPet.createMany({
-      data: petIds.map((petId: number) => ({
-        Booking_idBooking: booking.idBooking,
-        Pet_idPet: petId,
+    // Format the response
+    const formattedBookings = bookings.map((booking) => ({
+      id: booking.idBooking,
+      status: booking.status,
+      startDateTime: booking.startDateTime,
+      endDateTime: booking.endDateTime,
+      message: booking.message,
+      pets: booking.Pets.map((bp) => ({
+        id: bp.Pet.idPet,
+        name: bp.Pet.name,
+        age: bp.Pet.age,
+        description: bp.Pet.description,
+        chronicDiseases: bp.Pet.chronicDiseases,
+        isHealthy: bp.Pet.isHealthy,
+        breed: bp.Pet.Breed.name,
+        species: bp.Pet.Breed.Spiece.name,
+        keyImage: bp.Pet.Images[0]?.imageUrl || null,
       })),
-    });
+      client: {
+        firstName: booking.Client.User.firstName,
+        lastName: booking.Client.User.lastName,
+        email: booking.Client.User.email,
+        phoneNumber: booking.Client.User.phoneNumber,
+      },
+    }));
 
-    // Update user's lastActive
+    // Update lastActive
     await prisma.user.update({
       where: { idUser: user.idUser },
       data: { lastActive: new Date() },
@@ -135,10 +153,10 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      booking,
+      bookings: formattedBookings,
     });
   } catch (error) {
-    console.error("Error creating booking:", error);
+    console.error("Error fetching pending bookings:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
@@ -150,53 +168,20 @@ export async function POST(request: NextRequest) {
 
 /**
  * @swagger
- * /api/bookings:
- *   post:
- *     summary: Create a new booking with multiple pets
+ * /api/bookings/service-provider/notifications:
+ *   get:
+ *     summary: Get pending booking notifications for service provider
  *     description: |
- *       Creates a new booking request for a service provider, supporting multiple pets in a single booking.
+ *       Retrieves all pending booking requests (notifications) for the authenticated service provider.
  *       Requires a valid Firebase authentication token.
- *       The user must be a client (creates client record if none exists).
- *       All pets must belong to the client.
- *       The service provider must exist and be active.
+ *       Only available to active service providers.
+ *       Returns details about all pets in the booking, client (name, email, phone), message, and booking times.
  *     tags: [Bookings]
  *     security:
  *       - BearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - petIds
- *               - serviceProviderId
- *               - startDateTime
- *               - endDateTime
- *             properties:
- *               petIds:
- *                 type: array
- *                 items:
- *                   type: integer
- *                 example: [1, 2]
- *               serviceProviderId:
- *                 type: integer
- *                 example: 42
- *               startDateTime:
- *                 type: string
- *                 format: date-time
- *                 example: "2025-10-25T10:00:00Z"
- *               endDateTime:
- *                 type: string
- *                 format: date-time
- *                 example: "2025-10-25T12:00:00Z"
- *               message:
- *                 type: string
- *                 nullable: true
- *                 example: "Please confirm the exact hours."
  *     responses:
  *       200:
- *         description: Booking created successfully
+ *         description: Pending bookings retrieved successfully
  *         content:
  *           application/json:
  *             schema:
@@ -205,32 +190,86 @@ export async function POST(request: NextRequest) {
  *                 success:
  *                   type: boolean
  *                   example: true
- *                 booking:
- *                   type: object
- *                   properties:
- *                     idBooking:
- *                       type: integer
- *                       example: 1
- *                     startDateTime:
- *                       type: string
- *                       format: date-time
- *                     endDateTime:
- *                       type: string
- *                       format: date-time
- *                     message:
- *                       type: string
- *                       nullable: true
- *                     status:
- *                       type: string
- *                       example: "PENDING"
- *                     Client_idClient:
- *                       type: integer
- *                     Service_Provider_idService_Provider:
- *                       type: integer
- *       400:
- *         description: Missing/invalid fields, invalid pets/provider, or date issues
+ *                 bookings:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: integer
+ *                         example: 1
+ *                       startDateTime:
+ *                         type: string
+ *                         format: date-time
+ *                         example: "2025-10-25T10:00:00Z"
+ *                       endDateTime:
+ *                         type: string
+ *                         format: date-time
+ *                         example: "2025-10-25T12:00:00Z"
+ *                       message:
+ *                         type: string
+ *                         nullable: true
+ *                         example: "Please confirm the exact hours."
+ *                       pets:
+ *                         type: array
+ *                         items:
+ *                           type: object
+ *                           properties:
+ *                             id:
+ *                               type: integer
+ *                               example: 1
+ *                             name:
+ *                               type: string
+ *                               example: "Max"
+ *                             age:
+ *                               type: number
+ *                               example: 5
+ *                             description:
+ *                               type: string
+ *                               nullable: true
+ *                               example: "Friendly dog"
+ *                             chronicDiseases:
+ *                               type: array
+ *                               items:
+ *                                 type: string
+ *                               example: ["Allergies"]
+ *                             isHealthy:
+ *                               type: boolean
+ *                               nullable: true
+ *                               example: true
+ *                             breed:
+ *                               type: string
+ *                               example: "Labrador"
+ *                             species:
+ *                               type: string
+ *                               example: "Dog"
+ *                             keyImage:
+ *                               type: string
+ *                               nullable: true
+ *                               example: "https://example.com/pet.jpg"
+ *                       client:
+ *                         type: object
+ *                         properties:
+ *                           firstName:
+ *                             type: string
+ *                             nullable: true
+ *                             example: "John"
+ *                           lastName:
+ *                             type: string
+ *                             nullable: true
+ *                             example: "Doe"
+ *                           email:
+ *                             type: string
+ *                             nullable: true
+ *                             example: "john.doe@example.com"
+ *                           phoneNumber:
+ *                             type: string
+ *                             nullable: true
+ *                             example: "123456789"
  *       401:
  *         description: Unauthorized (invalid or missing token)
+ *       403:
+ *         description: Forbidden (user is not an active service provider)
  *       404:
  *         description: User not found
  *       500:
