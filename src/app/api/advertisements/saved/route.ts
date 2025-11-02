@@ -1,3 +1,4 @@
+// src/app/api/advertisements/saved/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { adminAuth } from "@/lib/firebaseAdmin";
@@ -28,22 +29,26 @@ export async function GET(request: NextRequest) {
 
     const user = await prisma.user.findUnique({
       where: { firebaseUid: decodedToken.uid },
+      include: {
+        Clients: true,
+      },
     });
 
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    const client = await prisma.client.findFirst({
-      where: { User_idUser: user.idUser },
-    });
-
-    if (!client) {
-      return NextResponse.json({ error: "Client not found" }, { status: 404 });
+    if (user.Clients.length === 0) {
+      return NextResponse.json({
+        success: true,
+        advertisements: [],
+      });
     }
 
+    const clientId = user.Clients[0].idClient;
+
     const savedAds = await prisma.savedAdvertisement.findMany({
-      where: { Client_idClient: client.idClient },
+      where: { Client_idClient: clientId },
       include: {
         Advertisement: {
           select: {
@@ -188,7 +193,7 @@ export async function GET(request: NextRequest) {
  *       401:
  *         description: Unauthorized (invalid or missing token)
  *       404:
- *         description: User or client not found
+ *         description: User not found
  *       500:
  *         description: Internal server error
  */
