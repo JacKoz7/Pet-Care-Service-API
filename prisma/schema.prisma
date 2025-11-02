@@ -96,6 +96,7 @@ model Advertisement {
   Feedbacks Feedback[]
   Archives  Archive[]
   Images    AdvertisementImage[]
+  SavedBy   SavedAdvertisement[]
 
   @@unique([title, Service_Provider_idService_Provider])
 }
@@ -157,6 +158,7 @@ model Client {
   Bookings  Booking[]
   Feedbacks Feedback[]
   Pets      Pet[]
+  SavedAdvertisements SavedAdvertisement[]
 }
 
 model Feedback {
@@ -313,4 +315,15 @@ model Analysis {
 
   Pet       Pet @relation(fields: [Pet_idPet], references: [idPet])
   Pet_idPet Int
+}
+
+model SavedAdvertisement {
+  id              Int       @id @default(autoincrement())
+  savedAt         DateTime  @default(now())
+  Client          Client    @relation(fields: [Client_idClient], references: [idClient])
+  Client_idClient Int
+  Advertisement   Advertisement @relation(fields: [Advertisement_idAdvertisement], references: [idAdvertisement])
+  Advertisement_idAdvertisement Int
+
+  @@unique([Client_idClient, Advertisement_idAdvertisement])
 }
