@@ -247,18 +247,9 @@ const symptoms = [
 ];
 
 async function main() {
-  console.log("Sprawdzam istniejące ogłoszenia...");
-
-  const existingAds = await prisma.advertisement.count();
-  if (existingAds > 0) {
-    console.log(`Znaleziono ${existingAds} ogłoszeń. Czyszczę bazę...`);
-    await prisma.advertisementImage.deleteMany();
-    await prisma.advertisement.deleteMany();
-  }
-
   console.log("Dodaję miasta z obrazkami...");
 
-  // Seed cities
+  // Seed cities - upsert NIE usuwa, tylko aktualizuje lub tworzy
   for (const city of cities) {
     await prisma.city.upsert({
       where: { name: city.name },
@@ -273,7 +264,7 @@ async function main() {
 
   console.log("Dodaję usługi...");
 
-  // Seed services
+  // Seed services - upsert NIE usuwa, tylko aktualizuje lub tworzy
   for (const service of services) {
     await prisma.service.upsert({
       where: { name: service.name },
@@ -287,7 +278,7 @@ async function main() {
 
   console.log("Dodaję symptomy...");
 
-  // Seed symptoms
+  // Seed symptoms - upsert NIE usuwa, tylko aktualizuje lub tworzy
   for (const symptom of symptoms) {
     await prisma.symptom.upsert({
       where: { code: symptom.code },
@@ -302,140 +293,152 @@ async function main() {
     console.log(`Dodano lub zaktualizowano symptom: ${symptom.name}`);
   }
 
-  console.log("Sprawdzam czy istnieją service providerzy...");
+  console.log("Sprawdzam czy istnieją ogłoszenia...");
 
-  // Sprawdź czy istnieją service providerzy o id 1
-  const serviceProviders = await prisma.service_Provider.findMany({
-    where: {
-      idService_Provider: {
-        in: [1],
-      },
-    },
-  });
-
-  if (serviceProviders.length === 0) {
+  // Sprawdź czy są JAKIEKOLWIEK ogłoszenia - jeśli tak, NIE dodawaj nowych
+  const existingAds = await prisma.advertisement.count();
+  if (existingAds > 0) {
     console.log(
-      "Brak service providerów o id 1, 2. Pomijam dodawanie ogłoszeń."
+      `Znaleziono ${existingAds} ogłoszeń. Pomijam dodawanie przykładowych ogłoszeń.`
     );
-    console.log("Najpierw dodaj użytkowników i service providerów przez API.");
   } else {
-    console.log(
-      `Znaleziono ${serviceProviders.length} service providerów. Dodaję ogłoszenia...`
-    );
+    console.log("Brak ogłoszeń. Sprawdzam service providerów...");
 
-    // Helper function to create dates
-    const now = new Date();
-    const futureDate = (daysFromNow: number) => {
-      const date = new Date();
-      date.setDate(date.getDate() + daysFromNow);
-      return date;
-    };
+    // Sprawdź czy istnieją service providerzy o id 1
+    const serviceProviders = await prisma.service_Provider.findMany({
+      where: {
+        idService_Provider: {
+          in: [1],
+        },
+      },
+    });
 
-    // Sample advertisements data with start/end dates
-    const sampleAdvertisements = [
-      // Service Provider 1 (jeśli istnieje)
-      ...(serviceProviders.find((sp) => sp.idService_Provider === 1)
-        ? [
-            {
-              serviceProviderId: 1,
-              serviceId: 1,
-              title: "Profesjonalne wyprowadzanie psów w centrum Warszawy",
-              description:
-                "Oferuję profesjonalne wyprowadzanie psów w centrum Warszawy. Mam 5 lat doświadczenia w opiece nad zwierzętami. Zapewniam bezpieczne i aktywne spacery dostosowane do potrzeb Twojego pupila.",
-              price: 25.0,
-              status: "ACTIVE" as const,
-              startDate: now,
-              endDate: futureDate(60),
-              serviceStartTime: new Date("1970-01-01T09:00:00"),
-              serviceEndTime: new Date("1970-01-01T17:00:00"),
-              images: [
-                "https://images.unsplash.com/photo-1552053831-71594a27632d?w=500",
-                "https://images.unsplash.com/photo-1583337130417-3346a1be7dee?w=500",
-              ],
-            },
-            {
-              serviceProviderId: 1,
-              serviceId: 2,
-              title: "Opieka nad zwierzętami w Twoim domu",
-              description:
-                "Kompleksowa opieka nad Twoim zwierzęciem w komfortowych warunkach jego własnego domu. Karmienie, spacery, zabawa i dużo uwagi.",
-              price: 80.0,
-              status: "ACTIVE" as const,
-              startDate: now,
-              endDate: futureDate(365),
-              serviceStartTime: new Date("1970-01-01T08:00:00"),
-              serviceEndTime: new Date("1970-01-01T20:00:00"),
-              images: [
-                "https://images.unsplash.com/photo-1601758228041-f3b2795255f1?w=500",
-              ],
-            },
-            {
-              serviceProviderId: 1,
-              serviceId: 3,
-              title: "Boarding - Twój pies jak w domu",
-              description:
-                "Oferuję opiekę nad Twoim psem w moim domu. Duży ogród, dużo uwagi i miłości. Regularne spacery i zabawa z innymi psami pod nadzorem.",
-              price: 60.0,
-              status: "ACTIVE" as const,
-              startDate: now,
-              endDate: futureDate(90),
-              serviceStartTime: new Date("1970-01-01T07:00:00"),
-              serviceEndTime: new Date("1970-01-01T22:00:00"),
-              images: [
-                "https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=500",
-                "https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=500",
-              ],
-            },
-          ]
-        : []),
-    ];
+    if (serviceProviders.length === 0) {
+      console.log(
+        "Brak service providerów o id 1. Pomijam dodawanie ogłoszeń."
+      );
+      console.log(
+        "Najpierw dodaj użytkowników i service providerów przez API."
+      );
+    } else {
+      console.log(
+        `Znaleziono ${serviceProviders.length} service providerów. Dodaję przykładowe ogłoszenia...`
+      );
 
-    // Seed sample advertisements
-    for (const ad of sampleAdvertisements) {
-      try {
-        const createdAd = await prisma.advertisement.create({
-          data: {
-            title: ad.title,
-            description: ad.description,
-            price: ad.price,
-            status: ad.status,
-            startDate: ad.startDate,
-            endDate: ad.endDate,
-            serviceStartTime: ad.serviceStartTime,
-            serviceEndTime: ad.serviceEndTime,
-            Service_idService: ad.serviceId,
-            Service_Provider_idService_Provider: ad.serviceProviderId,
-            Images: {
-              create: ad.images.map((imageUrl, index) => ({
-                imageUrl,
-                order: index + 1,
-              })),
+      // Helper function to create dates
+      const now = new Date();
+      const futureDate = (daysFromNow: number) => {
+        const date = new Date();
+        date.setDate(date.getDate() + daysFromNow);
+        return date;
+      };
+
+      // Sample advertisements data with start/end dates
+      const sampleAdvertisements = [
+        // Service Provider 1 (jeśli istnieje)
+        ...(serviceProviders.find((sp) => sp.idService_Provider === 1)
+          ? [
+              {
+                serviceProviderId: 1,
+                serviceId: 1,
+                title: "Profesjonalne wyprowadzanie psów w centrum Warszawy",
+                description:
+                  "Oferuję profesjonalne wyprowadzanie psów w centrum Warszawy. Mam 5 lat doświadczenia w opiece nad zwierzętami. Zapewniam bezpieczne i aktywne spacery dostosowane do potrzeb Twojego pupila.",
+                price: 25.0,
+                status: "ACTIVE" as const,
+                startDate: now,
+                endDate: futureDate(60),
+                serviceStartTime: new Date("1970-01-01T09:00:00"),
+                serviceEndTime: new Date("1970-01-01T17:00:00"),
+                images: [
+                  "https://images.unsplash.com/photo-1552053831-71594a27632d?w=500",
+                  "https://images.unsplash.com/photo-1583337130417-3346a1be7dee?w=500",
+                ],
+              },
+              {
+                serviceProviderId: 1,
+                serviceId: 2,
+                title: "Opieka nad zwierzętami w Twoim domu",
+                description:
+                  "Kompleksowa opieka nad Twoim zwierzęciem w komfortowych warunkach jego własnego domu. Karmienie, spacery, zabawa i dużo uwagi.",
+                price: 80.0,
+                status: "ACTIVE" as const,
+                startDate: now,
+                endDate: futureDate(365),
+                serviceStartTime: new Date("1970-01-01T08:00:00"),
+                serviceEndTime: new Date("1970-01-01T20:00:00"),
+                images: [
+                  "https://images.unsplash.com/photo-1601758228041-f3b2795255f1?w=500",
+                ],
+              },
+              {
+                serviceProviderId: 1,
+                serviceId: 3,
+                title: "Boarding - Twój pies jak w domu",
+                description:
+                  "Oferuję opiekę nad Twoim psem w moim domu. Duży ogród, dużo uwagi i miłości. Regularne spacery i zabawa z innymi psami pod nadzorem.",
+                price: 60.0,
+                status: "ACTIVE" as const,
+                startDate: now,
+                endDate: futureDate(90),
+                serviceStartTime: new Date("1970-01-01T07:00:00"),
+                serviceEndTime: new Date("1970-01-01T22:00:00"),
+                images: [
+                  "https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=500",
+                  "https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=500",
+                ],
+              },
+            ]
+          : []),
+      ];
+
+      // Seed sample advertisements - tylko jeśli baza jest pusta
+      for (const ad of sampleAdvertisements) {
+        try {
+          const createdAd = await prisma.advertisement.create({
+            data: {
+              title: ad.title,
+              description: ad.description,
+              price: ad.price,
+              status: ad.status,
+              startDate: ad.startDate,
+              endDate: ad.endDate,
+              serviceStartTime: ad.serviceStartTime,
+              serviceEndTime: ad.serviceEndTime,
+              Service_idService: ad.serviceId,
+              Service_Provider_idService_Provider: ad.serviceProviderId,
+              Images: {
+                create: ad.images.map((imageUrl, index) => ({
+                  imageUrl,
+                  order: index + 1,
+                })),
+              },
             },
-          },
-          include: {
-            Images: true,
-          },
-        });
-        console.log(
-          `Dodano ogłoszenie: ${createdAd.title} z ${
-            createdAd.Images.length
-          } zdjęciami (aktywne do: ${
-            createdAd.endDate || "bez limitu"
-          }, godziny: ${createdAd.serviceStartTime
-            ?.toTimeString()
-            .slice(0, 5)} - ${createdAd.serviceEndTime
-            ?.toTimeString()
-            .slice(0, 5)})`
-        );
-      } catch (error) {
-        console.error(`Błąd przy dodawaniu ogłoszenia "${ad.title}":`, error);
+            include: {
+              Images: true,
+            },
+          });
+          console.log(
+            `Dodano ogłoszenie: ${createdAd.title} z ${
+              createdAd.Images.length
+            } zdjęciami (aktywne do: ${
+              createdAd.endDate || "bez limitu"
+            }, godziny: ${createdAd.serviceStartTime
+              ?.toTimeString()
+              .slice(0, 5)} - ${createdAd.serviceEndTime
+              ?.toTimeString()
+              .slice(0, 5)})`
+          );
+        } catch (error) {
+          console.error(`Błąd przy dodawaniu ogłoszenia "${ad.title}":`, error);
+        }
       }
     }
   }
 
   console.log("Dodaję gatunki i rasy...");
 
-  // Seed Spiece (gatunki)
+  // Seed Spiece (gatunki) - upsert NIE usuwa
   const dogSpiece = await prisma.spiece.upsert({
     where: { name: "Pies" },
     update: {},
@@ -445,7 +448,7 @@ async function main() {
   });
   console.log(`Dodano lub zaktualizowano gatunek: ${dogSpiece.name}`);
 
-  // Seed Breed (rasa) - fixed: use findFirst + create to avoid unique where issue
+  // Seed Breed (rasa) - findFirst + create NIE usuwa istniejących
   let labradorBreed = await prisma.breed.findFirst({
     where: { name: "Labrador Retriever" },
   });
@@ -472,89 +475,89 @@ async function main() {
   if (!user) {
     console.log("Brak usera o id 1. Pomijam dodawanie petów.");
     console.log("Najpierw dodaj użytkownika przez API.");
-    return;
-  }
+  } else {
+    // Znajdź lub utwórz client dla tego usera - NIE usuwa istniejącego
+    let client = user.Clients[0];
+    if (!client) {
+      client = await prisma.client.create({
+        data: {
+          User_idUser: user.idUser,
+        },
+      });
+      console.log(
+        `Utworzono clienta o id: ${client.idClient} dla usera ${user.idUser}`
+      );
+    } else {
+      console.log(
+        `Znaleziono clienta o id: ${client.idClient} dla usera ${user.idUser}`
+      );
+    }
 
-  // Znajdź lub utwórz client dla tego usera
-  let client = user.Clients[0];
-  if (!client) {
-    client = await prisma.client.create({
-      data: {
-        User_idUser: user.idUser,
-      },
+    console.log("Sprawdzam czy istnieją pety dla clienta...");
+
+    // Sprawdź czy są jakiekolwiek pety - jeśli tak, NIE dodawaj nowych
+    const existingPetsCount = await prisma.pet.count({
+      where: { Client_idClient: client.idClient },
     });
-    console.log(
-      `Utworzono clienta o id: ${client.idClient} dla usera ${user.idUser}`
-    );
-  } else {
-    console.log(
-      `Znaleziono clienta o id: ${client.idClient} dla usera ${user.idUser}`
-    );
-  }
 
-  console.log("Sprawdzam czy istnieją pety dla clienta...");
+    if (existingPetsCount > 0) {
+      console.log(
+        `Znaleziono ${existingPetsCount} petów dla clienta. Pomijam dodawanie nowych petów.`
+      );
+    } else {
+      console.log("Dodaję przykładowe pety dla clienta...");
 
-  const existingPetsCount = await prisma.pet.count({
-    where: { Client_idClient: client.idClient },
-  });
+      // Sample pets data
+      const samplePets = [
+        {
+          name: "Max",
+          age: 5,
+          description: "Lojalny i energiczny labrador, uwielbia spacery.",
+          breedId: labradorBreed.idBreed,
+          clientId: client.idClient,
+          images: [
+            "https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=500",
+          ],
+        },
+        {
+          name: "Bella",
+          age: 3,
+          description: "Słodka labradorka, spokojna i przyjazna.",
+          breedId: labradorBreed.idBreed,
+          clientId: client.idClient,
+          images: [
+            "https://warsawdog.com/wp-content/uploads/2021/06/labrador-retriever.jpg",
+          ],
+        },
+      ];
 
-  if (existingPetsCount > 0) {
-    console.log(
-      `Znaleziono ${existingPetsCount} petów dla clienta. Pomijam dodawanie nowych petów.`
-    );
-  } else {
-    console.log("Dodaję dwa pety dla clienta...");
-
-    // Sample pets data
-    const samplePets = [
-      {
-        name: "Max",
-        age: 5,
-        description: "Lojalny i energiczny labrador, uwielbia spacery.",
-        breedId: labradorBreed.idBreed,
-        clientId: client.idClient,
-        images: [
-          "https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=500",
-        ],
-      },
-      {
-        name: "Bella",
-        age: 3,
-        description: "Słodka labradorka, spokojna i przyjazna.",
-        breedId: labradorBreed.idBreed,
-        clientId: client.idClient,
-        images: [
-          "https://warsawdog.com/wp-content/uploads/2021/06/labrador-retriever.jpg",
-        ],
-      },
-    ];
-
-    // Seed sample pets
-    for (const pet of samplePets) {
-      try {
-        const createdPet = await prisma.pet.create({
-          data: {
-            name: pet.name,
-            age: pet.age,
-            description: pet.description,
-            Breed_idBreed: pet.breedId,
-            Client_idClient: pet.clientId,
-            Images: {
-              create: pet.images.map((imageUrl, index) => ({
-                imageUrl,
-                order: index + 1,
-              })),
+      // Seed sample pets - tylko jeśli client nie ma żadnych petów
+      for (const pet of samplePets) {
+        try {
+          const createdPet = await prisma.pet.create({
+            data: {
+              name: pet.name,
+              age: pet.age,
+              description: pet.description,
+              Breed_idBreed: pet.breedId,
+              Client_idClient: pet.clientId,
+              Images: {
+                create: pet.images.map((imageUrl, index) => ({
+                  imageUrl,
+                  order: index + 1,
+                })),
+              },
             },
-          },
-          include: {
-            Images: true,
-          },
-        });
-        console.log(
-          `Dodano peta: ${createdPet.name} (wiek: ${createdPet.age}, rasa: Labrador Retriever) z ${createdPet.Images.length} zdjęciami`
-        );
-      } catch (error) {
-        console.error(`Błąd przy dodawaniu peta "${pet.name}":`, error);
+            include: {
+              Images: true,
+            },
+          });
+          console.log(
+            `Dodano peta: ${createdPet.name} (wiek: ${createdPet.age}, rasa: Labrador Retriever) z ${createdPet.Images.length} zdjęciami`
+          );
+        } catch (error) {
+          console.error(`Błąd przy dodawaniu peta "${pet.name}":`, error);
+        }
       }
     }
   }

@@ -1,3 +1,4 @@
+// src/app/advertisements/[id]/page.tsx
 "use client";
 
 import { auth } from "../../firebase";
@@ -21,6 +22,8 @@ import {
   IconCircleCheck,
   IconX,
   IconPencil,
+  IconBookmark,
+  IconBookmarkOff,
 } from "@tabler/icons-react";
 import BookingForm from "../../components/BookingForm";
 
@@ -57,6 +60,10 @@ interface UserRoles {
   serviceProviderIds: number[];
 }
 
+interface SavedAdvertisement {
+  id: number;
+}
+
 interface Notification {
   message: string;
   type: "info" | "error" | "warning" | "success";
@@ -73,6 +80,7 @@ export default function AdvertisementDetails() {
   const [error, setError] = useState("");
   const [notification, setNotification] = useState<Notification | null>(null);
   const [isBookingOpen, setIsBookingOpen] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -118,6 +126,20 @@ export default function AdvertisementDetails() {
               roles: rolesData.roles || [],
               serviceProviderIds: rolesData.serviceProviderIds || [],
             });
+          }
+
+          // Check if ad is saved
+          const savedResponse = await fetch("/api/advertisements/saved", {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+          if (savedResponse.ok) {
+            const savedData = await savedResponse.json();
+            const savedIds = savedData.advertisements.map(
+              (savedAd: SavedAdvertisement) => savedAd.id
+            );
+            setIsSaved(savedIds.includes(Number(adId)));
           }
         }
       } catch (err) {
@@ -249,6 +271,40 @@ export default function AdvertisementDetails() {
         "An error occurred while deleting the advertisement",
         "error"
       );
+    }
+  };
+
+  const handleToggleSave = async () => {
+    if (!user || !ad) {
+      showNotification("Please sign in to save advertisements.", "warning");
+      return;
+    }
+
+    try {
+      const token = await user.getIdToken();
+      const method = isSaved ? "DELETE" : "POST";
+      const response = await fetch(`/api/advertisements/saved/${ad.id}`, {
+        method,
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        setIsSaved(!isSaved);
+        showNotification(
+          isSaved
+            ? "Advertisement removed from saved!"
+            : "Advertisement saved successfully!",
+          "success"
+        );
+      } else {
+        const errData = await response.json();
+        showNotification(errData.error || "Failed to toggle save", "error");
+      }
+    } catch (err) {
+      console.error("Error toggling save:", err);
+      showNotification("An error occurred while toggling save", "error");
     }
   };
 
@@ -476,6 +532,23 @@ export default function AdvertisementDetails() {
               >
                 Book Now
               </button>
+              {!isOwner && (
+                <button
+                  onClick={handleToggleSave}
+                  className={`flex-1 sm:flex-none ${
+                    isSaved
+                      ? "bg-yellow-500 hover:bg-yellow-600"
+                      : "bg-green-500 hover:bg-green-600"
+                  } text-white px-6 py-3 rounded-xl font-medium transition-all duration-300 flex items-center justify-center`}
+                >
+                  {isSaved ? (
+                    <IconBookmarkOff size={18} className="mr-2" />
+                  ) : (
+                    <IconBookmark size={18} className="mr-2" />
+                  )}
+                  {isSaved ? "Unsave" : "Save"}
+                </button>
+              )}
               {isOwner && (
                 <>
                   <button
