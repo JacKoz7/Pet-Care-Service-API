@@ -25,7 +25,7 @@ export interface OpenApiSpec {
 
 export const getApiDocs = async (): Promise<OpenApiSpec> => {
   const spec = createSwaggerSpec({
-    apiFolder: "src/app/api",
+    apiFolder: "src/docs/",
     definition: {
       openapi: "3.0.0",
       info: {
@@ -33,12 +33,6 @@ export const getApiDocs = async (): Promise<OpenApiSpec> => {
         version: "1.0.0",
         description: "API for pet care service management",
       },
-      servers: [
-        {
-          url: "/",
-          description: "Development server",
-        },
-      ],
       components: {
         securitySchemes: {
           BearerAuth: {
