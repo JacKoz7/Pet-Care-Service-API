@@ -68,6 +68,13 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // Utwórz klienta dla użytkownika
+    await prisma.client.create({
+      data: {
+        User_idUser: newUser.idUser,
+      },
+    });
+
     // Sprawdź, czy email to ADMIN_EMAIL z .env.local i utwórz Admina jeśli tak
     if (email === process.env.ADMIN_EMAIL) {
       await prisma.admin.create({
@@ -108,6 +115,7 @@ export async function POST(request: NextRequest) {
  *     summary: Register a new user profile
  *     description: |
  *       Creates a new user in the database with attributes such as name, surname, phone number, and city.
+ *       A client record is created automatically for the user.
  *       Authentication and password management are handled by Firebase — this endpoint only stores the user's Firebase UID and profile data.
  *     tags: [User]
  *     requestBody:

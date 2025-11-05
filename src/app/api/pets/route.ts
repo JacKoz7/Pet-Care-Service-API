@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
         keyImage: pet.Images[0]?.imageUrl || null,
         breed: pet.Breed.name,
         species: pet.Breed.Spiece.name,
-        isHealthy: pet.isHealthy, 
+        isHealthy: pet.isHealthy,
       }))
     );
 
@@ -114,14 +114,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const {
-      name,
-      age,
-      description,
-      images,
-      speciesName,
-      breedName,
-    } = body;
+    const { name, age, description, images, speciesName, breedName } = body;
 
     // Basic validation
     if (
@@ -153,23 +146,14 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    if (!user || user.Clients.length === 0) {
+      return NextResponse.json(
+        { error: "User or client not found" },
+        { status: 404 }
+      );
     }
 
-    let clientId;
-    if (user.Clients.length === 0) {
-      // Create a new Client if none exists
-      const newClient = await prisma.client.create({
-        data: {
-          User_idUser: user.idUser,
-        },
-      });
-      clientId = newClient.idClient;
-    } else {
-      // Use the first Client
-      clientId = user.Clients[0].idClient;
-    }
+    const clientId = user.Clients[0].idClient;
 
     // Find or create Spiece
     let spiece = await prisma.spiece.findUnique({
@@ -232,8 +216,7 @@ export async function POST(request: NextRequest) {
     ) {
       return NextResponse.json(
         {
-          error:
-            "A pet with this name already exists for your account",
+          error: "A pet with this name already exists for your account",
         },
         { status: 409 }
       );
@@ -306,8 +289,7 @@ export async function POST(request: NextRequest) {
  *   post:
  *     summary: Create a new pet
  *     description: |
- *       Creates a new pet for the authenticated user who is a client.
- *       If no client record exists, one is created automatically.
+ *       Creates a new pet for the authenticated user.
  *       Species and breed are created if they don't exist.
  *       Requires a valid Firebase authentication token.
  *       At least one image must be provided.
@@ -365,7 +347,7 @@ export async function POST(request: NextRequest) {
  *       401:
  *         description: Unauthorized (invalid or missing token)
  *       404:
- *         description: User not found
+ *         description: User or client not found
  *       409:
  *         description: Conflict (pet with this name already exists for the user)
  *       500:
