@@ -157,9 +157,9 @@ model Client {
   User        User @relation(fields: [User_idUser], references: [idUser])
   User_idUser Int
 
-  Bookings  Booking[]
-  Feedbacks Feedback[]
-  Pets      Pet[]
+  Bookings            Booking[]
+  Feedbacks           Feedback[]
+  Pets                Pet[]
   SavedAdvertisements SavedAdvertisement[]
 }
 
@@ -216,14 +216,15 @@ model Pet {
   chronicDiseases String[] @default([])
   isHealthy       Boolean?
 
-  Breed           Breed        @relation(fields: [Breed_idBreed], references: [idBreed])
+  Breed           Breed   @relation(fields: [Breed_idBreed], references: [idBreed])
   Breed_idBreed   Int
-  Client          Client       @relation(fields: [Client_idClient], references: [idClient])
-  Client_idClient Int
-  Images          PetImage[]
-  Archives        Archive[]
-  Analyses        Analysis[]
-  Bookings        BookingPet[]
+  Client          Client? @relation(fields: [Client_idClient], references: [idClient])
+  Client_idClient Int?
+
+  Images   PetImage[]
+  Archives Archive[]
+  Analyses Analysis[]
+  Bookings BookingPet[]
 }
 
 model PetImage {
@@ -320,11 +321,11 @@ model Analysis {
 }
 
 model SavedAdvertisement {
-  id              Int       @id @default(autoincrement())
-  savedAt         DateTime  @default(now())
-  Client          Client    @relation(fields: [Client_idClient], references: [idClient])
-  Client_idClient Int
-  Advertisement   Advertisement @relation(fields: [Advertisement_idAdvertisement], references: [idAdvertisement])
+  id                            Int           @id @default(autoincrement())
+  savedAt                       DateTime      @default(now())
+  Client                        Client        @relation(fields: [Client_idClient], references: [idClient])
+  Client_idClient               Int
+  Advertisement                 Advertisement @relation(fields: [Advertisement_idAdvertisement], references: [idAdvertisement])
   Advertisement_idAdvertisement Int
 
   @@unique([Client_idClient, Advertisement_idAdvertisement])

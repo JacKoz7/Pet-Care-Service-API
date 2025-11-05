@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient, Prisma } from "@prisma/client";
 import { adminAuth } from "@/lib/firebaseAdmin";
-import { getStorage } from "firebase-admin/storage";
+
 
 const prisma = new PrismaClient();
 
@@ -263,144 +263,6 @@ export async function PUT(
   }
 }
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const { id } = await params;
-    const idNum = parseInt(id);
-
-    if (isNaN(idNum)) {
-      return NextResponse.json({ error: "Invalid pet ID" }, { status: 400 });
-    }
-
-    const authHeader = request.headers.get("authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return NextResponse.json(
-        { error: "Authorization header missing or invalid" },
-        { status: 401 }
-      );
-    }
-
-    const token = authHeader.split(" ")[1];
-    let decodedToken;
-    try {
-      decodedToken = await adminAuth.verifyIdToken(token);
-    } catch (error) {
-      console.error("Token verification failed:", error);
-      return NextResponse.json(
-        { error: "Invalid or expired token" },
-        { status: 401 }
-      );
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { firebaseUid: decodedToken.uid },
-      include: {
-        Clients: true,
-      },
-    });
-
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
-    }
-
-    if (user.Clients.length === 0) {
-      return NextResponse.json(
-        { error: "User has no client association" },
-        { status: 403 }
-      );
-    }
-
-    const pet = await prisma.pet.findUnique({
-      where: {
-        idPet: idNum,
-      },
-      select: {
-        Client_idClient: true,
-        Images: {
-          select: {
-            imageUrl: true,
-            order: true,
-          },
-        },
-      },
-    });
-
-    if (!pet) {
-      return NextResponse.json({ error: "Pet not found" }, { status: 404 });
-    }
-
-    const isOwner = user.Clients.some(
-      (client) => client.idClient === pet.Client_idClient
-    );
-
-    if (!isOwner) {
-      return NextResponse.json(
-        { error: "You are not authorized to delete this pet" },
-        { status: 403 }
-      );
-    }
-
-    const imagesUrls = pet.Images.map((img: { imageUrl: string; order: number | null }) => ({
-      url: img.imageUrl,
-      order: img.order,
-    }));
-
-    await prisma.$transaction(async (tx) => {
-      await tx.petImage.deleteMany({
-        where: {
-          Pet_idPet: idNum,
-        },
-      });
-      await tx.archive.deleteMany({
-        where: {
-          Pet_idPet: idNum,
-        },
-      });
-      await tx.pet.delete({
-        where: {
-          idPet: idNum,
-        },
-      });
-    });
-
-    // Delete images from Firebase Storage
-    const bucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
-    if (!bucketName) {
-      console.error("FIREBASE_STORAGE_BUCKET env var not set");
-      return NextResponse.json({ success: true }); // Proceed without deleting images if env missing
-    }
-    const bucket = getStorage().bucket(bucketName);
-    for (const img of imagesUrls) {
-      if (img.url) {
-        const path = decodeURIComponent(
-          img.url.split("/o/")[1]?.split("?")[0] || ""
-        );
-        if (path) {
-          try {
-            await bucket.file(path).delete();
-            console.log(`Deleted image from Storage: ${path}`);
-          } catch (deleteErr) {
-            console.error(`Failed to delete image ${path}:`, deleteErr);
-          }
-        }
-      }
-    }
-
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("Error deleting pet:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
-  } finally {
-    await prisma.$disconnect();
-  }
-}
-
 /**
  * @swagger
  * /api/pets/{id}:
@@ -547,43 +409,6 @@ export async function DELETE(
  *         description: Pet not found or user not found
  *       409:
  *         description: Conflict (pet with this name already exists for the user)
- *       500:
- *         description: Internal server error
- *   delete:
- *     summary: Delete a pet
- *     description: |
- *       Deletes an existing pet and all associated data (images from Firebase Storage, archives).
- *       Only the pet owner can delete the pet.
- *       Requires a valid Firebase authentication token.
- *     tags: [Pets]
- *     security:
- *       - BearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *         description: The pet ID
- *     responses:
- *       200:
- *         description: Pet deleted successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *       400:
- *         description: Invalid pet ID
- *       401:
- *         description: Unauthorized (invalid or missing token)
- *       403:
- *         description: Forbidden (user is not the pet owner or has no client association)
- *       404:
- *         description: Pet not found or user not found
  *       500:
  *         description: Internal server error
  */

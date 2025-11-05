@@ -42,6 +42,31 @@ interface Notification {
   type: "info" | "error" | "warning" | "success";
 }
 
+interface Booking {
+  id: number;
+  status: "PENDING" | "ACCEPTED" | "REJECTED" | "CANCELLED";
+  startDateTime: string;
+  endDateTime: string;
+  message: string | null;
+  pets: Array<{
+    id: number;
+    name: string;
+    age: number;
+    description: string | null;
+    chronicDiseases: string[];
+    isHealthy: boolean | null;
+    breed: string;
+    species: string;
+    keyImage: string | null;
+  }>;
+  provider: {
+    firstName: string | null;
+    lastName: string | null;
+    email: string | null;
+    phoneNumber: string | null;
+  };
+}
+
 export default function PetDetails() {
   const [user] = useAuthState(auth);
   const router = useRouter();
@@ -52,6 +77,8 @@ export default function PetDetails() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [notification, setNotification] = useState<Notification | null>(null);
+  const [showDetachModal, setShowDetachModal] = useState(false);
+  const [pendingBookings, setPendingBookings] = useState<Booking[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -129,36 +156,99 @@ export default function PetDetails() {
     router.push(`/profile/${pet.id}/edit`);
   };
 
-  const handleDelete = async () => {
+  const handleDetach = async () => {
     if (!user || !isOwner || !pet) return;
-
-    if (!confirm("Are you sure you want to delete this pet profile?")) {
-      return;
-    }
 
     try {
       const token = await user.getIdToken();
-      const response = await fetch(`/api/pets/${pet.id}`, {
-        method: "DELETE",
+      const response = await fetch(
+        `/api/bookings/client/notifications?petId=${pet.id}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        showNotification("Failed to fetch bookings", "error");
+        return;
+      }
+
+      const data = await response.json();
+      if (data.success) {
+        const pendings = data.bookings.filter(
+          (b: Booking) => b.status === "PENDING"
+        );
+        setPendingBookings(pendings);
+        if (pendings.length > 0) {
+          setShowDetachModal(true);
+          return;
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching bookings:", err);
+      showNotification("Error fetching bookings", "error");
+    }
+
+    // If no pending bookings or error, fall back to simple confirm
+    if (
+      !confirm(
+        "Are you sure you want to remove this pet from your profile? This will detach it but keep all data intact."
+      )
+    ) {
+      return;
+    }
+
+    await proceedDetach(false);
+  };
+
+  const proceedDetach = async (cancelBookings: boolean) => {
+    if (!user || !pet) return;
+
+    try {
+      const token = await user.getIdToken();
+
+      if (cancelBookings) {
+        for (const booking of pendingBookings) {
+          const cancelResponse = await fetch("/api/bookings/client/cancel", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ bookingId: booking.id }),
+          });
+          if (!cancelResponse.ok) {
+            showNotification(`Failed to cancel booking ${booking.id}`, "error");
+          }
+        }
+      }
+
+      const detachResponse = await fetch(`/api/pets/${pet.id}/detach`, {
+        method: "PATCH",
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
 
-      if (response.ok) {
-        showNotification("Pet profile deleted successfully!", "success");
+      if (detachResponse.ok) {
+        showNotification(
+          "Pet removed from profile successfully! All data preserved.",
+          "success"
+        );
         setTimeout(() => router.push("/profile"), 1500);
       } else {
-        const errData = await response.json();
+        const errData = await detachResponse.json();
         showNotification(
-          errData.error || "Failed to delete pet profile",
+          errData.error || "Failed to remove pet from profile",
           "error"
         );
       }
     } catch (err) {
-      console.error("Error deleting pet:", err);
+      console.error("Error detaching pet:", err);
       showNotification(
-        "An error occurred while deleting the pet profile",
+        "An error occurred while removing the pet from profile",
         "error"
       );
     }
@@ -336,11 +426,11 @@ export default function PetDetails() {
                     Edit
                   </button>
                   <button
-                    onClick={handleDelete}
-                    className="flex-1 sm:flex-none bg-red-500 text-white px-6 py-3 rounded-xl font-medium hover:bg-red-600 transition-all duration-300 flex items-center justify-center"
+                    onClick={handleDetach}
+                    className="flex-1 sm:flex-none bg-yellow-500 text-black px-6 py-3 rounded-xl font-medium hover:bg-yellow-600 transition-all duration-300 flex items-center justify-center"
                   >
                     <IconTrash size={18} className="mr-2" />
-                    Delete
+                    Remove from Profile
                   </button>
                 </>
               )}
@@ -408,6 +498,59 @@ export default function PetDetails() {
             >
               <IconX size={16} />
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Detach Confirmation Modal */}
+      {showDetachModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[99999] p-4">
+          <div className="bg-white rounded-2xl p-8 w-full max-w-md mx-auto shadow-2xl">
+            <h2 className="text-xl font-bold text-gray-800 mb-4">
+              Pending Bookings
+            </h2>
+            <p className="text-gray-600 mb-4">
+              This pet has the following pending bookings:
+            </p>
+            <ul className="list-disc pl-5 mb-6 space-y-2">
+              {pendingBookings.map((booking) => (
+                <li key={booking.id} className="text-sm text-gray-700">
+                  Booking #{booking.id} from{" "}
+                  {new Date(booking.startDateTime).toLocaleString()} to{" "}
+                  {new Date(booking.endDateTime).toLocaleString()}
+                </li>
+              ))}
+            </ul>
+            <p className="text-gray-600 mb-6">
+              Do you want to cancel these bookings before removing the pet from
+              your profile?
+            </p>
+            <div className="flex justify-end space-x-4">
+              <button
+                onClick={() => {
+                  setShowDetachModal(false);
+                  proceedDetach(true);
+                }}
+                className="px-4 py-2 bg-red-500 text-white rounded-xl hover:bg-red-600"
+              >
+                Yes, Cancel and Remove
+              </button>
+              <button
+                onClick={() => {
+                  setShowDetachModal(false);
+                  proceedDetach(false);
+                }}
+                className="px-4 py-2 bg-yellow-500 text-white rounded-xl hover:bg-yellow-600"
+              >
+                No, Remove Without Canceling
+              </button>
+              <button
+                onClick={() => setShowDetachModal(false)}
+                className="px-4 py-2 bg-gray-500 text-white rounded-xl hover:bg-gray-600"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -28,6 +28,11 @@ export default function Page() {
     }
   }, [user, loading, router]);
 
+  const fillDemo = () => {
+    setEmail("jackkoz999@gmail.com");
+    setPassword("jacek123");
+  };
+
   const onSubmit = async () => {
     setCustomError("");
     setIsVerifying(true);
@@ -142,6 +147,13 @@ export default function Page() {
           className="text-xl px-4 py-2 rounded-md border border-gray-300 mb-4 w-full"
           disabled={signInLoading || isVerifying}
         />
+        <button
+          onClick={fillDemo}
+          className="text-sm text-blue-500 hover:text-blue-700 mb-4 w-full text-center disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={signInLoading || isVerifying}
+        >
+          Wypełnij dane demo
+        </button>
 
         {(error || customError) && (
           <div className="text-red-500 mb-4 text-center">
