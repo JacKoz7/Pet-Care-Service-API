@@ -1,4 +1,5 @@
-// src/app/api/user/me/route.ts
+// src/app/api/user/me/route.ts (updated: add isVerified check)
+
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { adminAuth } from "@/lib/firebaseAdmin";
@@ -40,6 +41,17 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         { error: "User profile not found. Please complete registration." },
         { status: 400 }
+      );
+    }
+
+    // NEW: Check if email is verified in DB
+    if (!user.isVerified) {
+      return NextResponse.json(
+        {
+          error:
+            "Email not verified. Please verify your email to access your account.",
+        },
+        { status: 403 }
       );
     }
 
@@ -109,6 +121,17 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json(
         { error: "User not found in database" },
         { status: 404 }
+      );
+    }
+
+    // NEW: Check if email is verified in DB before allowing updates
+    if (!user.isVerified) {
+      return NextResponse.json(
+        {
+          error:
+            "Email not verified. Please verify your email to update your profile.",
+        },
+        { status: 403 }
       );
     }
 
@@ -191,6 +214,7 @@ export async function PUT(request: NextRequest) {
  *       Returns the profile information of the currently authenticated user.
  *       Requires a valid Firebase ID token in the Authorization header.
  *       Also updates the user's lastActive timestamp.
+ *       Now checks if email is verified in DB; returns 403 if not.
  *     tags: [User]
  *     security:
  *       - BearerAuth: []
@@ -260,6 +284,8 @@ export async function PUT(request: NextRequest) {
  *         description: User profile incomplete (e.g., missing city)
  *       401:
  *         description: Unauthorized (invalid or missing token)
+ *       403:
+ *         description: Email not verified in database
  *       404:
  *         description: User not found in database
  *       500:
@@ -270,6 +296,7 @@ export async function PUT(request: NextRequest) {
  *       Updates the profile information of the currently authenticated user.
  *       Requires a valid Firebase ID token in the Authorization header.
  *       Only firstName, lastName, phoneNumber, and cityId can be updated.
+ *       Now checks if email is verified in DB; returns 403 if not.
  *     tags: [User]
  *     security:
  *       - BearerAuth: []
@@ -362,6 +389,8 @@ export async function PUT(request: NextRequest) {
  *         description: Invalid input (e.g., invalid phone number or city ID)
  *       401:
  *         description: Unauthorized (invalid or missing token)
+ *       403:
+ *         description: Email not verified in database
  *       404:
  *         description: User not found in database
  *       500:

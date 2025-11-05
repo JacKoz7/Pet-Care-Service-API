@@ -8,8 +8,10 @@ import {
   useEffect,
   useState,
   ReactNode,
+  useCallback,
 } from "react";
-import { getIdToken } from "firebase/auth";
+import { getIdToken, signOut } from "firebase/auth";
+import VerificationModal from "../components/VerificationModal";
 
 interface User {
   email: string | null;
@@ -22,6 +24,8 @@ interface AuthContextType {
   token: string | null;
   loading: boolean;
   refreshUser: () => Promise<void>;
+  verificationError: string | null;
+  setVerificationError: (error: string | null) => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -29,15 +33,30 @@ const AuthContext = createContext<AuthContextType>({
   token: null,
   loading: true,
   refreshUser: async () => {},
+  verificationError: null,
+  setVerificationError: () => {},
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [firebaseUser, loading] = useAuthState(auth);
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [verificationError, setVerificationError] = useState<string | null>(
+    null
+  );
 
-  const fetchTokenAndRoles = async () => {
-    if (!firebaseUser) return;
+  const fetchTokenAndRoles = useCallback(async () => {
+    if (!firebaseUser) {
+      setUser(null);
+      setToken(null);
+      return;
+    }
+
+    if (!firebaseUser.emailVerified) {
+      setUser(null);
+      setToken(null);
+      return;
+    }
 
     try {
       const idToken = await getIdToken(firebaseUser);
@@ -50,6 +69,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       if (!response.ok) {
+        if (response.status === 403) {
+          console.warn("Email not verified - blocking access");
+          const errorData = await response.json();
+          setVerificationError(
+            errorData.error || "Email not verified. Please verify your email."
+          );
+          await auth.signOut();
+          return;
+        }
         throw new Error(`Failed to fetch user data: ${response.statusText}`);
       }
 
@@ -68,37 +96,59 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     } catch (error) {
       console.error("Error fetching token or roles:", error);
-      setUser(null);
-      setToken(null);
-      alert(`Authentication error: ${error.message}. Please sign in again.`);
-      // Optionally sign out here: await signOut(auth);
-    }
-  };
-
-  useEffect(() => {
-    if (firebaseUser) {
-      if (!firebaseUser.emailVerified) {
-        setUser(null);
-        setToken(null);
-        return;
+      if (
+        !(error instanceof Error) ||
+        !error.message.includes("Email not verified")
+      ) {
+        alert(
+          `Authentication error: ${
+            error instanceof Error ? error.message : "Unknown error"
+          }. Please sign in again.`
+        );
       }
-      fetchTokenAndRoles();
-      const interval = setInterval(fetchTokenAndRoles, 10 * 60 * 1000); // Refresh every 10 minutes
-      return () => clearInterval(interval);
-    } else {
       setUser(null);
       setToken(null);
-      localStorage.removeItem("userEmail");
     }
   }, [firebaseUser]);
 
-  const refreshUser = async () => {
+  useEffect(() => {
+    if (!firebaseUser) {
+      setUser(null);
+      setToken(null);
+      localStorage.removeItem("userEmail");
+      return;
+    }
+
+    fetchTokenAndRoles();
+    const interval = setInterval(fetchTokenAndRoles, 10 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [firebaseUser, fetchTokenAndRoles]);
+
+  const refreshUser = useCallback(async () => {
     await fetchTokenAndRoles();
-  };
+  }, [fetchTokenAndRoles]);
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, refreshUser }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        token,
+        loading,
+        refreshUser,
+        verificationError,
+        setVerificationError,
+      }}
+    >
       {children}
+      {verificationError && (
+        <VerificationModal
+          error={verificationError}
+          onDismiss={() => {
+            signOut(auth).catch(console.error);
+            setVerificationError(null);
+          }}
+        />
+      )}
     </AuthContext.Provider>
   );
 }

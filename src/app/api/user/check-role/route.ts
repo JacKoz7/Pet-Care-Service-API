@@ -1,4 +1,5 @@
-// app/api/user/check-role/route.ts
+// app/api/user/check-role/route.ts (updated: add isVerified check)
+
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { adminAuth } from "@/lib/firebaseAdmin";
@@ -51,15 +52,24 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
+    // NEW: Check if email is verified in DB
+    if (!user.isVerified) {
+      return NextResponse.json(
+        {
+          error:
+            "Email not verified. Please verify your email to access your account.",
+        },
+        { status: 403 }
+      );
+    }
+
     // Collect ALL service provider IDs (for ownership, active or not)
     const serviceProviderIds = user.ServiceProviders.map(
       (sp) => sp.idService_Provider
     );
 
     // Collect all client IDs
-    const clientIds = user.Clients.map(
-      (c) => c.idClient
-    );
+    const clientIds = user.Clients.map((c) => c.idClient);
 
     // Collect all roles the user has
     const roles: string[] = ["client"]; // Everyone is a client
@@ -110,6 +120,7 @@ export async function GET(request: NextRequest) {
  *       All users have the 'client' role. Additional roles can be 'admin' and/or 'service_provider' (only if at least one ServiceProvider is active).
  *       serviceProviderIds includes ALL linked providers (active or inactive).
  *       clientIds includes ALL linked clients.
+ *       Checks if email is verified in DB; returns 403 if not.
  *     tags: [Debug]
  *     security:
  *       - BearerAuth: []
@@ -141,6 +152,8 @@ export async function GET(request: NextRequest) {
  *                   description: Array of all client IDs linked to the user
  *       401:
  *         description: Unauthorized (invalid or missing token)
+ *       403:
+ *         description: Email not verified in database
  *       404:
  *         description: User not found in database
  *       500:

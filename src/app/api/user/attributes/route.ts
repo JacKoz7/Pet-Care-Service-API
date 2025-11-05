@@ -61,6 +61,7 @@ export async function POST(request: NextRequest) {
         phoneNumber: phoneNumber || null,
         City_idCity: Number(cityId),
         lastActive: new Date(),
+        isVerified: false,
       },
       include: {
         City: true,
@@ -86,6 +87,7 @@ export async function POST(request: NextRequest) {
         email: newUser.email,
         phoneNumber: newUser.phoneNumber,
         city: newUser.City,
+        isVerified: newUser.isVerified,
       },
     });
   } catch (error) {
