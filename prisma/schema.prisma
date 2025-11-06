@@ -209,15 +209,16 @@ enum Severity {
 }
 
 model Pet {
-  idPet           Int      @id @default(autoincrement())
-  name            String   @db.VarChar(45)
-  age             Decimal  @db.Decimal(3, 0)
-  description     String?  @db.VarChar(500)
-  chronicDiseases String[] @default([])
-  isHealthy       Boolean?
+  idPet             Int      @id @default(autoincrement())
+  name              String   @db.VarChar(45)
+  age               Decimal  @db.Decimal(3, 0)
+  description       String?  @db.VarChar(500)
+  chronicDiseases   String[] @default([])
+  isHealthy         Boolean?
+  customSpeciesName String?  @db.VarChar(60)
 
-  Breed           Breed   @relation(fields: [Breed_idBreed], references: [idBreed])
-  Breed_idBreed   Int
+  Spiece          Spiece  @relation(fields: [Spiece_idSpiece], references: [idSpiece])
+  Spiece_idSpiece Int
   Client          Client? @relation(fields: [Client_idClient], references: [idClient])
   Client_idClient Int?
 
@@ -236,21 +237,11 @@ model PetImage {
   Pet_idPet Int
 }
 
-model Breed {
-  idBreed Int    @id @default(autoincrement())
-  name    String @db.VarChar(60)
-
-  Spiece          Spiece @relation(fields: [Spiece_idSpiece], references: [idSpiece])
-  Spiece_idSpiece Int
-
-  Pets Pet[]
-}
-
 model Spiece {
   idSpiece Int    @id @default(autoincrement())
   name     String @unique @db.VarChar(60)
 
-  Breeds Breed[]
+  Pets Pet[]
 }
 
 model Archive {

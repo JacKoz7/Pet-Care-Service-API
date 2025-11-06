@@ -11,9 +11,7 @@ import {
   IconAlertCircle,
   IconCircleCheck,
   IconX,
-  IconPaw,
   IconUpload,
-  IconHash,
 } from "@tabler/icons-react";
 import { useDropzone } from "react-dropzone";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -26,7 +24,6 @@ interface PetDetails {
   age: number;
   description: string | null;
   species: string;
-  breed: string;
   images: Array<{
     imageUrl: string;
     order: number | null;
@@ -51,6 +48,11 @@ interface ImageFile {
   order: number;
 }
 
+interface Species {
+  idSpiece: number;
+  name: string;
+}
+
 export default function EditPet() {
   const [user] = useAuthState(auth);
   const router = useRouter();
@@ -61,14 +63,15 @@ export default function EditPet() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [notification, setNotification] = useState<Notification | null>(null);
+  const [speciesList, setSpeciesList] = useState<Species[]>([]);
+  const [selectedSpecies, setSelectedSpecies] = useState("");
+  const [customSpecies, setCustomSpecies] = useState("");
 
   // Form states
   const [name, setName] = useState("");
   const [age, setAge] = useState("");
   const [description, setDescription] = useState("");
   const [images, setImages] = useState<ImageFile[]>([]);
-  const [speciesName, setSpeciesName] = useState("");
-  const [breedName, setBreedName] = useState("");
 
   useEffect(() => {
     if (!user) {
@@ -119,12 +122,18 @@ export default function EditPet() {
           setUserRoles({ roles: [], clientIds: [] });
         }
 
+        // Fetch species list
+        const speciesResponse = await fetch("/api/pets/species");
+        if (speciesResponse.ok) {
+          const speciesData = await speciesResponse.json();
+          setSpeciesList(speciesData.species || []);
+        }
+
         // Pre-fill form
         setName(petData.pet.name);
         setAge(petData.pet.age.toString());
         setDescription(petData.pet.description || "");
-        setSpeciesName(petData.pet.species);
-        setBreedName(petData.pet.breed);
+        setSelectedSpecies(petData.pet.species);
         setImages(
           petData.pet.images.map(
             (
@@ -220,8 +229,10 @@ export default function EditPet() {
     )
       return "Age must be a number between 0 and 999";
     if (images.length === 0) return "At least one image is required";
-    if (!speciesName.trim()) return "Species name is required";
-    if (!breedName.trim()) return "Breed name is required";
+    if (selectedSpecies !== "Inne" && !selectedSpecies)
+      return "Species is required";
+    if (selectedSpecies === "Inne" && !customSpecies.trim())
+      return "Custom species name is required";
     return null;
   };
 
@@ -239,6 +250,9 @@ export default function EditPet() {
         throw new Error("Failed to upload all images");
       }
 
+      const speciesName =
+        selectedSpecies === "Inne" ? customSpecies : selectedSpecies;
+
       const token = await user!.getIdToken();
       const response = await fetch(`/api/pets/${petId}`, {
         method: "PUT",
@@ -252,7 +266,6 @@ export default function EditPet() {
           description: description || null,
           images: uploadedImages,
           speciesName,
-          breedName,
         }),
       });
 
@@ -450,54 +463,41 @@ export default function EditPet() {
               )}
             </div>
 
-            {/* Species Name */}
+            {/* Species Selection */}
             <div>
               <label
-                htmlFor="speciesName"
+                htmlFor="selectedSpecies"
                 className="block text-sm font-medium text-gray-700 mb-1"
               >
-                Species Name *
+                Species *
               </label>
-              <div className="relative">
-                <IconPaw
-                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
-                  size={18}
-                />
-                <input
-                  id="speciesName"
-                  type="text"
-                  value={speciesName}
-                  onChange={(e) => setSpeciesName(e.target.value)}
-                  placeholder="e.g., Dog"
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Breed Name */}
-            <div>
-              <label
-                htmlFor="breedName"
-                className="block text-sm font-medium text-gray-700 mb-1"
+              <select
+                id="selectedSpecies"
+                value={selectedSpecies}
+                onChange={(e) => {
+                  setSelectedSpecies(e.target.value);
+                  if (e.target.value !== "Inne") setCustomSpecies("");
+                }}
+                className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                required
               >
-                Breed Name *
-              </label>
-              <div className="relative">
-                <IconHash
-                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
-                  size={18}
-                />
+                <option value="">Select species</option>
+                {speciesList.map((sp) => (
+                  <option key={sp.idSpiece} value={sp.name}>
+                    {sp.name}
+                  </option>
+                ))}
+              </select>
+              {selectedSpecies === "Inne" && (
                 <input
-                  id="breedName"
                   type="text"
-                  value={breedName}
-                  onChange={(e) => setBreedName(e.target.value)}
-                  placeholder="e.g., Labrador"
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  value={customSpecies}
+                  onChange={(e) => setCustomSpecies(e.target.value)}
+                  placeholder="Enter custom species name"
+                  className="w-full mt-2 px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                   required
                 />
-              </div>
+              )}
             </div>
 
             <button

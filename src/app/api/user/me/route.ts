@@ -1,4 +1,4 @@
-// src/app/api/user/me/route.ts (updated: add isVerified check)
+// src/app/api/user/me/route.ts (updated: add isVerified to GET response and update docs)
 
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
@@ -70,6 +70,7 @@ export async function GET(request: NextRequest) {
         email: user.email,
         phoneNumber: user.phoneNumber,
         profilePictureUrl: user.profilePictureUrl,
+        isVerified: user.isVerified,
         city: {
           idCity: user.City.idCity,
           name: user.City.name,
@@ -257,6 +258,9 @@ export async function PUT(request: NextRequest) {
  *                       type: string
  *                       nullable: true
  *                       example: "https://storage.googleapis.com/bucket/profile_pictures/1_123456789_image.jpg?..."
+ *                     isVerified:
+ *                       type: boolean
+ *                       example: true
  *                     city:
  *                       type: object
  *                       properties:

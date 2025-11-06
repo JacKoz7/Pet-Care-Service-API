@@ -49,7 +49,6 @@ interface Pet {
   name: string;
   age: number;
   keyImage: string | null;
-  breed: string;
   species: string;
   isHealthy: boolean | null;
 }
@@ -749,9 +748,6 @@ export default function Profile() {
                         </h4>
                         <p className="text-sm text-gray-600 truncate">
                           Species: {pet.species}
-                        </p>
-                        <p className="text-sm text-gray-600 truncate">
-                          Breed: {pet.breed}
                         </p>
                         <p className="text-sm text-gray-600">Age: {pet.age}</p>
                         {/* NOWOŚĆ: Label jeśli isHealthy true */}

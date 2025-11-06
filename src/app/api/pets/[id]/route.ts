@@ -3,7 +3,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient, Prisma } from "@prisma/client";
 import { adminAuth } from "@/lib/firebaseAdmin";
 
-
 const prisma = new PrismaClient();
 
 export async function GET(
@@ -23,11 +22,7 @@ export async function GET(
         idPet: idNum,
       },
       include: {
-        Breed: {
-          include: {
-            Spiece: true,
-          },
-        },
+        Spiece: true,
         Images: {
           select: {
             imageUrl: true,
@@ -56,8 +51,7 @@ export async function GET(
         name: pet.name,
         age: pet.age,
         description: pet.description,
-        species: pet.Breed.Spiece.name,
-        breed: pet.Breed.name,
+        species: pet.customSpeciesName || pet.Spiece.name,
         images: pet.Images.map((img) => ({
           imageUrl: img.imageUrl,
           order: img.order,
@@ -154,7 +148,7 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const { name, age, description, images, speciesName, breedName } = body;
+    const { name, age, description, images, speciesName } = body;
 
     // Basic validation
     if (
@@ -162,8 +156,7 @@ export async function PUT(
       !age ||
       !Array.isArray(images) ||
       images.length === 0 ||
-      !speciesName ||
-      !breedName
+      !speciesName
     ) {
       return NextResponse.json(
         { error: "Missing required fields or no images provided" },
@@ -183,29 +176,15 @@ export async function PUT(
     let spiece = await prisma.spiece.findUnique({
       where: { name: speciesName },
     });
+    let customSpeciesName = null;
     if (!spiece) {
-      spiece = await prisma.spiece.create({
-        data: { name: speciesName },
-      });
+      spiece = await prisma.spiece.findUnique({ where: { name: "Inne" } });
+      if (!spiece) {
+        throw new Error("Special species 'Inne' not found");
+      }
+      customSpeciesName = speciesName;
     }
     const spieceId = spiece.idSpiece;
-
-    // Find or create Breed
-    let breed = await prisma.breed.findFirst({
-      where: {
-        name: breedName,
-        Spiece_idSpiece: spieceId,
-      },
-    });
-    if (!breed) {
-      breed = await prisma.breed.create({
-        data: {
-          name: breedName,
-          Spiece_idSpiece: spieceId,
-        },
-      });
-    }
-    const breedId = breed.idBreed;
 
     await prisma.$transaction(async (tx) => {
       await tx.petImage.deleteMany({
@@ -235,7 +214,8 @@ export async function PUT(
           age,
           description: description || null,
           isHealthy: null,
-          Breed_idBreed: breedId,
+          Spiece_idSpiece: spieceId,
+          customSpeciesName,
         },
       });
     });
@@ -268,7 +248,7 @@ export async function PUT(
  * /api/pets/{id}:
  *   get:
  *     summary: Get a pet by ID
- *     description: Returns detailed information about a specific pet including images, breed, and species.
+ *     description: Returns detailed information about a specific pet including images and species.
  *     tags: [Pets]
  *     parameters:
  *       - in: path
@@ -307,9 +287,6 @@ export async function PUT(
  *                     species:
  *                       type: string
  *                       example: "Dog"
- *                     breed:
- *                       type: string
- *                       example: "Labrador"
  *                     images:
  *                       type: array
  *                       items:
@@ -333,7 +310,7 @@ export async function PUT(
  *     description: |
  *       Updates an existing pet's information. Only the pet owner can update the pet.
  *       Requires a valid Firebase authentication token.
- *       Species and breed are created if they don't exist.
+ *       Species is created if it doesn't exist.
  *       At least one image must be provided.
  *     tags: [Pets]
  *     security:
@@ -356,7 +333,6 @@ export async function PUT(
  *               - age
  *               - images
  *               - speciesName
- *               - breedName
  *             properties:
  *               name:
  *                 type: string
@@ -385,9 +361,6 @@ export async function PUT(
  *               speciesName:
  *                 type: string
  *                 example: "Dog"
- *               breedName:
- *                 type: string
- *                 example: "Labrador"
  *     responses:
  *       200:
  *         description: Pet updated successfully

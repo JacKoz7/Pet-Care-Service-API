@@ -225,7 +225,7 @@ export default function DiagnosisResults() {
 
           <p className="text-gray-600 text-center mb-8">
             Analiza z {new Date(results.createdAt).toLocaleDateString("pl-PL")}.
-            Oto 5 możliwych diagnoz, posortowane wg prawdopodobieństwa.
+            Oto 3 możliwe diagnozy, posortowane wg prawdopodobieństwa.
           </p>
 
           <div className="space-y-6">

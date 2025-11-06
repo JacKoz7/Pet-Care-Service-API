@@ -246,6 +246,27 @@ const symptoms = [
   },
 ];
 
+const species = [
+  "Pies",
+  "Kot",
+  "Chomik",
+  "Królik",
+  "Świnka morska",
+  "Ptak",
+  "Ryba",
+  "Żółw",
+  "Wąż",
+  "Jaszczurka",
+  "Iguana",
+  "Fretka",
+  "Mysz",
+  "Szczur",
+  "Papuga",
+  "Aligator",
+  "Małpa",
+  "Inne"
+];
+
 async function main() {
   console.log("Dodaję miasta z obrazkami...");
 
@@ -358,7 +379,7 @@ async function main() {
               {
                 serviceProviderId: 1,
                 serviceId: 2,
-                title: "Opieka nad zwierzętami w Twoim domu",
+                title: "Opieka nad zwierzętami w domu",
                 description:
                   "Kompleksowa opieka nad Twoim zwierzęciem w komfortowych warunkach jego własnego domu. Karmienie, spacery, zabawa i dużo uwagi.",
                 price: 80.0,
@@ -436,32 +457,18 @@ async function main() {
     }
   }
 
-  console.log("Dodaję gatunki i rasy...");
+  console.log("Dodaję gatunki...");
 
   // Seed Spiece (gatunki) - upsert NIE usuwa
-  const dogSpiece = await prisma.spiece.upsert({
-    where: { name: "Pies" },
-    update: {},
-    create: {
-      name: "Pies",
-    },
-  });
-  console.log(`Dodano lub zaktualizowano gatunek: ${dogSpiece.name}`);
-
-  // Seed Breed (rasa) - findFirst + create NIE usuwa istniejących
-  let labradorBreed = await prisma.breed.findFirst({
-    where: { name: "Labrador Retriever" },
-  });
-  if (!labradorBreed) {
-    labradorBreed = await prisma.breed.create({
-      data: {
-        name: "Labrador Retriever",
-        Spiece_idSpiece: dogSpiece.idSpiece,
+  for (const spieceName of species) {
+    await prisma.spiece.upsert({
+      where: { name: spieceName },
+      update: {},
+      create: {
+        name: spieceName,
       },
     });
-    console.log(`Dodano rasę: ${labradorBreed.name}`);
-  } else {
-    console.log(`Rasa już istnieje: ${labradorBreed.name}`);
+    console.log(`Dodano lub zaktualizowano gatunek: ${spieceName}`);
   }
 
   console.log("Sprawdzam czy istnieje user o id 1 i client...");
@@ -507,13 +514,22 @@ async function main() {
     } else {
       console.log("Dodaję przykładowe pety dla clienta...");
 
+      const dogSpiece = await prisma.spiece.findFirst({
+        where: { name: "Pies" },
+      });
+
+      if (!dogSpiece) {
+        console.log("Brak gatunku 'Pies'. Pomijam dodawanie petów.");
+        return;
+      }
+
       // Sample pets data
       const samplePets = [
         {
           name: "Max",
           age: 5,
-          description: "Lojalny i energiczny labrador, uwielbia spacery.",
-          breedId: labradorBreed.idBreed,
+          description: "Lojalny i energiczny pies, uwielbia spacery.",
+          spieceId: dogSpiece.idSpiece,
           clientId: client.idClient,
           images: [
             "https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=500",
@@ -522,8 +538,8 @@ async function main() {
         {
           name: "Bella",
           age: 3,
-          description: "Słodka labradorka, spokojna i przyjazna.",
-          breedId: labradorBreed.idBreed,
+          description: "Słodka suczka, spokojna i przyjazna.",
+          spieceId: dogSpiece.idSpiece,
           clientId: client.idClient,
           images: [
             "https://warsawdog.com/wp-content/uploads/2021/06/labrador-retriever.jpg",
@@ -539,7 +555,7 @@ async function main() {
               name: pet.name,
               age: pet.age,
               description: pet.description,
-              Breed_idBreed: pet.breedId,
+              Spiece_idSpiece: pet.spieceId,
               Client_idClient: pet.clientId,
               Images: {
                 create: pet.images.map((imageUrl, index) => ({
@@ -553,7 +569,7 @@ async function main() {
             },
           });
           console.log(
-            `Dodano peta: ${createdPet.name} (wiek: ${createdPet.age}, rasa: Labrador Retriever) z ${createdPet.Images.length} zdjęciami`
+            `Dodano peta: ${createdPet.name} (wiek: ${createdPet.age}, gatunek: Pies) z ${createdPet.Images.length} zdjęciami`
           );
         } catch (error) {
           console.error(`Błąd przy dodawaniu peta "${pet.name}":`, error);

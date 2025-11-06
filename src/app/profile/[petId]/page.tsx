@@ -25,7 +25,6 @@ interface PetDetails {
   age: number;
   description: string | null;
   species: string;
-  breed: string;
   images: Array<{
     imageUrl: string;
     order: number | null;
@@ -55,7 +54,6 @@ interface Booking {
     description: string | null;
     chronicDiseases: string[];
     isHealthy: boolean | null;
-    breed: string;
     species: string;
     keyImage: string | null;
   }>;
@@ -322,9 +320,7 @@ export default function PetDetails() {
               <h1 className="text-3xl font-bold text-white mb-2">{pet.name}</h1>
               <div className="flex items-center text-white/90 mb-1">
                 <IconPaw className="mr-2" size={20} />
-                <span className="font-medium">
-                  {pet.species} - {pet.breed}
-                </span>
+                <span className="font-medium">{pet.species}</span>
               </div>
               <div className="flex items-center text-white/80">
                 <IconHash className="mr-1" size={16} />
@@ -351,16 +347,6 @@ export default function PetDetails() {
                     <p className="text-sm font-medium text-gray-500">Species</p>
                     <p className="text-lg font-semibold text-gray-800">
                       {pet.species}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center">
-                  <IconHash className="text-indigo-500 mr-3" size={20} />
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Breed</p>
-                    <p className="text-lg font-semibold text-gray-800">
-                      {pet.breed}
                     </p>
                   </div>
                 </div>

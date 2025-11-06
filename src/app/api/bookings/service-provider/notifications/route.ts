@@ -78,14 +78,10 @@ export async function GET(request: NextRequest) {
                 description: true,
                 chronicDiseases: true,
                 isHealthy: true,
-                Breed: {
+                customSpeciesName: true,
+                Spiece: {
                   select: {
                     name: true,
-                    Spiece: {
-                      select: {
-                        name: true,
-                      },
-                    },
                   },
                 },
                 Images: {
@@ -133,8 +129,7 @@ export async function GET(request: NextRequest) {
         description: bp.Pet.description,
         chronicDiseases: bp.Pet.chronicDiseases,
         isHealthy: bp.Pet.isHealthy,
-        breed: bp.Pet.Breed.name,
-        species: bp.Pet.Breed.Spiece.name,
+        species: bp.Pet.customSpeciesName || bp.Pet.Spiece.name,
         keyImage: bp.Pet.Images[0]?.imageUrl || null,
       })),
       client: {
@@ -244,9 +239,6 @@ export async function GET(request: NextRequest) {
  *                               type: boolean
  *                               nullable: true
  *                               example: true
- *                             breed:
- *                               type: string
- *                               example: "Labrador"
  *                             species:
  *                               type: string
  *                               example: "Dog"

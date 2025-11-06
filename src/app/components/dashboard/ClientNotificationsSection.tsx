@@ -1,4 +1,3 @@
-// src/app/components/ClientNotificationsSection.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -22,7 +21,6 @@ interface Pet {
   description: string | null;
   chronicDiseases: string[];
   isHealthy: boolean | null;
-  breed: string;
   species: string;
   keyImage: string | null;
 }
@@ -303,10 +301,6 @@ export default function ClientNotificationsSection({
                         <p>
                           <span className="font-medium">Species:</span>{" "}
                           {pet.species}
-                        </p>
-                        <p>
-                          <span className="font-medium">Breed:</span>{" "}
-                          {pet.breed}
                         </p>
                         <p>
                           <span className="font-medium">Description:</span>{" "}

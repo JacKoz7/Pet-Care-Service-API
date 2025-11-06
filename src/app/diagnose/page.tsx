@@ -37,7 +37,6 @@ interface PetBasic {
   age: number;
   description: string | null;
   keyImage: string | null;
-  breed: string;
   species: string;
 }
 
@@ -236,7 +235,6 @@ export default function DiagnosePet() {
       age: Number(selectedPet.age),
       description: selectedPet.description || null,
       species: selectedPet.species,
-      breed: selectedPet.breed,
       weight: weight ? parseFloat(weight) : selectedPet.weight || null,
       sex: sex || selectedPet.sex || null,
       isSterilized:
@@ -433,7 +431,7 @@ export default function DiagnosePet() {
                         {pet.name}
                       </h3>
                       <p className="text-sm text-gray-600">
-                        {pet.species} - {pet.breed}, Wiek: {pet.age}
+                        {pet.species}, Wiek: {pet.age}
                       </p>
                     </div>
                   </div>

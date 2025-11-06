@@ -27,7 +27,7 @@ Schema:
 }
 
 - overallHealth: Based on symptoms and pet details, assess overall health: "healthy" if no serious issues, "hard to tell" if mixed/unclear, "unhealthy" if high risks.
-- Generate exactly 5 distinct diagnoses, sorted by probability descending. Use pet details and symptoms to infer likely conditions.`;
+- Generate exactly 3 distinct diagnoses, sorted by probability descending. Use pet details and symptoms to infer likely conditions.`;
 
 export async function POST(request: NextRequest) {
   try {
@@ -180,7 +180,7 @@ export async function POST(request: NextRequest) {
     if (
       !diagnoses.diagnoses ||
       !Array.isArray(diagnoses.diagnoses) ||
-      diagnoses.diagnoses.length !== 5 ||
+      diagnoses.diagnoses.length !== 3 ||
       !["healthy", "hard to tell", "unhealthy"].includes(
         diagnoses.overallHealth
       )

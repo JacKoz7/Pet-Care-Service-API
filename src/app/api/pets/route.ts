@@ -34,11 +34,7 @@ export async function GET(request: NextRequest) {
           include: {
             Pets: {
               include: {
-                Breed: {
-                  include: {
-                    Spiece: true,
-                  },
-                },
+                Spiece: true,
                 Images: {
                   orderBy: {
                     order: "asc",
@@ -64,8 +60,7 @@ export async function GET(request: NextRequest) {
         age: pet.age,
         description: pet.description,
         keyImage: pet.Images[0]?.imageUrl || null,
-        breed: pet.Breed.name,
-        species: pet.Breed.Spiece.name,
+        species: pet.customSpeciesName || pet.Spiece.name,
         isHealthy: pet.isHealthy,
       }))
     );
@@ -114,7 +109,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, age, description, images, speciesName, breedName } = body;
+    const { name, age, description, images, speciesName } = body;
 
     // Basic validation
     if (
@@ -122,8 +117,7 @@ export async function POST(request: NextRequest) {
       !age ||
       !Array.isArray(images) ||
       images.length === 0 ||
-      !speciesName ||
-      !breedName
+      !speciesName
     ) {
       return NextResponse.json(
         { error: "Missing required fields or no images provided" },
@@ -159,29 +153,15 @@ export async function POST(request: NextRequest) {
     let spiece = await prisma.spiece.findUnique({
       where: { name: speciesName },
     });
+    let customSpeciesName = null;
     if (!spiece) {
-      spiece = await prisma.spiece.create({
-        data: { name: speciesName },
-      });
+      spiece = await prisma.spiece.findUnique({ where: { name: "Inne" } });
+      if (!spiece) {
+        throw new Error("Special species 'Inne' not found");
+      }
+      customSpeciesName = speciesName;
     }
     const spieceId = spiece.idSpiece;
-
-    // Find or create Breed
-    let breed = await prisma.breed.findFirst({
-      where: {
-        name: breedName,
-        Spiece_idSpiece: spieceId,
-      },
-    });
-    if (!breed) {
-      breed = await prisma.breed.create({
-        data: {
-          name: breedName,
-          Spiece_idSpiece: spieceId,
-        },
-      });
-    }
-    const breedId = breed.idBreed;
 
     // Create pet
     const pet = await prisma.pet.create({
@@ -190,7 +170,8 @@ export async function POST(request: NextRequest) {
         age,
         description: description || null,
         isHealthy: null,
-        Breed_idBreed: breedId,
+        Spiece_idSpiece: spieceId,
+        customSpeciesName,
         Client_idClient: clientId,
         Images: {
           create: images.map((img: { imageUrl: string; order?: number }) => ({
@@ -274,9 +255,6 @@ export async function POST(request: NextRequest) {
  *                         type: string
  *                         nullable: true
  *                         example: "https://example.com/pet.jpg"
- *                       breed:
- *                         type: string
- *                         example: "Labrador"
  *                       species:
  *                         type: string
  *                         example: "Dog"
@@ -290,7 +268,7 @@ export async function POST(request: NextRequest) {
  *     summary: Create a new pet
  *     description: |
  *       Creates a new pet for the authenticated user.
- *       Species and breed are created if they don't exist.
+ *       Species is created if it doesn't exist.
  *       Requires a valid Firebase authentication token.
  *       At least one image must be provided.
  *     tags: [Pets]
@@ -307,7 +285,6 @@ export async function POST(request: NextRequest) {
  *               - age
  *               - images
  *               - speciesName
- *               - breedName
  *             properties:
  *               name:
  *                 type: string
@@ -336,9 +313,6 @@ export async function POST(request: NextRequest) {
  *               speciesName:
  *                 type: string
  *                 example: "Dog"
- *               breedName:
- *                 type: string
- *                 example: "Labrador"
  *     responses:
  *       200:
  *         description: Pet created successfully
