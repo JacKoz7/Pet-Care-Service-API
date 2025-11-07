@@ -1,7 +1,7 @@
-// app/api/pets/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient, Prisma } from "@prisma/client";
 import { adminAuth } from "@/lib/firebaseAdmin";
+import { getStorage } from "firebase-admin/storage";
 
 const prisma = new PrismaClient();
 
@@ -108,15 +108,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const body = await request.json();
-    const { name, age, description, images, speciesName } = body;
+    const formData = await request.formData();
+    const name = formData.get("name") as string;
+    const ageStr = formData.get("age") as string;
+    const description = (formData.get("description") as string) || null;
+    const speciesName = formData.get("speciesName") as string;
+    const files = formData.getAll("images") as File[];
 
     // Basic validation
     if (
       !name ||
-      !age ||
-      !Array.isArray(images) ||
-      images.length === 0 ||
+      !ageStr ||
+      !Array.isArray(files) ||
+      files.length === 0 ||
       !speciesName
     ) {
       return NextResponse.json(
@@ -126,7 +130,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate age
-    if (typeof age !== "number" || age < 0 || age > 999) {
+    const age = parseInt(ageStr);
+    if (isNaN(age) || age < 0 || age > 999) {
       return NextResponse.json(
         { error: "Age must be a non-negative integer up to 999" },
         { status: 400 }
@@ -163,31 +168,68 @@ export async function POST(request: NextRequest) {
     }
     const spieceId = spiece.idSpiece;
 
+    const bucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
+    if (!bucketName) {
+      return NextResponse.json(
+        { error: "Storage bucket not configured" },
+        { status: 500 }
+      );
+    }
+
+    const bucket = getStorage().bucket(bucketName);
+    const uploadedUrls: string[] = [];
+
+    for (const file of files) {
+      const fileName = `pets/${decodedToken.uid}/${Date.now()}_${file.name}`;
+      const fileUpload = bucket.file(fileName);
+
+      const buffer = Buffer.from(await file.arrayBuffer());
+      await fileUpload.save(buffer, {
+        metadata: { contentType: file.type },
+      });
+
+      const [url] = await fileUpload.getSignedUrl({
+        action: "read",
+        expires: "03-09-2491",
+      });
+
+      uploadedUrls.push(url);
+    }
+
     // Create pet
     const pet = await prisma.pet.create({
       data: {
         name,
         age,
-        description: description || null,
+        description,
         isHealthy: null,
         Spiece_idSpiece: spieceId,
         customSpeciesName,
         Client_idClient: clientId,
         Images: {
-          create: images.map((img: { imageUrl: string; order?: number }) => ({
-            imageUrl: img.imageUrl,
-            order: img.order || 0,
+          create: uploadedUrls.map((url, i) => ({
+            imageUrl: url,
+            order: i + 1,
           })),
         },
       },
       include: {
         Images: true,
+        Spiece: true,
       },
     });
 
     return NextResponse.json({
       success: true,
-      pet,
+      pet: {
+        id: pet.idPet,
+        name: pet.name,
+        age: pet.age,
+        description: pet.description,
+        keyImage: pet.Images[0]?.imageUrl || null,
+        species: pet.customSpeciesName || pet.Spiece.name,
+        isHealthy: pet.isHealthy,
+      },
     });
   } catch (error: unknown) {
     console.error("Error creating pet:", error);
@@ -277,7 +319,7 @@ export async function POST(request: NextRequest) {
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
  *             type: object
  *             required:
@@ -302,14 +344,8 @@ export async function POST(request: NextRequest) {
  *                 type: array
  *                 minItems: 1
  *                 items:
- *                   type: object
- *                   properties:
- *                     imageUrl:
- *                       type: string
- *                       example: "https://example.com/pet.jpg"
- *                     order:
- *                       type: integer
- *                       example: 1
+ *                   type: string
+ *                   format: binary
  *               speciesName:
  *                 type: string
  *                 example: "Dog"

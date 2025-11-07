@@ -1,4 +1,3 @@
-// app/profile/[petId]/edit/page.tsx
 "use client";
 
 import { auth } from "../../../firebase";
@@ -14,8 +13,6 @@ import {
   IconUpload,
 } from "@tabler/icons-react";
 import { useDropzone } from "react-dropzone";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { storage } from "../../../firebase";
 import Image from "next/image";
 
 interface PetDetails {
@@ -42,10 +39,9 @@ interface Notification {
 
 interface ImageFile {
   file?: File;
-  url: string;
+  url?: string;
   preview?: string;
-  isUploading?: boolean;
-  order: number;
+  order?: number;
 }
 
 interface Species {
@@ -172,9 +168,8 @@ export default function EditPet() {
   }, [pet, userRoles, router, petId]);
 
   const onDrop = (acceptedFiles: File[]) => {
-    const newImages = acceptedFiles.map((file, index) => ({
+    const newImages = acceptedFiles.map((file: File, index: number) => ({
       file,
-      url: "",
       preview: URL.createObjectURL(file),
       order: images.length + index + 1,
     }));
@@ -189,34 +184,6 @@ export default function EditPet() {
 
   const handleRemoveImage = (index: number) => {
     setImages((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const uploadImages = async (): Promise<
-    { imageUrl: string; order: number }[]
-  > => {
-    const uploaded: { imageUrl: string; order: number }[] = [];
-    for (const [index, img] of images.entries()) {
-      if (img.file) {
-        setImages((prev) =>
-          prev.map((p, i) => (i === index ? { ...p, isUploading: true } : p))
-        );
-        const storageRef = ref(
-          storage,
-          `pets/${user!.uid}/${Date.now()}_${img.file.name}`
-        );
-        await uploadBytes(storageRef, img.file);
-        const url = await getDownloadURL(storageRef);
-        uploaded.push({ imageUrl: url, order: img.order });
-        setImages((prev) =>
-          prev.map((p, i) =>
-            i === index ? { ...p, url, isUploading: false } : p
-          )
-        );
-      } else if (img.url) {
-        uploaded.push({ imageUrl: img.url, order: img.order });
-      }
-    }
-    return uploaded;
   };
 
   const validateForm = () => {
@@ -245,28 +212,34 @@ export default function EditPet() {
     }
 
     try {
-      const uploadedImages = await uploadImages();
-      if (uploadedImages.length !== images.length) {
-        throw new Error("Failed to upload all images");
-      }
+      const keepImageUrls = images
+        .filter(
+          (img: ImageFile): img is { url: string } => !!img.url && !img.file
+        )
+        .map((img: { url: string }) => img.url);
 
+      const formData = new FormData();
+      formData.append("name", name);
+      formData.append("age", age);
+      formData.append("description", description || "");
       const speciesName =
         selectedSpecies === "Inne" ? customSpecies : selectedSpecies;
+      formData.append("speciesName", speciesName);
+      formData.append("keepImageUrls", JSON.stringify(keepImageUrls));
+
+      for (const img of images) {
+        if (img.file) {
+          formData.append("newImages", img.file);
+        }
+      }
 
       const token = await user!.getIdToken();
       const response = await fetch(`/api/pets/${petId}`, {
         method: "PUT",
         headers: {
-          "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          name,
-          age: parseFloat(age),
-          description: description || null,
-          images: uploadedImages,
-          speciesName,
-        }),
+        body: formData,
       });
 
       if (response.ok) {
@@ -434,16 +407,14 @@ export default function EditPet() {
               </div>
               {images.length > 0 && (
                 <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                  {images.map((img, index) => (
+                  {images.map((img: ImageFile, index: number) => (
                     <div key={index} className="relative group">
                       <Image
-                        src={img.preview || img.url}
+                        src={img.preview || img.url!}
                         alt={`Image ${index + 1}`}
                         width={200}
                         height={128}
-                        className={`w-full h-32 object-cover rounded-lg ${
-                          img.isUploading ? "opacity-50" : ""
-                        }`}
+                        className="w-full h-32 object-cover rounded-lg"
                       />
                       <button
                         type="button"
@@ -452,11 +423,6 @@ export default function EditPet() {
                       >
                         <IconTrash size={16} />
                       </button>
-                      {img.isUploading && (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-                        </div>
-                      )}
                     </div>
                   ))}
                 </div>

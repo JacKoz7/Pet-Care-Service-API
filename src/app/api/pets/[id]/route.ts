@@ -1,7 +1,7 @@
-// app/api/pets/[id]/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient, Prisma } from "@prisma/client";
 import { adminAuth } from "@/lib/firebaseAdmin";
+import { getStorage } from "firebase-admin/storage";
 
 const prisma = new PrismaClient();
 
@@ -147,17 +147,25 @@ export async function PUT(
       );
     }
 
-    const body = await request.json();
-    const { name, age, description, images, speciesName } = body;
+    const formData = await request.formData();
+    const name = formData.get("name") as string;
+    const ageStr = formData.get("age") as string;
+    const description = (formData.get("description") as string) || null;
+    const speciesName = formData.get("speciesName") as string;
+    const keepImageUrlsStr = formData.get("keepImageUrls") as string;
+    let keepImageUrls: string[] = [];
+    try {
+      keepImageUrls = JSON.parse(keepImageUrlsStr || "[]");
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (e) {
+      keepImageUrls = [];
+    }
+    const newFiles = formData.getAll("newImages") as File[];
+
+    const totalImages = keepImageUrls.length + newFiles.length;
 
     // Basic validation
-    if (
-      !name ||
-      !age ||
-      !Array.isArray(images) ||
-      images.length === 0 ||
-      !speciesName
-    ) {
+    if (!name || !ageStr || totalImages === 0 || !speciesName) {
       return NextResponse.json(
         { error: "Missing required fields or no images provided" },
         { status: 400 }
@@ -165,7 +173,8 @@ export async function PUT(
     }
 
     // Validate age
-    if (typeof age !== "number" || age < 0 || age > 999) {
+    const age = parseInt(ageStr);
+    if (isNaN(age) || age < 0 || age > 999) {
       return NextResponse.json(
         { error: "Age must be a non-negative integer up to 999" },
         { status: 400 }
@@ -186,6 +195,59 @@ export async function PUT(
     }
     const spieceId = spiece.idSpiece;
 
+    const bucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
+    if (!bucketName) {
+      return NextResponse.json(
+        { error: "Storage bucket not configured" },
+        { status: 500 }
+      );
+    }
+
+    const bucket = getStorage().bucket(bucketName);
+
+    // Get old images and delete unkept from storage
+    const oldPetImages = await prisma.petImage.findMany({
+      where: { Pet_idPet: idNum },
+      select: { imageUrl: true },
+    });
+    const oldUrls = oldPetImages.map((i) => i.imageUrl);
+    const toDeleteUrls = oldUrls.filter((url) => !keepImageUrls.includes(url));
+
+    for (const url of toDeleteUrls) {
+      const oldPath = extractPathFromSignedUrl(url);
+      if (oldPath) {
+        try {
+          const [exists] = await bucket.file(oldPath).exists();
+          if (exists) {
+            await bucket.file(oldPath).delete();
+            console.log(`Deleted old image: ${oldPath}`);
+          }
+        } catch (deleteErr) {
+          console.error(`Failed to delete old image ${oldPath}:`, deleteErr);
+        }
+      }
+    }
+
+    // Upload new images
+    const uploadedNewUrls: string[] = [];
+    for (const file of newFiles) {
+      const fileName = `pets/${decodedToken.uid}/${Date.now()}_${file.name}`;
+      const fileUpload = bucket.file(fileName);
+
+      const buffer = Buffer.from(await file.arrayBuffer());
+      await fileUpload.save(buffer, {
+        metadata: { contentType: file.type },
+      });
+
+      const [url] = await fileUpload.getSignedUrl({
+        action: "read",
+        expires: "03-09-2491",
+      });
+
+      uploadedNewUrls.push(url);
+    }
+
+    // Transaction: delete all DB images, create new ones, update pet
     await prisma.$transaction(async (tx) => {
       await tx.petImage.deleteMany({
         where: {
@@ -193,16 +255,28 @@ export async function PUT(
         },
       });
 
-      if (images && Array.isArray(images)) {
-        for (const img of images) {
-          await tx.petImage.create({
-            data: {
-              imageUrl: img.imageUrl,
-              order: img.order,
-              Pet_idPet: idNum,
-            },
-          });
-        }
+      let currentOrder = 1;
+
+      // Create kept images
+      for (const url of keepImageUrls) {
+        await tx.petImage.create({
+          data: {
+            imageUrl: url,
+            order: currentOrder++,
+            Pet_idPet: idNum,
+          },
+        });
+      }
+
+      // Create new images
+      for (const url of uploadedNewUrls) {
+        await tx.petImage.create({
+          data: {
+            imageUrl: url,
+            order: currentOrder++,
+            Pet_idPet: idNum,
+          },
+        });
       }
 
       await tx.pet.update({
@@ -212,7 +286,7 @@ export async function PUT(
         data: {
           name,
           age,
-          description: description || null,
+          description,
           isHealthy: null,
           Spiece_idSpiece: spieceId,
           customSpeciesName,
@@ -240,6 +314,22 @@ export async function PUT(
     );
   } finally {
     await prisma.$disconnect();
+  }
+}
+
+function extractPathFromSignedUrl(url: string): string | null {
+  try {
+    // Match the pattern: https://storage.googleapis.com/{bucket}/{path}?params
+    const match = url.match(
+      /https:\/\/storage\.googleapis\.com\/[^\/]+\/(.+?)\?/
+    );
+    if (match && match[1]) {
+      return decodeURIComponent(match[1]);
+    }
+    return null;
+  } catch (error) {
+    console.error("Error extracting path from URL:", error);
+    return null;
   }
 }
 
@@ -311,7 +401,7 @@ export async function PUT(
  *       Updates an existing pet's information. Only the pet owner can update the pet.
  *       Requires a valid Firebase authentication token.
  *       Species is created if it doesn't exist.
- *       At least one image must be provided.
+ *       At least one image must be provided (new or kept).
  *     tags: [Pets]
  *     security:
  *       - BearerAuth: []
@@ -325,13 +415,12 @@ export async function PUT(
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
  *             type: object
  *             required:
  *               - name
  *               - age
- *               - images
  *               - speciesName
  *             properties:
  *               name:
@@ -346,21 +435,18 @@ export async function PUT(
  *                 type: string
  *                 nullable: true
  *                 example: "Friendly dog"
- *               images:
- *                 type: array
- *                 minItems: 1
- *                 items:
- *                   type: object
- *                   properties:
- *                     imageUrl:
- *                       type: string
- *                       example: "https://example.com/pet.jpg"
- *                     order:
- *                       type: integer
- *                       example: 1
  *               speciesName:
  *                 type: string
  *                 example: "Dog"
+ *               keepImageUrls:
+ *                 type: string
+ *                 description: JSON array of URLs to keep
+ *                 example: '["https://example.com/old1.jpg"]'
+ *               newImages:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
  *     responses:
  *       200:
  *         description: Pet updated successfully
