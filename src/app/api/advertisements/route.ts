@@ -49,6 +49,16 @@ export async function GET(request: NextRequest) {
                   },
                   take: 1,
                 },
+                AdvertisementSpieces: {
+                  select: {
+                    spiece: {
+                      select: {
+                        idSpiece: true,
+                        name: true,
+                      },
+                    },
+                  },
+                },
               },
             },
           },
@@ -75,6 +85,10 @@ export async function GET(request: NextRequest) {
           ? ad.serviceEndTime.toTimeString().slice(0, 5)
           : null,
         keyImage: ad.Images[0]?.imageUrl || null,
+        species: ad.AdvertisementSpieces.map((s) => ({
+          id: s.spiece.idSpiece,
+          name: s.spiece.name,
+        })),
         city: {
           idCity: user.City.idCity,
           name: user.City.name,
@@ -137,6 +151,7 @@ export async function POST(request: NextRequest) {
       serviceEndTime,
       serviceId,
       images,
+      speciesIds,
     } = body;
 
     // Basic validation
@@ -158,6 +173,14 @@ export async function POST(request: NextRequest) {
     if (price !== null && (typeof price !== "number" || price < 0)) {
       return NextResponse.json(
         { error: "Price must be a non-negative number" },
+        { status: 400 }
+      );
+    }
+
+    // Validate speciesIds if provided
+    if (speciesIds && !Array.isArray(speciesIds)) {
+      return NextResponse.json(
+        { error: "speciesIds must be an array" },
         { status: 400 }
       );
     }
@@ -193,6 +216,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Service not found" }, { status: 404 });
     }
 
+    // Validate speciesIds exist if provided
+    if (speciesIds && speciesIds.length > 0) {
+      const existingSpecies = await prisma.spiece.count({
+        where: {
+          idSpiece: { in: speciesIds },
+        },
+      });
+      if (existingSpecies !== speciesIds.length) {
+        return NextResponse.json(
+          { error: "One or more invalid species IDs" },
+          { status: 400 }
+        );
+      }
+    }
+
     // Create advertisement
     const advertisement = await prisma.advertisement.create({
       data: {
@@ -209,9 +247,19 @@ export async function POST(request: NextRequest) {
         Images: {
           create: images,
         },
+        AdvertisementSpieces: {
+          create: (speciesIds || []).map((id: number) => ({
+            spieceId: id,
+          })),
+        },
       },
       include: {
         Images: true,
+        AdvertisementSpieces: {
+          include: {
+            spiece: true,
+          },
+        },
       },
     });
 
@@ -249,7 +297,7 @@ export async function POST(request: NextRequest) {
  *     summary: Get all advertisements for the authenticated user
  *     description: |
  *       Returns all advertisements for the authenticated user associated with any of their service providers.
- *       Includes advertisements of all statuses. Only returns title, startDate, endDate, serviceStartTime, serviceEndTime, keyImage (first image), and the service provider's city information for each advertisement.
+ *       Includes advertisements of all statuses. Only returns title, startDate, endDate, serviceStartTime, serviceEndTime, keyImage (first image), species, and the service provider's city information for each advertisement.
  *       Requires a valid Firebase authentication token.
  *     tags: [Advertisements]
  *     security:
@@ -311,6 +359,17 @@ export async function POST(request: NextRequest) {
  *                         type: string
  *                         nullable: true
  *                         example: "https://images.unsplash.com/photo-1552053831-71594a27632d?w=500"
+ *                       species:
+ *                         type: array
+ *                         items:
+ *                           type: object
+ *                           properties:
+ *                             id:
+ *                               type: integer
+ *                               example: 1
+ *                             name:
+ *                               type: string
+ *                               example: "Pies"
  *                       city:
  *                         type: object
  *                         properties:
@@ -351,6 +410,7 @@ export async function POST(request: NextRequest) {
  *       Creates a new advertisement for the authenticated user who is an active service provider.
  *       Requires a valid Firebase authentication token.
  *       At least one image must be provided, and price must be a non-negative number if provided.
+ *       speciesIds is optional array of species IDs.
  *     tags: [Advertisements]
  *     security:
  *       - BearerAuth: []
@@ -410,11 +470,17 @@ export async function POST(request: NextRequest) {
  *                     order:
  *                       type: integer
  *                       example: 1
+ *               speciesIds:
+ *                 type: array
+ *                 items:
+ *                   type: integer
+ *                 example: [1, 2]
+ *                 nullable: true
  *     responses:
  *       200:
  *         description: Advertisement created successfully
  *       400:
- *         description: Missing required fields, no images provided, or invalid price
+ *         description: Missing required fields, no images provided, or invalid price or speciesIds
  *       401:
  *         description: Unauthorized (invalid or missing token)
  *       403:

@@ -1,3 +1,4 @@
+// restore adv - UPDATED (species nie są przywracane, bo nie są zapisywane w archiwum)
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient, Prisma } from "@prisma/client";
 import { adminAuth } from "@/lib/firebaseAdmin";
@@ -116,7 +117,7 @@ export async function POST(
       );
     }
 
-    // Validate title uniqueness for the service provider
+    // Validate title uniqueness
     const existingAd = await prisma.advertisement.findFirst({
       where: {
         title: archivedAd.title,
@@ -141,9 +142,8 @@ export async function POST(
       ? JSON.parse(archivedAd.imagesUrls as string)
       : [];
 
-    // Use transaction to restore advertisement and delete archive
+    // Transaction – species nie są przywracane (nie są zapisywane w archiwum)
     const restoredAd = await prisma.$transaction(async (tx) => {
-      // Create new advertisement
       const newAd = await tx.advertisement.create({
         data: {
           title: archivedAd.title,
@@ -156,11 +156,10 @@ export async function POST(
           serviceEndTime: archivedAd.serviceEndTime,
           Service_idService: archivedAd.serviceId,
           Service_Provider_idService_Provider: archivedAd.serviceProviderId,
-          createdAt: new Date(), // New creation date
+          createdAt: new Date(),
         },
       });
 
-      // Restore images
       if (images.length > 0) {
         await tx.advertisementImage.createMany({
           data: images.map((img: { url: string; order: number }) => ({
@@ -171,7 +170,9 @@ export async function POST(
         });
       }
 
-      // Delete from archive
+      // TODO: jeśli chcesz przywracać species, dodaj pole species Json? do AdvertisementArchive
+      // i tutaj recreate AdvertisementSpiece
+
       await tx.advertisementArchive.delete({
         where: {
           idAdvertisementArchive: archiveId,
@@ -184,6 +185,7 @@ export async function POST(
     return NextResponse.json({
       success: true,
       advertisementId: restoredAd.idAdvertisement,
+      note: "Species nie zostały przywrócone – nie są zapisywane w archiwum",
     });
   } catch (error) {
     console.error("Error restoring advertisement:", error);

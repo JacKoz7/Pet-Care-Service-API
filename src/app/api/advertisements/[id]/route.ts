@@ -10,7 +10,7 @@ const prisma = new PrismaClient();
  * /api/advertisements/{id}:
  *   get:
  *     summary: Get an advertisement by ID
- *     description: Retrieves detailed information about a specific advertisement, including title, description, price, status, dates, service provider details, city, service name, and images.
+ *     description: Retrieves detailed information about a specific advertisement, including title, description, price, status, dates, service provider details, city, service name, images, and species.
  *     tags: [Advertisements]
  *     parameters:
  *       - in: path
@@ -132,6 +132,17 @@ const prisma = new PrismaClient();
  *                             nullable: true
  *                             description: The order of the image
  *                             example: 1
+ *                     species:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: integer
+ *                             example: 1
+ *                           name:
+ *                             type: string
+ *                             example: "Pies"
  *       400:
  *         description: Invalid advertisement ID
  *       404:
@@ -195,6 +206,16 @@ export async function GET(
             name: true,
           },
         },
+        AdvertisementSpieces: {
+          select: {
+            spiece: {
+              select: {
+                idSpiece: true,
+                name: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -237,6 +258,10 @@ export async function GET(
           imageUrl: img.imageUrl,
           order: img.order,
         })),
+        species: advertisement.AdvertisementSpieces.map((s) => ({
+          id: s.spiece.idSpiece,
+          name: s.spiece.name,
+        })),
       },
     });
   } catch (error) {
@@ -257,7 +282,7 @@ export async function GET(
  *     summary: Update an advertisement
  *     description: |
  *       Updates an existing advertisement owned by the authenticated service provider.
- *       Supports updating title, description, price, status, dates, service times, service ID, and images.
+ *       Supports updating title, description, price, status, dates, service times, service ID, images, and speciesIds.
  *       If `checkPermissions` is true in the request body, it verifies permissions without updating.
  *       Only the advertisement owner (matching service provider) can update, and the service provider must be active.
  *     tags: [Advertisements]
@@ -340,6 +365,12 @@ export async function GET(
  *                       nullable: true
  *                       description: The order of the image
  *                       example: 1
+ *               speciesIds:
+ *                 type: array
+ *                 items:
+ *                   type: integer
+ *                 example: [1, 2]
+ *                 nullable: true
  *     responses:
  *       200:
  *         description: Successfully updated the advertisement or verified permissions
@@ -478,6 +509,28 @@ export async function PUT(
       );
     }
 
+    // Validate speciesIds if provided
+    if (body.speciesIds && !Array.isArray(body.speciesIds)) {
+      return NextResponse.json(
+        { error: "speciesIds must be an array" },
+        { status: 400 }
+      );
+    }
+
+    if (body.speciesIds && body.speciesIds.length > 0) {
+      const existingSpecies = await prisma.spiece.count({
+        where: {
+          idSpiece: { in: body.speciesIds },
+        },
+      });
+      if (existingSpecies !== body.speciesIds.length) {
+        return NextResponse.json(
+          { error: "One or more invalid species IDs" },
+          { status: 400 }
+        );
+      }
+    }
+
     await prisma.$transaction(async (tx) => {
       await tx.advertisementImage.deleteMany({
         where: {
@@ -492,6 +545,24 @@ export async function PUT(
               imageUrl: img.imageUrl,
               order: img.order,
               Advertisement_idAdvertisement: idNum,
+            },
+          });
+        }
+      }
+
+      // Update species: delete existing, create new
+      await tx.advertisementSpiece.deleteMany({
+        where: {
+          advertisementId: idNum,
+        },
+      });
+
+      if (body.speciesIds && body.speciesIds.length > 0) {
+        for (const spieceId of body.speciesIds) {
+          await tx.advertisementSpiece.create({
+            data: {
+              advertisementId: idNum,
+              spieceId: spieceId,
             },
           });
         }
@@ -708,6 +779,11 @@ export async function DELETE(
       await tx.archive.deleteMany({
         where: {
           Advertisement_idAdvertisement: idNum,
+        },
+      });
+      await tx.advertisementSpiece.deleteMany({
+        where: {
+          advertisementId: idNum,
         },
       });
       await tx.advertisement.delete({

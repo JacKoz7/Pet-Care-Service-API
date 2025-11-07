@@ -1,4 +1,4 @@
-// src/app/api/advertisements/saved/route.ts
+// src/app/api/advertisements/saved/route.ts - UPDATED WITH species: string[]
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { adminAuth } from "@/lib/firebaseAdmin";
@@ -68,6 +68,15 @@ export async function GET(request: NextRequest) {
               },
               take: 1,
             },
+            AdvertisementSpieces: {
+              select: {
+                spiece: {
+                  select: {
+                    name: true,
+                  },
+                },
+              },
+            },
             Service_Provider: {
               select: {
                 User: {
@@ -94,6 +103,9 @@ export async function GET(request: NextRequest) {
         ? saved.Advertisement.serviceEndTime.toTimeString().slice(0, 5)
         : null,
       keyImage: saved.Advertisement.Images[0]?.imageUrl || null,
+      species: saved.Advertisement.AdvertisementSpieces.map(
+        (s) => s.spiece.name
+      ),
       city: {
         idCity: saved.Advertisement.Service_Provider.User.City.idCity,
         name: saved.Advertisement.Service_Provider.User.City.name,
@@ -101,7 +113,6 @@ export async function GET(request: NextRequest) {
       },
     }));
 
-    // Update lastActive
     await prisma.user.update({
       where: { idUser: user.idUser },
       data: { lastActive: new Date() },

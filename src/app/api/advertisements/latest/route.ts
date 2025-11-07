@@ -1,4 +1,4 @@
-// src/app/api/advertisements/latest/route.ts
+// src/app/api/advertisements/latest/route.ts - UPDATED WITH species: string[]
 import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 
@@ -25,6 +25,15 @@ export async function GET() {
             order: "asc",
           },
           take: 1,
+        },
+        AdvertisementSpieces: {
+          select: {
+            spiece: {
+              select: {
+                name: true,
+              },
+            },
+          },
         },
         Service_Provider: {
           select: {
@@ -53,9 +62,14 @@ export async function GET() {
       title: ad.title,
       startDate: ad.startDate,
       endDate: ad.endDate,
-      serviceStartTime: ad.serviceStartTime ? ad.serviceStartTime.toTimeString().slice(0, 5) : null,
-      serviceEndTime: ad.serviceEndTime ? ad.serviceEndTime.toTimeString().slice(0, 5) : null,
+      serviceStartTime: ad.serviceStartTime
+        ? ad.serviceStartTime.toTimeString().slice(0, 5)
+        : null,
+      serviceEndTime: ad.serviceEndTime
+        ? ad.serviceEndTime.toTimeString().slice(0, 5)
+        : null,
       keyImage: ad.Images[0]?.imageUrl || null,
+      species: ad.AdvertisementSpieces.map((s) => s.spiece.name),
       city: {
         idCity: ad.Service_Provider.User.City.idCity,
         name: ad.Service_Provider.User.City.name,
@@ -84,8 +98,8 @@ export async function GET() {
  *   get:
  *     summary: Get 10 latest active advertisements
  *     description: |
- *       Returns the 10 most recently created active advertisements in the system.
- *       Only returns title, startDate, endDate, serviceStartTime, serviceEndTime, keyImage (first image), and the service provider's city information for each advertisement.
+ *       Returns the 10 most recently created active advertisements.
+ *       Includes species as array of names.
  *     tags: [Advertisements]
  *     responses:
  *       200:
@@ -105,44 +119,37 @@ export async function GET() {
  *                     properties:
  *                       id:
  *                         type: integer
- *                         example: 1
  *                       title:
  *                         type: string
- *                         example: "Profesjonalne wyprowadzanie psów w centrum Warszawy"
  *                       startDate:
  *                         type: string
  *                         format: date-time
- *                         example: "2025-09-26T00:00:00Z"
  *                       endDate:
  *                         type: string
  *                         format: date-time
  *                         nullable: true
- *                         example: "2025-11-25T00:00:00Z"
  *                       serviceStartTime:
  *                         type: string
  *                         nullable: true
- *                         example: "09:00"
  *                       serviceEndTime:
  *                         type: string
  *                         nullable: true
- *                         example: "17:00"
  *                       keyImage:
  *                         type: string
  *                         nullable: true
- *                         example: "https://images.unsplash.com/photo-1552053831-71594a27632d?w=500"
+ *                       species:
+ *                         type: array
+ *                         items:
+ *                           type: string
+ *                         example: ["Pies", "Kot"]
  *                       city:
  *                         type: object
  *                         properties:
  *                           idCity:
  *                             type: integer
- *                             example: 1
  *                           name:
  *                             type: string
- *                             example: "Warszawa"
  *                           imageUrl:
  *                             type: string
  *                             nullable: true
- *                             example: "https://example.com/city.jpg"
- *       500:
- *         description: Internal server error
  */

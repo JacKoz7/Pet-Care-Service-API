@@ -1,3 +1,4 @@
+// archived advs - UPDATED TO INCLUDE species: string[]
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { adminAuth } from "@/lib/firebaseAdmin";
@@ -100,6 +101,7 @@ export async function GET(request: NextRequest) {
           ? ad.serviceEndTime.toTimeString().slice(0, 5)
           : null,
         keyImage,
+        species: [], // Species nie są zapisywane w archiwum – po restore będą puste
         city: {
           idCity: ad.Service_Provider.User.City.idCity,
           name: ad.Service_Provider.User.City.name,
@@ -130,7 +132,7 @@ export async function GET(request: NextRequest) {
  *     summary: Get user's archived advertisements
  *     description: |
  *       Returns a list of archived (deleted) advertisements for the authenticated user who is a service provider.
- *       Includes title, start date, end date, service hours, key image, and city details to match the active advertisements display.
+ *       Includes title, start date, end date, service hours, key image, species (always empty – not stored in archive), and city details.
  *     tags: [Advertisements]
  *     security:
  *       - BearerAuth: []
@@ -152,51 +154,39 @@ export async function GET(request: NextRequest) {
  *                     properties:
  *                       id:
  *                         type: integer
- *                         description: Archive ID (idAdvertisementArchive)
- *                         example: 1
  *                       originalId:
  *                         type: integer
- *                         description: Original advertisement ID
- *                         example: 100
  *                       title:
  *                         type: string
- *                         example: "Professional Dog Walking"
  *                       startDate:
  *                         type: string
  *                         format: date-time
- *                         example: "2025-09-26T00:00:00Z"
  *                       endDate:
  *                         type: string
  *                         format: date-time
  *                         nullable: true
- *                         example: "2025-11-25T00:00:00Z"
  *                       serviceStartTime:
  *                         type: string
  *                         nullable: true
- *                         example: "09:00"
  *                       serviceEndTime:
  *                         type: string
  *                         nullable: true
- *                         example: "17:00"
  *                       keyImage:
  *                         type: string
  *                         nullable: true
- *                         example: "https://example.com/image.jpg"
+ *                       species:
+ *                         type: array
+ *                         items:
+ *                           type: string
+ *                         example: []
  *                       city:
  *                         type: object
  *                         properties:
  *                           idCity:
  *                             type: integer
- *                             example: 1
  *                           name:
  *                             type: string
- *                             example: "Warsaw"
  *                           imageUrl:
  *                             type: string
  *                             nullable: true
- *                             example: "https://example.com/city.jpg"
- *       401:
- *         description: Unauthorized (invalid or missing token)
- *       500:
- *         description: Internal server error
  */

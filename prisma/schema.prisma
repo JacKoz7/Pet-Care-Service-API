@@ -95,10 +95,11 @@ model Advertisement {
   Service_Provider                    Service_Provider    @relation(fields: [Service_Provider_idService_Provider], references: [idService_Provider])
   Service_Provider_idService_Provider Int
 
-  Feedbacks Feedback[]
-  Archives  Archive[]
-  Images    AdvertisementImage[]
-  SavedBy   SavedAdvertisement[]
+  Feedbacks            Feedback[]
+  Archives             Archive[]
+  Images               AdvertisementImage[]
+  SavedBy              SavedAdvertisement[]
+  AdvertisementSpieces AdvertisementSpiece[]
 
   @@unique([title, Service_Provider_idService_Provider])
 }
@@ -241,7 +242,8 @@ model Spiece {
   idSpiece Int    @id @default(autoincrement())
   name     String @unique @db.VarChar(60)
 
-  Pets Pet[]
+  Pets                 Pet[]
+  AdvertisementSpieces AdvertisementSpiece[]
 }
 
 model Archive {
@@ -320,4 +322,13 @@ model SavedAdvertisement {
   Advertisement_idAdvertisement Int
 
   @@unique([Client_idClient, Advertisement_idAdvertisement])
+}
+
+model AdvertisementSpiece {
+  advertisement   Advertisement @relation(fields: [advertisementId], references: [idAdvertisement])
+  advertisementId Int
+  spiece          Spiece        @relation(fields: [spieceId], references: [idSpiece])
+  spieceId        Int
+
+  @@id([advertisementId, spieceId])
 }

@@ -27,6 +27,11 @@ interface Service {
   name: string;
 }
 
+interface Spiece {
+  idSpiece: number;
+  name: string;
+}
+
 interface AdvertisementDetails {
   id: number;
   title: string;
@@ -52,6 +57,10 @@ interface AdvertisementDetails {
   images: Array<{
     imageUrl: string;
     order: number | null;
+  }>;
+  species: Array<{
+    id: number;
+    name: string;
   }>;
 }
 
@@ -80,6 +89,7 @@ export default function EditAdvertisement() {
   const adId = params.id as string;
   const [ad, setAd] = useState<AdvertisementDetails | null>(null);
   const [services, setServices] = useState<Service[]>([]);
+  const [species, setSpecies] = useState<Spiece[]>([]);
   const [userRoles, setUserRoles] = useState<UserRoles | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -94,6 +104,7 @@ export default function EditAdvertisement() {
   const [serviceStartTime, setServiceStartTime] = useState("");
   const [serviceEndTime, setServiceEndTime] = useState("");
   const [selectedService, setSelectedService] = useState("");
+  const [selectedSpecies, setSelectedSpecies] = useState<number[]>([]);
   const [status, setStatus] = useState("ACTIVE");
   const [images, setImages] = useState<ImageFile[]>([]);
 
@@ -121,6 +132,15 @@ export default function EditAdvertisement() {
           setServices(servicesData.services || []);
         } else {
           setError("Failed to fetch services");
+        }
+
+        // Fetch species
+        const speciesResponse = await fetch("/api/pets/species");
+        if (speciesResponse.ok) {
+          const speciesData = await speciesResponse.json();
+          setSpecies(speciesData.species || []);
+        } else {
+          setError("Failed to fetch species");
         }
 
         // Fetch ad details
@@ -155,7 +175,7 @@ export default function EditAdvertisement() {
           setUserRoles({ roles: [], serviceProviderIds: [] });
         }
 
-        // Pre-fill form (except selectedService)
+        // Pre-fill form (except selectedService and selectedSpecies)
         setTitle(adData.advertisement.title);
         setDescription(adData.advertisement.description || "");
         setPrice(
@@ -184,6 +204,9 @@ export default function EditAdvertisement() {
               order: img.order || index + 1,
             })
           )
+        );
+        setSelectedSpecies(
+          adData.advertisement.species.map((s: { id: number }) => s.id)
         );
       } catch (err) {
         console.error("Error fetching data:", err);
@@ -224,6 +247,15 @@ export default function EditAdvertisement() {
       router.push(`/advertisements/${adId}`);
     }
   }, [ad, userRoles, router, adId]);
+
+  const handleSpeciesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const id = parseInt(e.target.value);
+    if (e.target.checked) {
+      setSelectedSpecies([...selectedSpecies, id]);
+    } else {
+      setSelectedSpecies(selectedSpecies.filter((s) => s !== id));
+    }
+  };
 
   const onDrop = (acceptedFiles: File[]) => {
     const newImages = acceptedFiles.map((file, index) => ({
@@ -331,6 +363,7 @@ export default function EditAdvertisement() {
             ? `1970-01-01T${serviceEndTime}:00`
             : null,
           serviceId: parseInt(selectedService),
+          speciesIds: selectedSpecies,
           images: uploadedImages,
         }),
       });
@@ -613,6 +646,30 @@ export default function EditAdvertisement() {
                 <option value="ACTIVE">Active</option>
                 <option value="INACTIVE">Inactive</option>
               </select>
+            </div>
+
+            {/* Species Checkboxes */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Species (optional)
+              </label>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-40 overflow-y-auto border border-gray-300 rounded-xl p-4">
+                {species.map((sp) => (
+                  <label
+                    key={sp.idSpiece}
+                    className="flex items-center space-x-2"
+                  >
+                    <input
+                      type="checkbox"
+                      value={sp.idSpiece}
+                      checked={selectedSpecies.includes(sp.idSpiece)}
+                      onChange={handleSpeciesChange}
+                      className="form-checkbox text-indigo-600"
+                    />
+                    <span className="text-gray-700">{sp.name}</span>
+                  </label>
+                ))}
+              </div>
             </div>
 
             <div>

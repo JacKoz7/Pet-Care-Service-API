@@ -1,4 +1,3 @@
-// src/app/api/advertisements/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma, PrismaClient } from "@prisma/client";
 
@@ -11,7 +10,7 @@ const prisma = new PrismaClient();
  *     summary: Get all active advertisements with filtering and pagination
  *     description: |
  *       Retrieves all active advertisements in the system, with optional filtering by title and city, and pagination.
- *       Returns title, startDate, endDate, serviceStartTime, serviceEndTime, keyImage (first image), and the service provider's city information for each advertisement.
+ *       Returns title, startDate, endDate, serviceStartTime, serviceEndTime, keyImage (first image), species names, and the service provider's city information for each advertisement.
  *       This endpoint is unprotected and accessible to all users.
  *     tags: [Advertisements]
  *     parameters:
@@ -84,6 +83,11 @@ const prisma = new PrismaClient();
  *                         type: string
  *                         nullable: true
  *                         example: "https://example.com/image.jpg"
+ *                       species:
+ *                         type: array
+ *                         items:
+ *                           type: string
+ *                         example: ["Pies", "Kot"]
  *                       city:
  *                         type: object
  *                         properties:
@@ -176,6 +180,15 @@ export async function GET(request: NextRequest) {
           },
           take: 1,
         },
+        AdvertisementSpieces: {
+          select: {
+            spiece: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
         Service_Provider: {
           select: {
             User: {
@@ -207,6 +220,7 @@ export async function GET(request: NextRequest) {
       serviceStartTime: ad.serviceStartTime ? ad.serviceStartTime.toTimeString().slice(0, 5) : null,
       serviceEndTime: ad.serviceEndTime ? ad.serviceEndTime.toTimeString().slice(0, 5) : null,
       keyImage: ad.Images[0]?.imageUrl || null,
+      species: ad.AdvertisementSpieces.map((s) => s.spiece.name),
       city: {
         idCity: ad.Service_Provider.User.City.idCity,
         name: ad.Service_Provider.User.City.name,

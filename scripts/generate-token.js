@@ -35,6 +35,7 @@ async function generateToken(isAdmin = false) {
     let user;
     try {
       user = await auth.getUserByEmail(email);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
       user = await auth.createUser({
         email,

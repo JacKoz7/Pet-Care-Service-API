@@ -264,7 +264,7 @@ const species = [
   "Papuga",
   "Aligator",
   "Małpa",
-  "Inne"
+  "Inne",
 ];
 
 async function main() {
@@ -314,6 +314,20 @@ async function main() {
     console.log(`Dodano lub zaktualizowano symptom: ${symptom.name}`);
   }
 
+  console.log("Dodaję gatunki...");
+
+  // Seed Spiece (gatunki) - upsert NIE usuwa
+  for (const spieceName of species) {
+    await prisma.spiece.upsert({
+      where: { name: spieceName },
+      update: {},
+      create: {
+        name: spieceName,
+      },
+    });
+    console.log(`Dodano lub zaktualizowano gatunek: ${spieceName}`);
+  }
+
   console.log("Sprawdzam czy istnieją ogłoszenia...");
 
   // Sprawdź czy są JAKIEKOLWIEK ogłoszenia - jeśli tak, NIE dodawaj nowych
@@ -346,6 +360,14 @@ async function main() {
         `Znaleziono ${serviceProviders.length} service providerów. Dodaję przykładowe ogłoszenia...`
       );
 
+      // Fetch Spiece IDs for seeding
+      const dogSpiece = await prisma.spiece.findFirst({
+        where: { name: "Pies" },
+      });
+      const catSpiece = await prisma.spiece.findFirst({
+        where: { name: "Kot" },
+      });
+
       // Helper function to create dates
       const now = new Date();
       const futureDate = (daysFromNow: number) => {
@@ -354,7 +376,7 @@ async function main() {
         return date;
       };
 
-      // Sample advertisements data with start/end dates
+      // Sample advertisements data with start/end dates and speciesIds
       const sampleAdvertisements = [
         // Service Provider 1 (jeśli istnieje)
         ...(serviceProviders.find((sp) => sp.idService_Provider === 1)
@@ -375,6 +397,7 @@ async function main() {
                   "https://images.unsplash.com/photo-1552053831-71594a27632d?w=500",
                   "https://images.unsplash.com/photo-1583337130417-3346a1be7dee?w=500",
                 ],
+                speciesIds: dogSpiece ? [dogSpiece.idSpiece] : [],
               },
               {
                 serviceProviderId: 1,
@@ -391,6 +414,10 @@ async function main() {
                 images: [
                   "https://images.unsplash.com/photo-1601758228041-f3b2795255f1?w=500",
                 ],
+                speciesIds:
+                  dogSpiece && catSpiece
+                    ? [dogSpiece.idSpiece, catSpiece.idSpiece]
+                    : [],
               },
               {
                 serviceProviderId: 1,
@@ -408,6 +435,7 @@ async function main() {
                   "https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=500",
                   "https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=500",
                 ],
+                speciesIds: dogSpiece ? [dogSpiece.idSpiece] : [],
               },
             ]
           : []),
@@ -450,25 +478,24 @@ async function main() {
               ?.toTimeString()
               .slice(0, 5)})`
           );
+
+          // Add species
+          for (const spieceId of ad.speciesIds) {
+            await prisma.advertisementSpiece.create({
+              data: {
+                advertisementId: createdAd.idAdvertisement,
+                spieceId: spieceId,
+              },
+            });
+            console.log(
+              `Dodano species ID ${spieceId} do ogłoszenia ${createdAd.title}`
+            );
+          }
         } catch (error) {
           console.error(`Błąd przy dodawaniu ogłoszenia "${ad.title}":`, error);
         }
       }
     }
-  }
-
-  console.log("Dodaję gatunki...");
-
-  // Seed Spiece (gatunki) - upsert NIE usuwa
-  for (const spieceName of species) {
-    await prisma.spiece.upsert({
-      where: { name: spieceName },
-      update: {},
-      create: {
-        name: spieceName,
-      },
-    });
-    console.log(`Dodano lub zaktualizowano gatunek: ${spieceName}`);
   }
 
   console.log("Sprawdzam czy istnieje user o id 1 i client...");

@@ -27,6 +27,11 @@ interface Service {
   name: string;
 }
 
+interface Spiece {
+  idSpiece: number;
+  name: string;
+}
+
 interface Notification {
   message: string;
   type: "info" | "error" | "warning" | "success";
@@ -44,6 +49,7 @@ export default function AddAdvertisement() {
   const [user] = useAuthState(auth);
   const router = useRouter();
   const [services, setServices] = useState<Service[]>([]);
+  const [species, setSpecies] = useState<Spiece[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [notification, setNotification] = useState<Notification | null>(null);
@@ -59,6 +65,7 @@ export default function AddAdvertisement() {
   const [serviceStartTime, setServiceStartTime] = useState("");
   const [serviceEndTime, setServiceEndTime] = useState("");
   const [selectedService, setSelectedService] = useState("");
+  const [selectedSpecies, setSelectedSpecies] = useState<number[]>([]);
   const [images, setImages] = useState<ImageFile[]>([]);
 
   useEffect(() => {
@@ -67,25 +74,44 @@ export default function AddAdvertisement() {
       return;
     }
 
-    const fetchServices = async () => {
+    const fetchData = async () => {
       try {
-        const response = await fetch("/api/services");
-        if (response.ok) {
-          const data = await response.json();
-          setServices(data.services || []);
+        // Fetch services
+        const servicesResponse = await fetch("/api/services");
+        if (servicesResponse.ok) {
+          const servicesData = await servicesResponse.json();
+          setServices(servicesData.services || []);
         } else {
           setError("Failed to fetch services");
         }
+
+        // Fetch species
+        const speciesResponse = await fetch("/api/pets/species");
+        if (speciesResponse.ok) {
+          const speciesData = await speciesResponse.json();
+          setSpecies(speciesData.species || []);
+        } else {
+          setError("Failed to fetch species");
+        }
       } catch (err) {
-        setError("An error occurred while fetching services");
+        setError("An error occurred while fetching data");
         console.error(err);
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchServices();
+    fetchData();
   }, [user, router]);
+
+  const handleSpeciesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const id = parseInt(e.target.value);
+    if (e.target.checked) {
+      setSelectedSpecies([...selectedSpecies, id]);
+    } else {
+      setSelectedSpecies(selectedSpecies.filter((s) => s !== id));
+    }
+  };
 
   const onDrop = (acceptedFiles: File[]) => {
     const newImages = acceptedFiles.map((file, index) => ({
@@ -191,6 +217,7 @@ export default function AddAdvertisement() {
             ? `1970-01-01T${serviceEndTime}:00`
             : null,
           serviceId: parseInt(selectedService),
+          speciesIds: selectedSpecies,
           images: uploadedImages,
         }),
       });
@@ -440,6 +467,27 @@ export default function AddAdvertisement() {
                     </option>
                   ))}
                 </select>
+              </div>
+            </div>
+
+            {/* Species Checkboxes */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Species (optional)
+              </label>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-40 overflow-y-auto border border-gray-300 rounded-xl p-4">
+                {species.map((sp) => (
+                  <label key={sp.idSpiece} className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      value={sp.idSpiece}
+                      checked={selectedSpecies.includes(sp.idSpiece)}
+                      onChange={handleSpeciesChange}
+                      className="form-checkbox text-indigo-600"
+                    />
+                    <span className="text-gray-700">{sp.name}</span>
+                  </label>
+                ))}
               </div>
             </div>
 

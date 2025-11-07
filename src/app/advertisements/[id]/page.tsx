@@ -24,6 +24,7 @@ import {
   IconPencil,
   IconBookmark,
   IconBookmarkOff,
+  IconPawFilled,
 } from "@tabler/icons-react";
 import BookingForm from "../../components/BookingForm";
 
@@ -52,6 +53,10 @@ interface AdvertisementDetails {
   images: Array<{
     imageUrl: string;
     order: number | null;
+  }>;
+  species: Array<{
+    id: number;
+    name: string;
   }>;
 }
 
@@ -462,6 +467,30 @@ export default function AdvertisementDetails() {
                     </span>
                   </div>
                 </div>
+
+                {ad.species.length > 0 && (
+                  <div className="flex items-start">
+                    <IconPawFilled
+                      className="text-purple-500 mr-3 mt-1"
+                      size={20}
+                    />
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">
+                        Species
+                      </p>
+                      <div className="flex flex-wrap gap-2 mt-1">
+                        {ad.species.map((sp) => (
+                          <span
+                            key={sp.id}
+                            className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800"
+                          >
+                            {sp.name}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
