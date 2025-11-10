@@ -457,6 +457,11 @@ export async function PUT(
       },
       select: {
         Service_Provider_idService_Provider: true,
+        Images: {
+          select: {
+            imageUrl: true,
+          },
+        },
       },
     });
 
@@ -496,34 +501,69 @@ export async function PUT(
       );
     }
 
-    const body = await request.json();
+    const formData = await request.formData();
+    const title = formData.get("title") as string;
+    const description = (formData.get("description") as string) || null;
+    const priceStr = formData.get("price") as string;
+    const startDate = formData.get("startDate") as string;
+    const endDate = formData.get("endDate") as string;
+    const serviceStartTime = formData.get("serviceStartTime") as string;
+    const serviceEndTime = formData.get("serviceEndTime") as string;
+    const serviceIdStr = formData.get("serviceId") as string;
+    const speciesIdsStr = formData.get("speciesIds") as string;
+    const keepImageUrlsStr = formData.get("keepImageUrls") as string;
+    const newFiles = formData.getAll("newImages") as File[];
 
-    if (body.checkPermissions) {
-      return NextResponse.json({ success: true });
+    const price = priceStr ? parseFloat(priceStr) : 0;
+    const serviceId = parseInt(serviceIdStr);
+    
+    if (price !== null && (isNaN(price) || price < 0)) {
+      return NextResponse.json(
+        { error: "Price must be a non-negative number" },
+        { status: 400 }
+      );
     }
 
-    if (body.status && !["ACTIVE", "INACTIVE"].includes(body.status)) {
+    let speciesIds: number[] = [];
+    try {
+      speciesIds = speciesIdsStr ? JSON.parse(speciesIdsStr) : [];
+    } catch (e) {
       return NextResponse.json(
-        { error: "Invalid status value" },
+        { error: "Invalid speciesIds format" },
+        { status: 400 }
+      );
+    }
+
+    let keepImageUrls: string[] = [];
+    try {
+      keepImageUrls = JSON.parse(keepImageUrlsStr || "[]");
+    } catch (e) {
+      keepImageUrls = [];
+    }
+
+    const totalImages = keepImageUrls.length + newFiles.length;
+    if (totalImages === 0) {
+      return NextResponse.json(
+        { error: "At least one image is required" },
         { status: 400 }
       );
     }
 
     // Validate speciesIds if provided
-    if (body.speciesIds && !Array.isArray(body.speciesIds)) {
+    if (speciesIds && !Array.isArray(speciesIds)) {
       return NextResponse.json(
         { error: "speciesIds must be an array" },
         { status: 400 }
       );
     }
 
-    if (body.speciesIds && body.speciesIds.length > 0) {
+    if (speciesIds && speciesIds.length > 0) {
       const existingSpecies = await prisma.spiece.count({
         where: {
-          idSpiece: { in: body.speciesIds },
+          idSpiece: { in: speciesIds },
         },
       });
-      if (existingSpecies !== body.speciesIds.length) {
+      if (existingSpecies !== speciesIds.length) {
         return NextResponse.json(
           { error: "One or more invalid species IDs" },
           { status: 400 }
@@ -531,23 +571,92 @@ export async function PUT(
       }
     }
 
+    const bucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
+    if (!bucketName) {
+      return NextResponse.json(
+        { error: "Storage bucket not configured" },
+        { status: 500 }
+      );
+    }
+    const bucket = getStorage().bucket(bucketName);
+    
+    const uploadedNewImages: { imageUrl: string; order: number }[] = [];
+    
+    for (const [index, file] of newFiles.entries()) {
+      try {
+        const fileName = `advertisements/${decodedToken.uid}/${Date.now()}_${file.name}`;
+        const fileUpload = bucket.file(fileName);
+        const buffer = Buffer.from(await file.arrayBuffer());
+        
+        await fileUpload.save(buffer, {
+          metadata: { contentType: file.type },
+        });
+        
+        const [url] = await fileUpload.getSignedUrl({
+          action: "read",
+          expires: "03-09-2491",
+        });
+        
+        uploadedNewImages.push({
+          imageUrl: url,
+          order: keepImageUrls.length + index + 1
+        });
+        
+        console.log(`New image ${index + 1} uploaded to Firebase: ${fileName}`);
+      } catch (uploadError) {
+        console.error("Error uploading new image to Firebase:", uploadError);
+        return NextResponse.json(
+          { error: "Failed to upload new images to storage" },
+          { status: 500 }
+        );
+      }
+    }
+
+    const oldUrls = advertisement.Images.map(img => img.imageUrl);
+    const toDeleteUrls = oldUrls.filter(url => !keepImageUrls.includes(url));
+    
+    for (const url of toDeleteUrls) {
+      const oldPath = extractPathFromSignedUrl(url);
+      if (oldPath) {
+        try {
+          const [exists] = await bucket.file(oldPath).exists();
+          if (exists) {
+            await bucket.file(oldPath).delete();
+            console.log(`Deleted old image from Firebase: ${oldPath}`);
+          }
+        } catch (deleteErr) {
+          console.error(`Failed to delete old image ${oldPath}:`, deleteErr);
+        }
+      }
+    }
+
     await prisma.$transaction(async (tx) => {
+
       await tx.advertisementImage.deleteMany({
         where: {
           Advertisement_idAdvertisement: idNum,
         },
       });
 
-      if (body.images && Array.isArray(body.images)) {
-        for (const img of body.images) {
-          await tx.advertisementImage.create({
-            data: {
-              imageUrl: img.imageUrl,
-              order: img.order,
-              Advertisement_idAdvertisement: idNum,
-            },
-          });
-        }
+      let currentOrder = 1;
+      for (const url of keepImageUrls) {
+        await tx.advertisementImage.create({
+          data: {
+            imageUrl: url,
+            order: currentOrder++,
+            Advertisement_idAdvertisement: idNum,
+          },
+        });
+      }
+
+      for (const img of uploadedNewImages) {
+        await tx.advertisementImage.create({
+          data: {
+            imageUrl: img.imageUrl,
+            order: img.order,
+            Advertisement_idAdvertisement: idNum,
+          },
+        });
       }
 
       // Update species: delete existing, create new
@@ -557,8 +666,8 @@ export async function PUT(
         },
       });
 
-      if (body.speciesIds && body.speciesIds.length > 0) {
-        for (const spieceId of body.speciesIds) {
+      if (speciesIds && speciesIds.length > 0) {
+        for (const spieceId of speciesIds) {
           await tx.advertisementSpiece.create({
             data: {
               advertisementId: idNum,
@@ -573,19 +682,15 @@ export async function PUT(
           idAdvertisement: idNum,
         },
         data: {
-          title: body.title,
-          description: body.description,
-          price: body.price,
-          status: body.status,
-          startDate: body.startDate,
-          endDate: body.endDate,
-          serviceStartTime: body.serviceStartTime
-            ? new Date(body.serviceStartTime)
-            : null,
-          serviceEndTime: body.serviceEndTime
-            ? new Date(body.serviceEndTime)
-            : null,
-          Service_idService: body.serviceId,
+          title,
+          description,
+          price,
+          status: "ACTIVE",
+          startDate: new Date(startDate),
+          endDate: new Date(endDate),
+          serviceStartTime: serviceStartTime ? new Date(serviceStartTime) : null,
+          serviceEndTime: serviceEndTime ? new Date(serviceEndTime) : null,
+          Service_idService: serviceId,
         },
       });
     });
@@ -599,6 +704,22 @@ export async function PUT(
     );
   } finally {
     await prisma.$disconnect();
+  }
+}
+
+function extractPathFromSignedUrl(url: string): string | null {
+  try {
+    // https://storage.googleapis.com/{bucket}/{path}?params
+    const match = url.match(
+      /https:\/\/storage\.googleapis\.com\/[^\/]+\/(.+?)\?/
+    );
+    if (match && match[1]) {
+      return decodeURIComponent(match[1]);
+    }
+    return null;
+  } catch (error) {
+    console.error("Error extracting path from URL:", error);
+    return null;
   }
 }
 
