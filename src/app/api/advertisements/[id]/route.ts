@@ -1,9 +1,26 @@
+// app/api/advertisements/[id]/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient, Prisma } from "@prisma/client";
+import { PrismaClient, Prisma, StatusAdvertisement } from "@prisma/client";
 import { adminAuth } from "@/lib/firebaseAdmin";
 import { getStorage } from "firebase-admin/storage";
 
 const prisma = new PrismaClient();
+
+function extractPathFromSignedUrl(url: string): string | null {
+  try {
+    // Match the pattern: https://storage.googleapis.com/{bucket}/{path}?params
+    const match = url.match(
+      /https:\/\/storage\.googleapis\.com\/[^\/]+\/(.+?)\?/
+    );
+    if (match && match[1]) {
+      return decodeURIComponent(match[1]);
+    }
+    return null;
+  } catch (error) {
+    console.error("Error extracting path from URL:", error);
+    return null;
+  }
+}
 
 /**
  * @swagger
@@ -283,8 +300,8 @@ export async function GET(
  *     description: |
  *       Updates an existing advertisement owned by the authenticated service provider.
  *       Supports updating title, description, price, status, dates, service times, service ID, images, and speciesIds.
- *       If `checkPermissions` is true in the request body, it verifies permissions without updating.
  *       Only the advertisement owner (matching service provider) can update, and the service provider must be active.
+ *       Images are handled via multipart/form-data: keepImageUrls (JSON array of URLs to keep), newImages (new files).
  *     tags: [Advertisements]
  *     security:
  *       - BearerAuth: []
@@ -298,14 +315,10 @@ export async function GET(
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
  *             type: object
  *             properties:
- *               checkPermissions:
- *                 type: boolean
- *                 description: If true, checks permissions without updating the advertisement
- *                 example: false
  *               title:
  *                 type: string
  *                 description: The updated title of the advertisement
@@ -316,10 +329,10 @@ export async function GET(
  *                 description: The updated description of the advertisement
  *                 example: "Updated daily dog walking services in Warsaw"
  *               price:
- *                 type: number
+ *                 type: string
  *                 nullable: true
  *                 description: The updated price of the service
- *                 example: 60.0
+ *                 example: "60.0"
  *               status:
  *                 type: string
  *                 enum: [ACTIVE, INACTIVE]
@@ -351,29 +364,23 @@ export async function GET(
  *                 type: integer
  *                 description: The ID of the service
  *                 example: 1
- *               images:
+ *               keepImageUrls:
+ *                 type: string
+ *                 description: JSON array of existing image URLs to keep
+ *                 example: '["https://example.com/old-image.jpg"]'
+ *               newImages:
  *                 type: array
  *                 items:
- *                   type: object
- *                   properties:
- *                     imageUrl:
- *                       type: string
- *                       description: The URL of the advertisement image
- *                       example: "https://example.com/new-image.jpg"
- *                     order:
- *                       type: integer
- *                       nullable: true
- *                       description: The order of the image
- *                       example: 1
+ *                   type: string
+ *                   format: binary
  *               speciesIds:
- *                 type: array
- *                 items:
- *                   type: integer
- *                 example: [1, 2]
+ *                 type: string
+ *                 description: JSON array of species IDs
+ *                 example: "[1, 2]"
  *                 nullable: true
  *     responses:
  *       200:
- *         description: Successfully updated the advertisement or verified permissions
+ *         description: Successfully updated the advertisement
  *         content:
  *           application/json:
  *             schema:
@@ -496,13 +503,36 @@ export async function PUT(
       );
     }
 
-    const body = await request.json();
+    const formData = await request.formData();
+    const title = formData.get("title") as string;
+    const description = (formData.get("description") as string) || null;
+    const priceStr = formData.get("price") as string;
+    const startDateStr = formData.get("startDate") as string;
+    const endDateStr = formData.get("endDate") as string;
+    const serviceStartTimeStr = formData.get("serviceStartTime") as string;
+    const serviceEndTimeStr = formData.get("serviceEndTime") as string;
+    const serviceIdStr = formData.get("serviceId") as string;
+    const speciesIdsStr = formData.get("speciesIds") as string;
+    const keepImageUrlsStr = formData.get("keepImageUrls") as string;
+    const newFiles = formData.getAll("newImages") as File[];
 
-    if (body.checkPermissions) {
-      return NextResponse.json({ success: true });
+    const price = priceStr ? parseFloat(priceStr) : null;
+    if (price !== null && (isNaN(price) || price < 0)) {
+      return NextResponse.json(
+        { error: "Price must be a non-negative number" },
+        { status: 400 }
+      );
     }
 
-    if (body.status && !["ACTIVE", "INACTIVE"].includes(body.status)) {
+    if (!title || !startDateStr || !endDateStr || !serviceIdStr) {
+      return NextResponse.json(
+        { error: "Missing required fields" },
+        { status: 400 }
+      );
+    }
+
+    const status = formData.get("status") as string;
+    if (status && !["ACTIVE", "INACTIVE"].includes(status)) {
       return NextResponse.json(
         { error: "Invalid status value" },
         { status: 400 }
@@ -510,20 +540,31 @@ export async function PUT(
     }
 
     // Validate speciesIds if provided
-    if (body.speciesIds && !Array.isArray(body.speciesIds)) {
-      return NextResponse.json(
-        { error: "speciesIds must be an array" },
-        { status: 400 }
-      );
+    let speciesIds: number[] = [];
+    if (speciesIdsStr) {
+      try {
+        speciesIds = JSON.parse(speciesIdsStr);
+        if (!Array.isArray(speciesIds)) {
+          return NextResponse.json(
+            { error: "speciesIds must be an array" },
+            { status: 400 }
+          );
+        }
+      } catch {
+        return NextResponse.json(
+          { error: "Invalid speciesIds format" },
+          { status: 400 }
+        );
+      }
     }
 
-    if (body.speciesIds && body.speciesIds.length > 0) {
+    if (speciesIds.length > 0) {
       const existingSpecies = await prisma.spiece.count({
         where: {
-          idSpiece: { in: body.speciesIds },
+          idSpiece: { in: speciesIds },
         },
       });
-      if (existingSpecies !== body.speciesIds.length) {
+      if (existingSpecies !== speciesIds.length) {
         return NextResponse.json(
           { error: "One or more invalid species IDs" },
           { status: 400 }
@@ -531,23 +572,113 @@ export async function PUT(
       }
     }
 
+    const serviceId = parseInt(serviceIdStr);
+    const service = await prisma.service.findUnique({
+      where: { idService: serviceId },
+    });
+    if (!service) {
+      return NextResponse.json({ error: "Service not found" }, { status: 404 });
+    }
+
+    let keepImageUrls: string[] = [];
+    try {
+      keepImageUrls = JSON.parse(keepImageUrlsStr || "[]");
+    } catch {
+      keepImageUrls = [];
+    }
+
+    const totalImages = keepImageUrls.length + newFiles.length;
+    if (totalImages === 0) {
+      return NextResponse.json(
+        { error: "At least one image must be provided (kept or new)" },
+        { status: 400 }
+      );
+    }
+
+    const bucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
+    if (!bucketName) {
+      return NextResponse.json(
+        { error: "Storage bucket not configured" },
+        { status: 500 }
+      );
+    }
+
+    const bucket = getStorage().bucket(bucketName);
+
+    // Get old images and delete unkept from storage
+    const oldAdImages = await prisma.advertisementImage.findMany({
+      where: { Advertisement_idAdvertisement: idNum },
+      select: { imageUrl: true },
+    });
+    const oldUrls = oldAdImages.map((i) => i.imageUrl);
+    const toDeleteUrls = oldUrls.filter((url) => !keepImageUrls.includes(url));
+
+    for (const url of toDeleteUrls) {
+      const oldPath = extractPathFromSignedUrl(url);
+      if (oldPath) {
+        try {
+          const [exists] = await bucket.file(oldPath).exists();
+          if (exists) {
+            await bucket.file(oldPath).delete();
+            console.log(`Deleted old image: ${oldPath}`);
+          }
+        } catch (deleteErr) {
+          console.error(`Failed to delete old image ${oldPath}:`, deleteErr);
+        }
+      }
+    }
+
+    // Upload new images
+    const uploadedNewUrls: string[] = [];
+    for (const file of newFiles) {
+      const fileName = `advertisements/${decodedToken.uid}/${Date.now()}_${
+        file.name
+      }`;
+      const fileUpload = bucket.file(fileName);
+
+      const buffer = Buffer.from(await file.arrayBuffer());
+      await fileUpload.save(buffer, {
+        metadata: { contentType: file.type },
+      });
+
+      const [url] = await fileUpload.getSignedUrl({
+        action: "read",
+        expires: "03-09-2491",
+      });
+
+      uploadedNewUrls.push(url);
+    }
+
     await prisma.$transaction(async (tx) => {
+      // Delete all existing images
       await tx.advertisementImage.deleteMany({
         where: {
           Advertisement_idAdvertisement: idNum,
         },
       });
 
-      if (body.images && Array.isArray(body.images)) {
-        for (const img of body.images) {
-          await tx.advertisementImage.create({
-            data: {
-              imageUrl: img.imageUrl,
-              order: img.order,
-              Advertisement_idAdvertisement: idNum,
-            },
-          });
-        }
+      let currentOrder = 1;
+
+      // Create kept images
+      for (const url of keepImageUrls) {
+        await tx.advertisementImage.create({
+          data: {
+            imageUrl: url,
+            order: currentOrder++,
+            Advertisement_idAdvertisement: idNum,
+          },
+        });
+      }
+
+      // Create new images
+      for (const url of uploadedNewUrls) {
+        await tx.advertisementImage.create({
+          data: {
+            imageUrl: url,
+            order: currentOrder++,
+            Advertisement_idAdvertisement: idNum,
+          },
+        });
       }
 
       // Update species: delete existing, create new
@@ -557,15 +688,13 @@ export async function PUT(
         },
       });
 
-      if (body.speciesIds && body.speciesIds.length > 0) {
-        for (const spieceId of body.speciesIds) {
-          await tx.advertisementSpiece.create({
-            data: {
-              advertisementId: idNum,
-              spieceId: spieceId,
-            },
-          });
-        }
+      for (const spieceId of speciesIds) {
+        await tx.advertisementSpiece.create({
+          data: {
+            advertisementId: idNum,
+            spieceId: spieceId,
+          },
+        });
       }
 
       await tx.advertisement.update({
@@ -573,19 +702,19 @@ export async function PUT(
           idAdvertisement: idNum,
         },
         data: {
-          title: body.title,
-          description: body.description,
-          price: body.price,
-          status: body.status,
-          startDate: body.startDate,
-          endDate: body.endDate,
-          serviceStartTime: body.serviceStartTime
-            ? new Date(body.serviceStartTime)
+          title,
+          description,
+          price,
+          status: status ? (status as StatusAdvertisement) : undefined,
+          startDate: new Date(startDateStr),
+          endDate: new Date(endDateStr),
+          serviceStartTime: serviceStartTimeStr
+            ? new Date(serviceStartTimeStr)
             : null,
-          serviceEndTime: body.serviceEndTime
-            ? new Date(body.serviceEndTime)
+          serviceEndTime: serviceEndTimeStr
+            ? new Date(serviceEndTimeStr)
             : null,
-          Service_idService: body.serviceId,
+          Service_idService: serviceId,
         },
       });
     });
@@ -802,13 +931,14 @@ export async function DELETE(
     const bucket = getStorage().bucket(bucketName);
     for (const img of imagesUrls) {
       if (img.url) {
-        const path = decodeURIComponent(
-          img.url.split("/o/")[1]?.split("?")[0] || ""
-        );
+        const path = extractPathFromSignedUrl(img.url);
         if (path) {
           try {
-            await bucket.file(path).delete();
-            console.log(`Deleted image from Storage: ${path}`);
+            const [exists] = await bucket.file(path).exists();
+            if (exists) {
+              await bucket.file(path).delete();
+              console.log(`Deleted image from Storage: ${path}`);
+            }
           } catch (deleteErr) {
             console.error(`Failed to delete image ${path}:`, deleteErr);
           }

@@ -1,4 +1,4 @@
-// src/app/advertisements/[id]/page.tsx
+// app/advertisements/[id]/page.tsx
 "use client";
 
 import { auth } from "../../firebase";
@@ -181,41 +181,13 @@ export default function AdvertisementDetails() {
     router.back();
   };
 
-  const handleEdit = async () => {
+  const handleEdit = () => {
     if (!ad || !user) {
       showNotification("Please sign in to edit this advertisement.", "warning");
       return;
     }
 
-    try {
-      const token = await user.getIdToken();
-      // Make a preliminary check to the backend to verify edit permissions
-      const checkResponse = await fetch(`/api/advertisements/${ad.id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ checkPermissions: true }), // Flag to check permissions only
-      });
-
-      if (!checkResponse.ok) {
-        const errData = await checkResponse.json();
-        showNotification(
-          errData.error || "Failed to verify edit permissions",
-          "error"
-        );
-        return;
-      }
-
-      router.push(`/advertisements/${ad.id}/edit`);
-    } catch (err) {
-      console.error("Error checking edit permissions:", err);
-      showNotification(
-        "An error occurred while verifying edit permissions",
-        "error"
-      );
-    }
+    router.push(`/advertisements/${ad.id}/edit`);
   };
 
   const showNotification = (message: string, type: Notification["type"]) => {

@@ -18,8 +18,6 @@ import {
   IconUpload,
 } from "@tabler/icons-react";
 import { useDropzone } from "react-dropzone";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { storage } from "../../../firebase";
 import Image from "next/image";
 
 interface Service {
@@ -76,9 +74,8 @@ interface Notification {
 
 interface ImageFile {
   file?: File;
-  url: string;
+  url?: string;
   preview?: string;
-  isUploading?: boolean;
   order: number;
 }
 
@@ -260,7 +257,6 @@ export default function EditAdvertisement() {
   const onDrop = (acceptedFiles: File[]) => {
     const newImages = acceptedFiles.map((file, index) => ({
       file,
-      url: "",
       preview: URL.createObjectURL(file),
       order: images.length + index + 1,
     }));
@@ -275,34 +271,6 @@ export default function EditAdvertisement() {
 
   const handleRemoveImage = (index: number) => {
     setImages((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const uploadImages = async (): Promise<
-    { imageUrl: string; order: number }[]
-  > => {
-    const uploaded: { imageUrl: string; order: number }[] = [];
-    for (const [index, img] of images.entries()) {
-      if (img.file) {
-        setImages((prev) =>
-          prev.map((p, i) => (i === index ? { ...p, isUploading: true } : p))
-        );
-        const storageRef = ref(
-          storage,
-          `advertisements/${user!.uid}/${Date.now()}_${img.file.name}`
-        );
-        await uploadBytes(storageRef, img.file);
-        const url = await getDownloadURL(storageRef);
-        uploaded.push({ imageUrl: url, order: img.order });
-        setImages((prev) =>
-          prev.map((p, i) =>
-            i === index ? { ...p, url, isUploading: false } : p
-          )
-        );
-      } else if (img.url) {
-        uploaded.push({ imageUrl: img.url, order: img.order });
-      }
-    }
-    return uploaded;
   };
 
   const validateForm = () => {
@@ -337,35 +305,43 @@ export default function EditAdvertisement() {
     }
 
     try {
-      const uploadedImages = await uploadImages();
-      if (uploadedImages.length !== images.length) {
-        throw new Error("Failed to upload all images");
+      const keepImageUrls = images
+        .filter((img): img is ImageFile => !!img.url && !img.file)
+        .map((img) => img.url!);
+
+      const formData = new FormData();
+      formData.append("title", title);
+      formData.append("description", description || "");
+      if (price) formData.append("price", price);
+      formData.append("status", status);
+      formData.append("startDate", new Date(startDate).toISOString());
+      formData.append("endDate", new Date(endDate).toISOString());
+      if (serviceStartTime)
+        formData.append(
+          "serviceStartTime",
+          `1970-01-01T${serviceStartTime}:00`
+        );
+      if (serviceEndTime)
+        formData.append("serviceEndTime", `1970-01-01T${serviceEndTime}:00`);
+      formData.append("serviceId", selectedService);
+      if (selectedSpecies.length > 0) {
+        formData.append("speciesIds", JSON.stringify(selectedSpecies));
+      }
+      formData.append("keepImageUrls", JSON.stringify(keepImageUrls));
+
+      for (const img of images) {
+        if (img.file) {
+          formData.append("newImages", img.file);
+        }
       }
 
       const token = await user!.getIdToken();
       const response = await fetch(`/api/advertisements/${adId}`, {
         method: "PUT",
         headers: {
-          "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          title,
-          description: description || null,
-          price: price ? parseFloat(price) : null,
-          status,
-          startDate: new Date(startDate),
-          endDate: new Date(endDate),
-          serviceStartTime: serviceStartTime
-            ? `1970-01-01T${serviceStartTime}:00`
-            : null,
-          serviceEndTime: serviceEndTime
-            ? `1970-01-01T${serviceEndTime}:00`
-            : null,
-          serviceId: parseInt(selectedService),
-          speciesIds: selectedSpecies,
-          images: uploadedImages,
-        }),
+        body: formData,
       });
 
       if (response.ok) {
@@ -700,13 +676,11 @@ export default function EditAdvertisement() {
                   {images.map((img, index) => (
                     <div key={index} className="relative group">
                       <Image
-                        src={img.preview || img.url}
+                        src={img.preview || img.url!}
                         alt={`Image ${index + 1}`}
                         width={200}
                         height={128}
-                        className={`w-full h-32 object-cover rounded-lg ${
-                          img.isUploading ? "opacity-50" : ""
-                        }`}
+                        className="w-full h-32 object-cover rounded-lg"
                       />
                       <button
                         type="button"
@@ -715,11 +689,6 @@ export default function EditAdvertisement() {
                       >
                         <IconTrash size={16} />
                       </button>
-                      {img.isUploading && (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-                        </div>
-                      )}
                     </div>
                   ))}
                 </div>

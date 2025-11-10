@@ -1,6 +1,8 @@
+// app/api/advertisements/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient, Prisma } from "@prisma/client";
 import { adminAuth } from "@/lib/firebaseAdmin";
+import { getStorage } from "firebase-admin/storage";
 
 const prisma = new PrismaClient();
 
@@ -140,28 +142,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const body = await request.json();
-    const {
-      title,
-      description,
-      price,
-      startDate,
-      endDate,
-      serviceStartTime,
-      serviceEndTime,
-      serviceId,
-      images,
-      speciesIds,
-    } = body;
+    const formData = await request.formData();
+    const title = formData.get("title") as string;
+    const description = (formData.get("description") as string) || null;
+    const priceStr = formData.get("price") as string;
+    const startDateStr = formData.get("startDate") as string;
+    const endDateStr = formData.get("endDate") as string;
+    const serviceStartTimeStr = formData.get("serviceStartTime") as string;
+    const serviceEndTimeStr = formData.get("serviceEndTime") as string;
+    const serviceIdStr = formData.get("serviceId") as string;
+    const speciesIdsStr = formData.get("speciesIds") as string;
+    const files = formData.getAll("images") as File[];
 
     // Basic validation
     if (
       !title ||
-      !startDate ||
-      !endDate ||
-      !serviceId ||
-      !Array.isArray(images) ||
-      images.length === 0
+      !startDateStr ||
+      !endDateStr ||
+      !serviceIdStr ||
+      !Array.isArray(files) ||
+      files.length === 0
     ) {
       return NextResponse.json(
         { error: "Missing required fields or no images provided" },
@@ -170,7 +170,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate price
-    if (price !== null && (typeof price !== "number" || price < 0)) {
+    const price = priceStr ? parseFloat(priceStr) : null;
+    if (price !== null && (isNaN(price) || price < 0)) {
       return NextResponse.json(
         { error: "Price must be a non-negative number" },
         { status: 400 }
@@ -178,11 +179,22 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate speciesIds if provided
-    if (speciesIds && !Array.isArray(speciesIds)) {
-      return NextResponse.json(
-        { error: "speciesIds must be an array" },
-        { status: 400 }
-      );
+    let speciesIds: number[] = [];
+    if (speciesIdsStr) {
+      try {
+        speciesIds = JSON.parse(speciesIdsStr);
+        if (!Array.isArray(speciesIds)) {
+          return NextResponse.json(
+            { error: "speciesIds must be an array" },
+            { status: 400 }
+          );
+        }
+      } catch {
+        return NextResponse.json(
+          { error: "Invalid speciesIds format" },
+          { status: 400 }
+        );
+      }
     }
 
     const user = await prisma.user.findUnique({
@@ -191,6 +203,7 @@ export async function POST(request: NextRequest) {
         ServiceProviders: {
           where: { isActive: true },
         },
+        City: true,
       },
     });
 
@@ -209,6 +222,7 @@ export async function POST(request: NextRequest) {
     const serviceProviderId = user.ServiceProviders[0].idService_Provider;
 
     // Check if service exists
+    const serviceId = parseInt(serviceIdStr);
     const service = await prisma.service.findUnique({
       where: { idService: serviceId },
     });
@@ -217,7 +231,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate speciesIds exist if provided
-    if (speciesIds && speciesIds.length > 0) {
+    if (speciesIds.length > 0) {
       const existingSpecies = await prisma.spiece.count({
         where: {
           idSpiece: { in: speciesIds },
@@ -231,6 +245,36 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const bucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
+    if (!bucketName) {
+      return NextResponse.json(
+        { error: "Storage bucket not configured" },
+        { status: 500 }
+      );
+    }
+
+    const bucket = getStorage().bucket(bucketName);
+    const uploadedUrls: string[] = [];
+
+    for (const file of files) {
+      const fileName = `advertisements/${decodedToken.uid}/${Date.now()}_${
+        file.name
+      }`;
+      const fileUpload = bucket.file(fileName);
+
+      const buffer = Buffer.from(await file.arrayBuffer());
+      await fileUpload.save(buffer, {
+        metadata: { contentType: file.type },
+      });
+
+      const [url] = await fileUpload.getSignedUrl({
+        action: "read",
+        expires: "03-09-2491",
+      });
+
+      uploadedUrls.push(url);
+    }
+
     // Create advertisement
     const advertisement = await prisma.advertisement.create({
       data: {
@@ -238,17 +282,22 @@ export async function POST(request: NextRequest) {
         description,
         price,
         status: "ACTIVE",
-        startDate: new Date(startDate),
-        endDate: new Date(endDate),
-        serviceStartTime: serviceStartTime ? new Date(serviceStartTime) : null,
-        serviceEndTime: serviceEndTime ? new Date(serviceEndTime) : null,
+        startDate: new Date(startDateStr),
+        endDate: new Date(endDateStr),
+        serviceStartTime: serviceStartTimeStr
+          ? new Date(serviceStartTimeStr)
+          : null,
+        serviceEndTime: serviceEndTimeStr ? new Date(serviceEndTimeStr) : null,
         Service_idService: serviceId,
         Service_Provider_idService_Provider: serviceProviderId,
         Images: {
-          create: images,
+          create: uploadedUrls.map((url, i) => ({
+            imageUrl: url,
+            order: i + 1,
+          })),
         },
         AdvertisementSpieces: {
-          create: (speciesIds || []).map((id: number) => ({
+          create: speciesIds.map((id: number) => ({
             spieceId: id,
           })),
         },
@@ -265,7 +314,41 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      advertisement,
+      advertisement: {
+        id: advertisement.idAdvertisement,
+        title: advertisement.title,
+        description: advertisement.description,
+        price: advertisement.price,
+        status: advertisement.status,
+        startDate: advertisement.startDate,
+        endDate: advertisement.endDate,
+        serviceStartTime: advertisement.serviceStartTime
+          ? advertisement.serviceStartTime.toTimeString().slice(0, 5)
+          : null,
+        serviceEndTime: advertisement.serviceEndTime
+          ? advertisement.serviceEndTime.toTimeString().slice(0, 5)
+          : null,
+        serviceProviderId: serviceProviderId,
+        service: service.name,
+        provider: {
+          firstName: user.firstName,
+          lastName: user.lastName,
+          phoneNumber: user.phoneNumber,
+        },
+        city: {
+          idCity: user.City.idCity,
+          name: user.City.name,
+          imageUrl: user.City.imageUrl,
+        },
+        images: advertisement.Images.map((img) => ({
+          imageUrl: img.imageUrl,
+          order: img.order,
+        })),
+        species: advertisement.AdvertisementSpieces.map((s) => ({
+          id: s.spiece.idSpiece,
+          name: s.spiece.name,
+        })),
+      },
     });
   } catch (error: unknown) {
     console.error("Error creating advertisement:", error);
@@ -409,7 +492,7 @@ export async function POST(request: NextRequest) {
  *     description: |
  *       Creates a new advertisement for the authenticated user who is an active service provider.
  *       Requires a valid Firebase authentication token.
- *       At least one image must be provided, and price must be a non-negative number if provided.
+ *       At least one image must be provided as multipart/form-data, and price must be a non-negative number if provided.
  *       speciesIds is optional array of species IDs.
  *     tags: [Advertisements]
  *     security:
@@ -417,7 +500,7 @@ export async function POST(request: NextRequest) {
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
  *             type: object
  *             required:
@@ -435,10 +518,9 @@ export async function POST(request: NextRequest) {
  *                 nullable: true
  *                 example: "Oferuję profesjonalne wyprowadzanie psów..."
  *               price:
- *                 type: number
+ *                 type: string
  *                 nullable: true
- *                 minimum: 0
- *                 example: 25.0
+ *                 example: "25.0"
  *               startDate:
  *                 type: string
  *                 format: date-time
@@ -462,19 +544,12 @@ export async function POST(request: NextRequest) {
  *                 type: array
  *                 minItems: 1
  *                 items:
- *                   type: object
- *                   properties:
- *                     imageUrl:
- *                       type: string
- *                       example: "https://images.unsplash.com/photo-1552053831-71594a27632d?w=500"
- *                     order:
- *                       type: integer
- *                       example: 1
+ *                   type: string
+ *                   format: binary
  *               speciesIds:
- *                 type: array
- *                 items:
- *                   type: integer
- *                 example: [1, 2]
+ *                 type: string
+ *                 description: JSON array of species IDs
+ *                 example: "[1, 2]"
  *                 nullable: true
  *     responses:
  *       200:
