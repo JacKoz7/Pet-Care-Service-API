@@ -34,3 +34,12 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+  stripe-cli:  
+    image: stripe/stripe-cli:latest
+    env_file:
+      - .env.local
+    command: listen --forward-to http://app:3000/api/stripe/webhook --events checkout.session.completed  
+    environment:
+      STRIPE_DEVICE_NAME: local  
+    depends_on:
+      - app  

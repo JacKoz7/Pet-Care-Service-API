@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@prisma/client": "^6.15.0",
+    "@stripe/stripe-js": "^8.4.0",
     "@tabler/icons-react": "^3.34.1",
     "@types/swagger-ui-dist": "^3.30.6",
     "firebase": "^12.2.1",
@@ -27,6 +28,7 @@
     "react-dom": "19.1.0",
     "react-dropzone": "^14.3.8",
     "react-firebase-hooks": "^5.1.1",
+    "stripe": "^19.3.0",
     "swagger-ui-dist": "^5.29.0"
   },
   "devDependencies": {

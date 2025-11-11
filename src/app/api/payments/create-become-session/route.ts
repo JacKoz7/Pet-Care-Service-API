@@ -1,0 +1,115 @@
+import { NextRequest, NextResponse } from "next/server";
+import Stripe from "stripe";
+import { adminAuth } from "@/lib/firebaseAdmin";
+import { PrismaClient } from "@prisma/client";
+
+const prisma = new PrismaClient();
+const stripe = new Stripe(process.env.STRIPE_API_KEY!, {
+  apiVersion: "2025-10-29.clover" as const,
+});
+
+export async function POST(request: NextRequest) {
+  try {
+    const authHeader = request.headers.get("authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const token = authHeader.split(" ")[1];
+    const decodedToken = await adminAuth.verifyIdToken(token);
+    const body = await request.json();
+    const { email } = body;
+
+    // Create Stripe Checkout Session
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ["card"],
+      line_items: [
+        {
+          price_data: {
+            currency: "pln",
+            product_data: { name: "Become a Service Provider!" },
+            unit_amount: parseInt(process.env.BECOME_PROVIDER_PRICE || "1000"),
+          },
+          quantity: 1,
+        },
+      ],
+      mode: "payment",
+      success_url: `${request.headers.get("origin")}/?payment=success`,
+      cancel_url: `${request.headers.get("origin")}/?payment=cancelled`,
+      customer_email: email || decodedToken.email,
+      metadata: {
+        userId: decodedToken.uid,
+        type: "become_provider",
+      },
+    });
+
+    // Return url instead of sessionId
+    return NextResponse.json({ url: session.url });
+  } catch (error) {
+    console.error("Error creating checkout session:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+/**
+ * @swagger
+ * /api/payments/create-become-session:
+ *   post:
+ *     summary: Create a Stripe checkout session for becoming a service provider
+ *     description: |
+ *       Creates a one-time payment session for users who want to become service providers.
+ *       Requires a valid Firebase authentication token.
+ *       The session redirects to success or cancellation URLs after payment processing.
+ *     tags: [Payments]
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 description: Customer email (optional, defaults to authenticated user's email)
+ *                 example: "user@example.com"
+ *     responses:
+ *       200:
+ *         description: Checkout session created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 url:
+ *                   type: string
+ *                   description: Stripe Checkout URL to redirect the user
+ *                   example: "https://checkout.stripe.com/pay/cs_test_..."
+ *       401:
+ *         description: Unauthorized - Invalid or missing authentication token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: "Unauthorized"
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: "Internal server error"
+ */
