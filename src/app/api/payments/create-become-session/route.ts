@@ -14,9 +14,9 @@ export async function POST(request: NextRequest) {
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
     const token = authHeader.split(" ")[1];
     const decodedToken = await adminAuth.verifyIdToken(token);
-
     const body = await request.json();
     const { email } = body;
 
@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
         {
           price_data: {
             currency: "pln",
-            product_data: { name: "Zostań Usłogodawcą!" },
+            product_data: { name: "Become a Service Provider!" },
             unit_amount: parseInt(process.env.BECOME_PROVIDER_PRICE || "1000"),
           },
           quantity: 1,
@@ -35,9 +35,7 @@ export async function POST(request: NextRequest) {
       ],
       mode: "payment",
       success_url: `${request.headers.get("origin")}/?payment=success`,
-      cancel_url: `${request.headers.get(
-        "origin"
-      )}/?payment=cancelled`,
+      cancel_url: `${request.headers.get("origin")}/?payment=cancelled`,
       customer_email: email || decodedToken.email,
       metadata: {
         userId: decodedToken.uid,
@@ -45,7 +43,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Zwracaj url zamiast sessionId
+    // Return url instead of sessionId
     return NextResponse.json({ url: session.url });
   } catch (error) {
     console.error("Error creating checkout session:", error);
@@ -62,13 +60,16 @@ export async function POST(request: NextRequest) {
  * @swagger
  * /api/payments/create-become-session:
  *   post:
- *     summonsary: Tworzy sesję płatności Stripe dla zostania dostawcą usług
+ *     summary: Create a Stripe checkout session for becoming a service provider
  *     description: |
- *       Tworzy jednorazową sesję płatności. Wymaga ważnego tokenu Firebase.
+ *       Creates a one-time payment session for users who want to become service providers.
+ *       Requires a valid Firebase authentication token.
+ *       The session redirects to success or cancellation URLs after payment processing.
  *     tags: [Payments]
  *     security:
  *       - BearerAuth: []
  *     requestBody:
+ *       required: false
  *       content:
  *         application/json:
  *           schema:
@@ -76,9 +77,12 @@ export async function POST(request: NextRequest) {
  *             properties:
  *               email:
  *                 type: string
+ *                 format: email
+ *                 description: Customer email (optional, defaults to authenticated user's email)
+ *                 example: "user@example.com"
  *     responses:
  *       200:
- *         description: Sesja utworzona
+ *         description: Checkout session created successfully
  *         content:
  *           application/json:
  *             schema:
@@ -86,8 +90,26 @@ export async function POST(request: NextRequest) {
  *               properties:
  *                 url:
  *                   type: string
+ *                   description: Stripe Checkout URL to redirect the user
+ *                   example: "https://checkout.stripe.com/pay/cs_test_..."
  *       401:
- *         description: Nieautoryzowany
+ *         description: Unauthorized - Invalid or missing authentication token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: "Unauthorized"
  *       500:
- *         description: Błąd serwera
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: "Internal server error"
  */

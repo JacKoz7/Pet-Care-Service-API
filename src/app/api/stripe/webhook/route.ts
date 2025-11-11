@@ -8,7 +8,7 @@ const stripe = new Stripe(process.env.STRIPE_API_KEY!, {
 });
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
-// WAŻNE: Next.js 13+ App Router wymaga tego eksportu
+// IMPORTANT: Next.js 13+ App Router requires this export
 export const runtime = "nodejs";
 
 export async function POST(request: NextRequest) {
@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     if (!sig) {
       console.log("❌ No stripe-signature header");
       return NextResponse.json(
-        { error: "Brak podpisu Stripe" },
+        { error: "Missing Stripe signature" },
         { status: 400 }
       );
     }
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
         if (!user) {
           console.error("❌ User not found:", userId);
           return NextResponse.json(
-            { error: "Użytkownik nie znaleziony" },
+            { error: "User not found" },
             { status: 404 }
           );
         }
@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
           console.log("✅ Service provider created");
         }
 
-        // Aktywuj reklamy
+        // Activate advertisements
         const activeProviders = await prisma.service_Provider.findMany({
           where: { User_idUser: user.idUser, isActive: true },
           select: { idService_Provider: true },
@@ -127,7 +127,7 @@ export async function POST(request: NextRequest) {
           data: { status: "ACTIVE" },
         });
 
-        // Zapisz płatność
+        // Save payment record
         console.log("💾 Saving payment record");
         await prisma.payment.create({
           data: {
@@ -147,7 +147,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ received: true });
   } catch (error) {
     console.error("❌ Webhook error:", error);
-    return NextResponse.json({ error: "Błąd webhooka" }, { status: 400 });
+    return NextResponse.json({ error: "Webhook error" }, { status: 400 });
   } finally {
     await prisma.$disconnect();
   }
@@ -157,14 +157,51 @@ export async function POST(request: NextRequest) {
  * @swagger
  * /api/stripe/webhook:
  *   post:
- *     summary: Obsługa webhooków Stripe
+ *     summary: Handle Stripe webhook events
  *     description: |
- *       Obsługuje zdarzenia Stripe, np. ukończenie płatności.
- *       Aktualizuje użytkownika na dostawcę usług.
+ *       Processes Stripe webhook events, such as completed checkout sessions.
+ *       When a payment for becoming a service provider is completed, this endpoint:
+ *       - Verifies the webhook signature
+ *       - Creates or reactivates the service provider account
+ *       - Activates the user's advertisements
+ *       - Records the payment in the database
  *     tags: [Payments]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             description: Stripe webhook event payload
  *     responses:
  *       200:
- *         description: Zdarzenie przyjęte
+ *         description: Event received and processed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 received:
+ *                   type: boolean
+ *                   example: true
  *       400:
- *         description: Błąd webhooka
+ *         description: Invalid signature or webhook processing error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: "Webhook Error: Invalid signature"
+ *       404:
+ *         description: User not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: "User not found"
  */
