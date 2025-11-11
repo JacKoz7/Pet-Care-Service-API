@@ -1,8 +1,10 @@
+// Zaktualizowany DiagnoseSection.tsx
 import { User } from "firebase/auth";
 import {
   IconActivity,
   IconStethoscope,
   IconCalendar,
+  IconTrash, // Dodano nową ikonę
 } from "@tabler/icons-react";
 
 interface AnalysisSummary {
@@ -19,6 +21,7 @@ interface DiagnoseSectionProps {
   analyses: AnalysisSummary[];
   isLoadingAnalyses: boolean;
   onViewDiagnosis: (id: number) => void;
+  onDeleteDiagnosis: (id: number) => void; // Dodano nowy prop
 }
 
 export default function DiagnoseSection({
@@ -29,7 +32,15 @@ export default function DiagnoseSection({
   analyses,
   isLoadingAnalyses,
   onViewDiagnosis,
+  onDeleteDiagnosis, // Dodano
 }: DiagnoseSectionProps) {
+  const handleDelete = (e: React.MouseEvent, id: number) => {
+    e.stopPropagation(); // Zapobiegaj propagacji do onClick diva
+    if (confirm("Czy na pewno chcesz usunąć tę diagnozę?")) {
+      onDeleteDiagnosis(id);
+    }
+  };
+
   return (
     <>
       {user && (
@@ -88,9 +99,15 @@ export default function DiagnoseSection({
               {analyses.map((analysis) => (
                 <div
                   key={analysis.idAnalysis}
-                  className="bg-gray-50 rounded-xl p-4 border border-gray-200 hover:bg-gray-100 transition-colors cursor-pointer"
+                  className="bg-gray-50 rounded-xl p-4 border border-gray-200 hover:bg-gray-100 transition-colors cursor-pointer relative"
                   onClick={() => onViewDiagnosis(analysis.idAnalysis)}
                 >
+                  <button
+                    onClick={(e) => handleDelete(e, analysis.idAnalysis)}
+                    className="absolute top-2 right-2 text-gray-500 hover:text-red-500 transition-colors"
+                  >
+                    <IconTrash size={16} />
+                  </button>
                   <div className="flex items-center justify-between mb-2">
                     <h3 className="font-semibold text-gray-800">
                       {analysis.petName}
