@@ -31,6 +31,7 @@ model User {
   ServiceProviders Service_Provider[]
   Clients          Client[]
   Admin            Admin?
+  Payments         Payment[] // NEW: Relation to payments
 }
 
 model Admin {
@@ -331,4 +332,16 @@ model AdvertisementSpiece {
   spieceId        Int
 
   @@id([advertisementId, spieceId])
+}
+
+// NEW: Optional Payment model for logging
+model Payment {
+  id              Int      @id @default(autoincrement())
+  userId          Int
+  stripeSessionId String   @unique
+  amount          Int
+  status          String
+  type            String
+  createdAt       DateTime @default(now())
+  User            User     @relation(fields: [userId], references: [idUser])
 }
