@@ -58,6 +58,8 @@ model Service_Provider {
   Bookings               Booking[]
   Availabilities         Availability[]
   Feedbacks              Feedback[]
+
+  @@map("service__provider")
 }
 
 model Availability {

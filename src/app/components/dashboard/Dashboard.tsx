@@ -65,11 +65,11 @@ export default function Dashboard() {
     isClient: true,
   });
   const [isLoadingRole, setIsLoadingRole] = useState(true);
-  const [showVerificationModal, setShowVerificationModal] = useState(false); // NEW: State for modal
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
   const [resendStatus, setResendStatus] = useState<
     "idle" | "sending" | "sent" | "error"
-  >("idle"); // NEW: Resend status
-  const [errorMessage, setErrorMessage] = useState<string | null>(null); // NEW: Error for resend
+  >("idle");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const carouselRef = useRef<HTMLDivElement>(null);
 
   const fetchUserRoles = useCallback(async () => {
@@ -87,7 +87,6 @@ export default function Dashboard() {
       });
 
       if (!response.ok) {
-        // NEW: If 403 (not verified), show modal
         if (response.status === 403) {
           setShowVerificationModal(true);
           setIsLoadingRole(false);
@@ -165,6 +164,16 @@ export default function Dashboard() {
     }
   }, [showDiagnoses, fetchAnalyses]);
 
+  useEffect(() => {
+    const query = new URLSearchParams(window.location.search);
+    if (query.get("payment") === "success") {
+      fetchUserRoles();
+      alert("Payment successful! You are now a service provider.");
+    } else if (query.get("payment") === "cancelled") {
+      alert("Payment cancelled. Try again if you want to become a provider.");
+    }
+  }, [fetchUserRoles]);
+
   const fetchCities = async () => {
     try {
       const response = await fetch("/api/cities");
@@ -202,37 +211,54 @@ export default function Dashboard() {
 
     try {
       const token = await user.getIdToken();
-      const endpoint = userRoles.isServiceProvider
-        ? "/api/service-provider/unbecome"
-        : "/api/service-provider/become";
 
-      const method = userRoles.isServiceProvider ? "DELETE" : "POST";
+      if (userRoles.isServiceProvider) {
+        const response = await fetch("/api/service-provider/unbecome", {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
 
-      const response = await fetch(endpoint, {
-        method,
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (response.ok) {
-        await fetchUserRoles();
-        const action = userRoles.isServiceProvider
-          ? "removed from"
-          : "added to";
-        alert(`Service provider role ${action} successfully!`);
+        if (response.ok) {
+          await fetchUserRoles();
+          alert("Powrócono do roli klienta!");
+        } else {
+          const errorData = await response.json();
+          alert(`Błąd: ${errorData.error || "Nie udało się zmienić roli"}`);
+        }
       } else {
-        const errorData = await response.json();
-        alert(
-          `Error: ${
-            errorData.error || "Failed to update service provider role"
-          }`
-        );
+        const response = await fetch("/api/payments/create-become-session", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email: user.email,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          alert(
+            `Błąd: ${errorData.error || "Nie udało się rozpocząć płatności"}`
+          );
+          return;
+        }
+
+        const data = await response.json();
+
+        if (data.url) {
+          window.location.href = data.url;
+        } else {
+          alert("Nie udało się uzyskać linku do płatności.");
+        }
       }
     } catch (error) {
-      console.error("Error updating service provider role:", error);
-      alert("An error occurred. Please try again.");
+      console.error("Błąd zmiany roli:", error);
+      alert("Wystąpił błąd. Spróbuj ponownie.");
     }
   };
 
@@ -300,7 +326,6 @@ export default function Dashboard() {
     setShowClientNotifications(!showClientNotifications);
   };
 
-  // NEW: Handle resend email
   const handleResendEmail = async () => {
     if (!user || resendStatus === "sending") return;
 
@@ -309,7 +334,6 @@ export default function Dashboard() {
       setErrorMessage(null);
       await sendEmailVerification(user);
       setResendStatus("sent");
-      // Optional: Auto-hide success after 3s
       setTimeout(() => setResendStatus("idle"), 3000);
     } catch (error: unknown) {
       console.error("Error resending verification email:", error);
@@ -323,7 +347,6 @@ export default function Dashboard() {
     }
   };
 
-  // NEW: Handle logout
   const handleLogout = async () => {
     try {
       await signOut(auth);
@@ -335,7 +358,6 @@ export default function Dashboard() {
     setShowVerificationModal(false);
   };
 
-  // NEW: Verification Modal
   const VerificationModal = () => (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
       <div className="bg-white p-8 rounded-lg shadow-xl max-w-md w-full mx-4 relative animate-fadeIn">
@@ -473,7 +495,6 @@ export default function Dashboard() {
         `}</style>
       </div>
 
-      {/* NEW: Render modal if shown */}
       {showVerificationModal && <VerificationModal />}
     </>
   );
