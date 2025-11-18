@@ -81,6 +81,16 @@ export async function DELETE(request: NextRequest) {
         },
       });
 
+      // ←←← NOWE: usuwanie wszystkich recenzji użytkownika (wystawionych i otrzymanych)
+      await tx.review.deleteMany({
+        where: {
+          OR: [
+            { Client_idClient: { in: clientIds } }, // recenzje które wystawił jako klient
+            { Service_Provider_idService_Provider: { in: spIds } }, // recenzje które otrzymał jako usługodawca
+          ],
+        },
+      });
+
       // Delete archives related to user's pets and ads
       await tx.archive.deleteMany({
         where: {
@@ -216,32 +226,8 @@ export async function DELETE(request: NextRequest) {
  *                   example: "Account deleted successfully from both database and Firebase Auth"
  *       401:
  *         description: Unauthorized (invalid or missing token)
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 error:
- *                   type: string
- *                   example: "Invalid or expired token"
  *       404:
  *         description: User not found
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 error:
- *                   type: string
- *                   example: "User not found"
  *       500:
  *         description: Internal server error
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 error:
- *                   type: string
- *                   example: "Internal server error"
  */

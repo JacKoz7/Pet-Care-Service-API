@@ -1,4 +1,4 @@
-// src/app/api/user/reviews/route.ts
+// src/app/api/user/my-reviews/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { adminAuth } from "@/lib/firebaseAdmin";
@@ -87,7 +87,7 @@ export async function GET(request: NextRequest) {
 
 /**
  * @swagger
- * /api/user/reviews:
+ * /api/user/my-reviews:
  *   get:
  *     summary: Get all reviews written by current user
  *     description: Returns list of all reviews that the authenticated client has written for service providers.
