@@ -17,6 +17,7 @@ import {
   IconTrash,
   IconCalendar,
   IconPhoto,
+  IconStethoscope,
 } from "@tabler/icons-react";
 
 interface PetDetails {
@@ -417,6 +418,13 @@ export default function PetDetails() {
                   >
                     <IconTrash size={18} className="mr-2" />
                     Remove from Profile
+                  </button>
+                  <button
+                    onClick={() => router.push(`/profile/${pet.id}/diagnoses`)}
+                    className="flex-1 sm:flex-none bg-emerald-500 text-white px-6 py-3 rounded-xl font-medium hover:bg-emerald-600 transition-all duration-300 flex items-center justify-center"
+                  >
+                    <IconStethoscope size={18} className="mr-2" />
+                    Diagnosis History
                   </button>
                 </>
               )}
