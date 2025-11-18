@@ -17,6 +17,9 @@ import {
   IconCalendar,
   IconPlus,
   IconTrash,
+  IconX,
+  IconStarFilled,
+  IconMessageCircle2,
 } from "@tabler/icons-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -53,10 +56,23 @@ interface Pet {
   isHealthy: boolean | null;
 }
 
+interface Review {
+  id: number;
+  rating: number;
+  comment: string | null;
+  createdAt: string;
+  serviceProvider: {
+    name: string;
+    profilePictureUrl: string | null;
+  };
+  advertisementTitle: string;
+}
+
 export default function Profile() {
   const { user: contextUser, token, loading: contextLoading } = useAuth();
   const [firebaseUser] = useAuthState(auth);
   const router = useRouter();
+
   const [userData, setUserData] = useState<UserData | null>(null);
   const [cities, setCities] = useState<City[]>([]);
   const [roles, setRoles] = useState<string[]>([]);
@@ -73,6 +89,11 @@ export default function Profile() {
   const [petsLoading, setPetsLoading] = useState(true);
   const [petsError, setPetsError] = useState("");
   const [uploading, setUploading] = useState(false);
+
+  // Reviews modal
+  const [myReviews, setMyReviews] = useState<Review[]>([]);
+  const [showReviewsModal, setShowReviewsModal] = useState(false);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
 
   const fetchRoles = useCallback(async () => {
     if (!firebaseUser) {
@@ -94,11 +115,29 @@ export default function Profile() {
       } else {
         setRoles(["client"]);
       }
-    } catch (err) {
-      console.error("Error fetching roles in Profile:", err);
+    } catch {
       setRoles(["client"]);
     }
   }, [firebaseUser]);
+
+  const fetchMyReviews = async () => {
+    if (!token) return;
+    setReviewsLoading(true);
+    try {
+      const res = await fetch("/api/user/my-reviews", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (data.success) {
+        setMyReviews(data.reviews);
+      }
+    } catch {
+      console.error("Error loading reviews");
+    } finally {
+      setReviewsLoading(false);
+      setShowReviewsModal(true);
+    }
+  };
 
   useEffect(() => {
     if (!contextUser || !token) {
@@ -123,8 +162,7 @@ export default function Profile() {
         } else {
           setError(data.error || "Failed to fetch user data");
         }
-      } catch (err) {
-        console.error("Error fetching user data:", err);
+      } catch {
         setError("An error occurred while fetching user data");
       }
     };
@@ -134,8 +172,8 @@ export default function Profile() {
         const response = await fetch("/api/cities");
         const data = await response.json();
         setCities(data.cities || []);
-      } catch (error) {
-        console.error("Error fetching cities:", error);
+      } catch {
+        // ignore
       }
     };
 
@@ -151,8 +189,7 @@ export default function Profile() {
         } else {
           setPetsError(data.error || "Failed to fetch pets");
         }
-      } catch (err) {
-        console.error("Error fetching pets:", err);
+      } catch {
         setPetsError("An error occurred while fetching pets");
       } finally {
         setPetsLoading(false);
@@ -214,8 +251,7 @@ export default function Profile() {
       } else {
         setError(data.error || "Failed to update profile");
       }
-    } catch (err) {
-      console.error("Error updating profile:", err);
+    } catch {
       setError("An error occurred while updating profile");
     }
   };
@@ -244,16 +280,13 @@ export default function Profile() {
       } else {
         setError(data.error || "Failed to delete account");
       }
-    } catch (err) {
-      console.error("Error deleting account:", err);
+    } catch {
       setError("An error occurred while deleting the account");
     }
   }, [token, router]);
 
   const handleDeleteProfilePicture = useCallback(async () => {
-    if (
-      !window.confirm("Are you sure you want to remove your profile picture?")
-    ) {
+    if (!window.confirm("Are you sure you want to remove your profile picture?")) {
       return;
     }
 
@@ -274,8 +307,7 @@ export default function Profile() {
       } else {
         setError(data.error || "Failed to remove profile picture");
       }
-    } catch (err) {
-      console.error("Error deleting profile picture:", err);
+    } catch {
       setError("An error occurred while deleting the profile picture");
     }
   }, [token]);
@@ -366,7 +398,7 @@ export default function Profile() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* User Data Section */}
+          {/* Personal Information */}
           <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-xl border border-white transition-all duration-300 hover:shadow-2xl">
             <div className="flex justify-between items-center mb-6 pb-3 border-b border-gray-100">
               <div className="flex items-center">
@@ -448,13 +480,7 @@ export default function Profile() {
                 </div>
                 <button
                   onClick={handleSubmit}
-                  className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-2 rounded-xl font-semibold hover:from-indigo-700 hover:to-purple-700 transition-all duration-300 transform hover:-translate-y-1 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:transform-none disabled:shadow-lg text-base"
-                  disabled={
-                    !formData.firstName &&
-                    !formData.lastName &&
-                    !formData.phoneNumber &&
-                    !formData.cityId
-                  }
+                  className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-2 rounded-xl font-semibold hover:from-indigo-700 hover:to-purple-700 transition-all duration-300 transform hover:-translate-y-1 shadow-lg hover:shadow-xl text-base"
                 >
                   Save Changes
                 </button>
@@ -532,12 +558,11 @@ export default function Profile() {
                                 errData.error || "Failed to upload picture"
                               );
                             }
-                          } catch (err) {
-                            console.error("Upload error:", err);
+                          } catch {
                             setError("An error occurred while uploading");
                           } finally {
                             setUploading(false);
-                            e.target.value = ""; // Reset input
+                            e.target.value = "";
                           }
                         }}
                       />
@@ -650,16 +675,26 @@ export default function Profile() {
                   </div>
                 </div>
 
-                {userData && (
-                  <div className="mt-6 pt-4 border-t border-gray-200">
-                    <button
-                      onClick={handleDeleteAccount}
-                      className="w-full bg-red-600 text-white py-2 rounded-xl font-semibold hover:bg-red-700 transition-all duration-300 transform hover:-translate-y-0.5 shadow-lg hover:shadow-xl text-base"
-                    >
-                      Delete Account
-                    </button>
-                  </div>
-                )}
+                {/* My Reviews Button */}
+                <div className="mt-8 pt-6 border-t border-gray-200">
+                  <button
+                    onClick={fetchMyReviews}
+                    disabled={reviewsLoading}
+                    className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:opacity-70 text-white py-4 rounded-xl font-bold text-lg transition-all duration-300 shadow-lg hover:shadow-2xl flex items-center justify-center gap-3"
+                  >
+                    <IconMessageCircle2 size={26} />
+                    {reviewsLoading ? "Loading Reviews..." : "My Reviews"}
+                  </button>
+                </div>
+
+                <div className="mt-4">
+                  <button
+                    onClick={handleDeleteAccount}
+                    className="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-xl font-semibold transition-all duration-300 shadow-lg hover:shadow-xl"
+                  >
+                    Delete Account
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="flex justify-center py-6">
@@ -677,7 +712,7 @@ export default function Profile() {
             )}
           </div>
 
-          {/* Pet Profiles Section - Updated with borders and add button */}
+          {/* Pet Profiles */}
           <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-xl border border-white transition-all duration-300 hover:shadow-2xl flex flex-col">
             <div className="flex items-center justify-between mb-6 pb-3 border-b border-gray-100">
               <div className="flex items-center">
@@ -696,10 +731,6 @@ export default function Profile() {
                 Add Pet
               </Link>
             </div>
-            <p className="text-sm text-gray-500 mb-4 italic text-center">
-              Zachęć usługodawców do opieki nad twoim zwierzęciem, wykonując
-              sprawdzanie jego zdrowia.
-            </p>
 
             {petsLoading ? (
               <div className="flex justify-center py-8">
@@ -750,10 +781,9 @@ export default function Profile() {
                           Species: {pet.species}
                         </p>
                         <p className="text-sm text-gray-600">Age: {pet.age}</p>
-                        {/* NOWOŚĆ: Label jeśli isHealthy true */}
                         {pet.isHealthy === true && (
                           <div className="mt-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                            Zwierzę jest zdrowe
+                            Healthy pet
                           </div>
                         )}
                       </div>
@@ -768,6 +798,93 @@ export default function Profile() {
           </div>
         </div>
       </div>
+
+      {/* My Reviews Modal */}
+      {showReviewsModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full my-8 max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex justify-between items-center">
+              <h2 className="text-2xl font-bold text-gray-800">My Reviews</h2>
+              <button
+                onClick={() => setShowReviewsModal(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <IconX size={28} />
+              </button>
+            </div>
+
+            <div className="p-6">
+              {reviewsLoading ? (
+                <div className="text-center py-16">
+                  <div className="inline-block w-12 h-12 border-4 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
+                </div>
+              ) : myReviews.length === 0 ? (
+                <p className="text-center text-gray-500 py-16 text-lg">
+                  You haven&apos;t written any reviews yet.
+                </p>
+              ) : (
+                <div className="space-y-6">
+                  {myReviews.map((review) => (
+                    <div
+                      key={review.id}
+                      className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-6 border border-purple-100"
+                    >
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-center gap-4">
+                          <div className="w-14 h-14 rounded-full overflow-hidden bg-gray-200">
+                            {review.serviceProvider.profilePictureUrl ? (
+                              <Image
+                                src={review.serviceProvider.profilePictureUrl}
+                                alt={review.serviceProvider.name}
+                                width={56}
+                                height={56}
+                                className="object-cover"
+                              />
+                            ) : (
+                              <div className="flex items-center justify-center h-full bg-gray-300">
+                                <IconUser className="text-gray-600" size={28} />
+                              </div>
+                            )}
+                          </div>
+                          <div>
+                            <p className="font-bold text-gray-800">
+                              {review.serviceProvider.name}
+                            </p>
+                            <p className="text-sm text-gray-600">
+                              {review.advertisementTitle}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex gap-1">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <IconStarFilled
+                              key={star}
+                              size={22}
+                              className={
+                                star <= review.rating
+                                  ? "text-yellow-500"
+                                  : "text-gray-300"
+                              }
+                            />
+                          ))}
+                        </div>
+                      </div>
+                      {review.comment && (
+                        <p className="text-gray-700 italic pl-4 border-l-4 border-purple-400">
+                          &quot;{review.comment}&quot;
+                        </p>
+                      )}
+                      <p className="text-xs text-gray-500 mt-4 text-right">
+                        {new Date(review.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <style jsx global>{`
         @keyframes fade-in {

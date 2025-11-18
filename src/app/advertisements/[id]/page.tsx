@@ -1,4 +1,3 @@
-// app/advertisements/[id]/page.tsx
 "use client";
 
 import { auth } from "../../firebase";
@@ -25,6 +24,8 @@ import {
   IconBookmark,
   IconBookmarkOff,
   IconPawFilled,
+  IconStarFilled,
+  IconMessageCircle2,
 } from "@tabler/icons-react";
 import BookingForm from "../../components/BookingForm";
 
@@ -44,6 +45,8 @@ interface AdvertisementDetails {
     firstName: string | null;
     lastName: string | null;
     phoneNumber: string | null;
+    averageRating: number;
+    totalReviews: number;
   };
   city: {
     idCity: number;
@@ -57,6 +60,25 @@ interface AdvertisementDetails {
   species: Array<{
     id: number;
     name: string;
+  }>;
+}
+
+interface ServiceProviderProfile {
+  id: number;
+  firstName: string | null;
+  lastName: string | null;
+  email: string | null;
+  phoneNumber: string | null;
+  profilePictureUrl: string | null;
+  city: string;
+  averageRating: number;
+  totalReviews: number;
+  reviews: Array<{
+    id: number;
+    rating: number;
+    comment: string | null;
+    createdAt: string;
+    clientName: string;
   }>;
 }
 
@@ -79,7 +101,13 @@ export default function AdvertisementDetails() {
   const router = useRouter();
   const params = useParams();
   const adId = params.id as string;
+
   const [ad, setAd] = useState<AdvertisementDetails | null>(null);
+  const [providerProfile, setProviderProfile] =
+    useState<ServiceProviderProfile | null>(null);
+  const [isProviderModalOpen, setIsProviderModalOpen] = useState(false);
+  const [isLoadingProvider, setIsLoadingProvider] = useState(false);
+
   const [userRoles, setUserRoles] = useState<UserRoles | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -99,50 +127,34 @@ export default function AdvertisementDetails() {
       setError("");
 
       try {
-        // Fetch ad details
         const adResponse = await fetch(`/api/advertisements/${adId}`);
-        if (!adResponse.ok) {
+        if (!adResponse.ok)
           throw new Error("Failed to fetch advertisement details");
-        }
         const adData = await adResponse.json();
-        if (!adData.success) {
-          throw new Error("Advertisement not found");
-        }
+        if (!adData.success) throw new Error("Advertisement not found");
         setAd(adData.advertisement);
 
-        // Fetch user roles if user is logged in
         if (user) {
           const token = await user.getIdToken();
+
           const rolesResponse = await fetch("/api/user/check-role", {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
+            headers: { Authorization: `Bearer ${token}` },
           });
-          if (!rolesResponse.ok) {
-            console.warn(
-              "Failed to fetch user roles:",
-              await rolesResponse.text()
-            );
-            setUserRoles({ roles: [], serviceProviderIds: [] });
-          } else {
+          if (rolesResponse.ok) {
             const rolesData = await rolesResponse.json();
-            console.log("Fetched user roles:", rolesData); // Debug log
             setUserRoles({
               roles: rolesData.roles || [],
               serviceProviderIds: rolesData.serviceProviderIds || [],
             });
           }
 
-          // Check if ad is saved
           const savedResponse = await fetch("/api/advertisements/saved", {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
+            headers: { Authorization: `Bearer ${token}` },
           });
           if (savedResponse.ok) {
             const savedData = await savedResponse.json();
             const savedIds = savedData.advertisements.map(
-              (savedAd: SavedAdvertisement) => savedAd.id
+              (a: SavedAdvertisement) => a.id
             );
             setIsSaved(savedIds.includes(Number(adId)));
           }
@@ -162,39 +174,44 @@ export default function AdvertisementDetails() {
     fetchData();
   }, [adId, user]);
 
-  // Check if user owns the ad
+  const fetchProviderProfile = async () => {
+    if (!ad?.serviceProviderId) return;
+
+    setIsLoadingProvider(true);
+    try {
+      const res = await fetch(`/api/service-provider/${ad.serviceProviderId}`);
+      if (!res.ok) throw new Error("Failed to load provider profile");
+      const data = await res.json();
+      if (data.success) {
+        setProviderProfile(data.serviceProvider);
+      }
+    } catch (err) {
+      showNotification("Could not load service provider profile", "error");
+    } finally {
+      setIsLoadingProvider(false);
+      setIsProviderModalOpen(true);
+    }
+  };
+
   const isOwner =
     user &&
     userRoles &&
-    userRoles.serviceProviderIds.includes(ad?.serviceProviderId || 0);
+    ad &&
+    userRoles.serviceProviderIds.includes(ad.serviceProviderId);
 
-  console.log(
-    "Debug - isOwner:",
-    isOwner,
-    "ad.serviceProviderId:",
-    ad?.serviceProviderId,
-    "userRoles.serviceProviderIds:",
-    userRoles?.serviceProviderIds
-  ); // Debug log
-
-  const handleBack = () => {
-    router.back();
+  const showNotification = (message: string, type: Notification["type"]) => {
+    setNotification({ message, type });
+    setTimeout(() => setNotification(null), 4000);
   };
+
+  const handleBack = () => router.back();
 
   const handleEdit = () => {
     if (!ad || !user) {
       showNotification("Please sign in to edit this advertisement.", "warning");
       return;
     }
-
     router.push(`/advertisements/${ad.id}/edit`);
-  };
-
-  const showNotification = (message: string, type: Notification["type"]) => {
-    setNotification({ message, type });
-    setTimeout(() => {
-      setNotification(null);
-    }, 4000);
   };
 
   const handleBook = () => {
@@ -202,34 +219,27 @@ export default function AdvertisementDetails() {
       showNotification("Please sign in to book this service.", "warning");
       return;
     }
-
     if (isOwner) {
       showNotification("You cannot book your own advertisement.", "error");
       return;
     }
-
     if (ad?.status !== "ACTIVE") {
       showNotification("You cannot book an inactive advertisement.", "error");
       return;
     }
-
     setIsBookingOpen(true);
   };
 
   const handleDelete = async () => {
     if (!user || !isOwner || !ad) return;
 
-    if (!confirm("Are you sure you want to delete this advertisement?")) {
-      return;
-    }
+    if (!confirm("Are you sure you want to delete this advertisement?")) return;
 
     try {
       const token = await user.getIdToken();
       const response = await fetch(`/api/advertisements/${ad.id}`, {
         method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (response.ok) {
@@ -243,7 +253,6 @@ export default function AdvertisementDetails() {
         );
       }
     } catch (err) {
-      console.error("Error deleting advertisement:", err);
       showNotification(
         "An error occurred while deleting the advertisement",
         "error"
@@ -262,17 +271,13 @@ export default function AdvertisementDetails() {
       const method = isSaved ? "DELETE" : "POST";
       const response = await fetch(`/api/advertisements/saved/${ad.id}`, {
         method,
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (response.ok) {
         setIsSaved(!isSaved);
         showNotification(
-          isSaved
-            ? "Advertisement removed from saved!"
-            : "Advertisement saved successfully!",
+          isSaved ? "Removed from saved!" : "Saved successfully!",
           "success"
         );
       } else {
@@ -280,9 +285,22 @@ export default function AdvertisementDetails() {
         showNotification(errData.error || "Failed to toggle save", "error");
       }
     } catch (err) {
-      console.error("Error toggling save:", err);
-      showNotification("An error occurred while toggling save", "error");
+      showNotification("An error occurred while saving", "error");
     }
+  };
+
+  const renderStars = (rating: number, size: number = 20) => {
+    return (
+      <div className="flex items-center">
+        {[1, 2, 3, 4, 5].map((star) => (
+          <IconStarFilled
+            key={star}
+            size={size}
+            className={star <= rating ? "text-yellow-500" : "text-gray-300"}
+          />
+        ))}
+      </div>
+    );
   };
 
   if (isLoading) {
@@ -322,7 +340,6 @@ export default function AdvertisementDetails() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50 py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto">
-        {/* Back Button */}
         <button
           onClick={handleBack}
           className="flex items-center text-indigo-600 hover:text-indigo-800 mb-6"
@@ -331,9 +348,7 @@ export default function AdvertisementDetails() {
           Back
         </button>
 
-        {/* Main Content */}
         <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg overflow-hidden border border-white">
-          {/* Hero Image Section */}
           <div className="relative h-96 overflow-hidden">
             <Image
               src={ad.images[0]?.imageUrl || "/placeholder-pet.jpg"}
@@ -355,9 +370,7 @@ export default function AdvertisementDetails() {
             </div>
           </div>
 
-          {/* Details Grid */}
           <div className="p-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Left Column: Description and Dates */}
             <div>
               <h2 className="text-xl font-semibold text-gray-800 mb-4">
                 Description
@@ -466,27 +479,72 @@ export default function AdvertisementDetails() {
               </div>
             </div>
 
-            {/* Right Column: Provider and Gallery */}
             <div>
               <div className="mb-6">
                 <h2 className="text-xl font-semibold text-gray-800 mb-4">
                   Service Provider
                 </h2>
-                <div className="flex items-center space-x-4 p-4 bg-indigo-50 rounded-xl">
-                  <div className="w-12 h-12 bg-indigo-200 rounded-full flex items-center justify-center">
-                    <IconUser className="text-indigo-600" size={24} />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-gray-800">
-                      {ad.provider.firstName} {ad.provider.lastName}
-                    </p>
-                    {ad.provider.phoneNumber && (
-                      <div className="flex items-center text-sm text-gray-600">
-                        <IconPhone className="mr-2" size={16} />
-                        {ad.provider.phoneNumber}
+                <div className="p-6 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl border border-indigo-100">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center space-x-4">
+                      <div className="w-16 h-16 bg-indigo-200 rounded-full flex items-center justify-center overflow-hidden">
+                        {providerProfile?.profilePictureUrl ? (
+                          <Image
+                            src={providerProfile.profilePictureUrl}
+                            alt={`${providerProfile.firstName} ${providerProfile.lastName}`}
+                            width={64}
+                            height={64}
+                            className="object-cover"
+                          />
+                        ) : (
+                          <IconUser className="text-indigo-600" size={32} />
+                        )}
                       </div>
-                    )}
+                      <div>
+                        <p className="text-xl font-bold text-gray-800">
+                          {ad.provider.firstName} {ad.provider.lastName}
+                        </p>
+                        {ad.provider.phoneNumber && (
+                          <p className="text-sm text-gray-600 flex items-center mt-1">
+                            <IconPhone size={16} className="mr-1" />
+                            {ad.provider.phoneNumber}
+                          </p>
+                        )}
+                      </div>
+                    </div>
                   </div>
+
+                  {ad.provider.totalReviews > 0 ? (
+                    <div className="flex items-center space-x-3 mb-4">
+                      {renderStars(Math.round(ad.provider.averageRating))}
+                      <span className="text-lg font-semibold text-gray-800">
+                        {ad.provider.averageRating.toFixed(1)}
+                      </span>
+                      <span className="text-sm text-gray-600">
+                        ({ad.provider.totalReviews} review
+                        {ad.provider.totalReviews !== 1 && "s"})
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="text-sm text-gray-500 mb-4">
+                      No reviews yet
+                    </div>
+                  )}
+
+                  <button
+                    onClick={fetchProviderProfile}
+                    disabled={isLoadingProvider}
+                    className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-70 text-white font-medium py-3 px-4 rounded-xl transition-all duration-200 flex items-center justify-center space-x-2"
+                  >
+                    {isLoadingProvider ? (
+                      "Loading..."
+                    ) : (
+                      <>
+                        <IconUser size={20} />
+                        <span>View Full Profile & Reviews</span>
+                      </>
+                    )}
+                  </button>
                 </div>
               </div>
 
@@ -518,7 +576,6 @@ export default function AdvertisementDetails() {
             </div>
           </div>
 
-          {/* Action Buttons */}
           <div className="px-8 pb-8 pt-4 border-t border-gray-100">
             <div className="flex flex-col sm:flex-row gap-4 justify-end">
               <button
@@ -573,7 +630,115 @@ export default function AdvertisementDetails() {
         </div>
       </div>
 
-      {/* Styled Notification Toast */}
+      {/* Provider Profile Modal */}
+      {isProviderModalOpen && providerProfile && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full my-8">
+            <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex justify-between items-center">
+              <h2 className="text-2xl font-bold text-gray-800">
+                Service Provider Profile
+              </h2>
+              <button
+                onClick={() => setIsProviderModalOpen(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <IconX size={28} />
+              </button>
+            </div>
+
+            <div className="p-6">
+              <div className="flex items-center space-x-6 mb-8">
+                <div className="w-32 h-32 rounded-full overflow-hidden bg-indigo-100 flex-shrink-0">
+                  {providerProfile.profilePictureUrl ? (
+                    <Image
+                      src={providerProfile.profilePictureUrl}
+                      alt={`${providerProfile.firstName} ${providerProfile.lastName}`}
+                      width={128}
+                      height={128}
+                      className="object-cover w-full h-full"
+                    />
+                  ) : (
+                    <IconUser className="w-full h-full text-indigo-600 p-8" />
+                  )}
+                </div>
+                <div>
+                  <h3 className="text-2xl font-bold text-gray-800">
+                    {providerProfile.firstName} {providerProfile.lastName}
+                  </h3>
+                  <p className="text-gray-600 flex items-center mt-2">
+                    <IconMapPin size={18} className="mr-2" />
+                    {providerProfile.city}
+                  </p>
+                  {providerProfile.phoneNumber && (
+                    <p className="text-gray-600 flex items-center mt-2">
+                      <IconPhone size={18} className="mr-2" />
+                      {providerProfile.phoneNumber}
+                    </p>
+                  )}
+                  {providerProfile.email && (
+                    <p className="text-gray-600 mt-2">
+                      {providerProfile.email}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-2xl p-6 mb-8 text-center">
+                <div className="flex items-center justify-center space-x-3 mb-2">
+                  {renderStars(Math.round(providerProfile.averageRating), 36)}
+                </div>
+                <p className="text-5xl font-bold text-gray-800">
+                  {providerProfile.averageRating.toFixed(1)}
+                </p>
+                <p className="text-gray-600">
+                  based on {providerProfile.totalReviews} review
+                  {providerProfile.totalReviews !== 1 && "s"}
+                </p>
+              </div>
+
+              <div>
+                <h4 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
+                  <IconMessageCircle2 className="mr-2" />
+                  Client Reviews
+                </h4>
+                {providerProfile.reviews.length > 0 ? (
+                  <div className="space-y-4">
+                    {providerProfile.reviews.map((review) => (
+                      <div
+                        key={review.id}
+                        className="bg-gray-50 rounded-xl p-5"
+                      >
+                        <div className="flex justify-between items-start mb-3">
+                          <div>
+                            <p className="font-semibold text-gray-800">
+                              {review.clientName}
+                            </p>
+                            <p className="text-sm text-gray-500">
+                              {new Date(review.createdAt).toLocaleDateString()}
+                            </p>
+                          </div>
+                          {renderStars(review.rating, 22)}
+                        </div>
+                        {review.comment && (
+                          <p className="text-gray-700 mt-2 italic">
+                            "{review.comment}"
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-500 text-center py-8">
+                    No reviews yet.
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Notification Toast */}
       {notification && (
         <div className="fixed bottom-4 right-4 z-50 w-96 max-w-sm">
           <div

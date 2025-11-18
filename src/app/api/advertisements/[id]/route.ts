@@ -1,4 +1,3 @@
-// app/api/advertisements/[id]/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient, Prisma, StatusAdvertisement } from "@prisma/client";
 import { adminAuth } from "@/lib/firebaseAdmin";
@@ -119,6 +118,14 @@ function extractPathFromSignedUrl(url: string): string | null {
  *                           nullable: true
  *                           description: The phone number of the service provider
  *                           example: "123456789"
+ *                         averageRating:
+ *                           type: number
+ *                           description: The average rating of the service provider
+ *                           example: 4.5
+ *                         totalReviews:
+ *                           type: integer
+ *                           description: The total number of reviews for the service provider
+ *                           example: 10
  *                     city:
  *                       type: object
  *                       properties:
@@ -243,6 +250,22 @@ export async function GET(
       );
     }
 
+    const reviewsAggregate = await prisma.review.aggregate({
+      where: {
+        Service_Provider_idService_Provider:
+          advertisement.Service_Provider.idService_Provider,
+      },
+      _avg: {
+        rating: true,
+      },
+      _count: {
+        idReview: true,
+      },
+    });
+
+    const averageRating = reviewsAggregate._avg.rating || 0;
+    const totalReviews = reviewsAggregate._count.idReview;
+
     return NextResponse.json({
       success: true,
       advertisement: {
@@ -265,6 +288,8 @@ export async function GET(
           firstName: advertisement.Service_Provider.User.firstName,
           lastName: advertisement.Service_Provider.User.lastName,
           phoneNumber: advertisement.Service_Provider.User.phoneNumber,
+          averageRating,
+          totalReviews,
         },
         city: {
           idCity: advertisement.Service_Provider.User.City.idCity,

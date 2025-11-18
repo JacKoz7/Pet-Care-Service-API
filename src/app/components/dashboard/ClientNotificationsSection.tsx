@@ -14,6 +14,7 @@ import {
   IconCheck,
   IconCreditCard,
   IconClock,
+  IconStar,
 } from "@tabler/icons-react";
 
 interface Pet {
@@ -49,6 +50,7 @@ interface Booking {
   message: string | null;
   pets: Pet[];
   provider: Provider;
+  serviceProviderId: number;
 }
 
 interface UserRoles {
@@ -116,6 +118,11 @@ export default function ClientNotificationsSection({
   const [isLoading, setIsLoading] = useState(false);
   const [selectedNotification, setSelectedNotification] =
     useState<Booking | null>(null);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [reviewBooking, setReviewBooking] = useState<Booking | null>(null);
+  const [rating, setRating] = useState(0);
+  const [comment, setComment] = useState("");
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
 
   const StatusBadge = ({ status }: { status: Booking["status"] }) => {
     const getColor = () => {
@@ -257,6 +264,50 @@ export default function ClientNotificationsSection({
     }
   };
 
+  const handleOpenReviewModal = (booking: Booking) => {
+    setReviewBooking(booking);
+    setShowReviewModal(true);
+    setRating(0);
+    setComment("");
+  };
+
+  const handleSubmitReview = async () => {
+    if (!user || !reviewBooking || rating === 0) return;
+
+    setReviewSubmitting(true);
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch("/api/reviews", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          bookingId: reviewBooking.id,
+          rating,
+          comment: comment.trim() || null,
+        }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        alert("Review submitted successfully!");
+        setShowReviewModal(false);
+        setReviewBooking(null);
+        setRating(0);
+        setComment("");
+      } else {
+        alert(data.error || "Failed to submit review");
+      }
+    } catch (error) {
+      console.error("Error submitting review:", error);
+      alert("An error occurred while submitting review");
+    } finally {
+      setReviewSubmitting(false);
+    }
+  };
+
   const needsPayment = (booking: Booking) =>
     booking.status === "AWAITING_PAYMENT" || booking.status === "OVERDUE";
 
@@ -345,6 +396,18 @@ export default function ClientNotificationsSection({
                           >
                             <IconCreditCard size={20} />
                             Pay Now
+                          </button>
+                        )}
+                        {booking.status === "PAID" && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenReviewModal(booking);
+                            }}
+                            className="px-4 py-2 rounded-lg font-medium text-white bg-indigo-500 hover:bg-indigo-600 flex items-center gap-2 transition"
+                          >
+                            <IconStar size={20} />
+                            Write Review
                           </button>
                         )}
                       </div>
@@ -497,6 +560,92 @@ export default function ClientNotificationsSection({
                   Pay Now
                 </button>
               )}
+              {selectedNotification.status === "PAID" && (
+                <button
+                  onClick={() => handleOpenReviewModal(selectedNotification)}
+                  className="px-8 py-3 font-bold rounded-xl text-white bg-indigo-600 hover:bg-indigo-700 flex items-center gap-2 transition"
+                >
+                  <IconStar size={24} />
+                  Write Review
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showReviewModal && reviewBooking && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[99999] p-4">
+          <div className="bg-white rounded-2xl p-8 w-full max-w-md mx-auto shadow-2xl">
+            <div className="flex justify-between items-center mb-6 pb-3 border-b border-gray-100">
+              <h2 className="text-2xl font-bold text-gray-800">
+                Write a Review
+              </h2>
+              <button
+                onClick={() => setShowReviewModal(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <IconX size={24} />
+              </button>
+            </div>
+
+            <div className="space-y-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Rating (1-5)
+                </label>
+                <div className="flex gap-2">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      onClick={() => setRating(star)}
+                      className="transition-transform hover:scale-110"
+                    >
+                      <IconStar
+                        size={32}
+                        className={
+                          star <= rating
+                            ? "fill-yellow-400 text-yellow-400"
+                            : "text-gray-300"
+                        }
+                      />
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Comment (Optional)
+                </label>
+                <textarea
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  maxLength={1000}
+                  rows={4}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  placeholder="Share your experience..."
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  {comment.length}/1000 characters
+                </p>
+              </div>
+
+              <div className="flex gap-4">
+                <button
+                  onClick={() => setShowReviewModal(false)}
+                  className="flex-1 px-6 py-3 bg-gray-500 text-white rounded-xl hover:bg-gray-600 font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSubmitReview}
+                  disabled={rating === 0 || reviewSubmitting}
+                  className="flex-1 px-6 py-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 font-medium disabled:bg-gray-400 disabled:cursor-not-allowed"
+                >
+                  {reviewSubmitting ? "Submitting..." : "Submit Review"}
+                </button>
+              </div>
             </div>
           </div>
         </div>
