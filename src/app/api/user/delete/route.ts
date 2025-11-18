@@ -62,7 +62,7 @@ export async function DELETE(request: NextRequest) {
 
     // Start transaction
     await prisma.$transaction(async (tx) => {
-      // Delete feedbacks and bookings related to user
+      // Delete feedbacks related to user
       await tx.feedback.deleteMany({
         where: {
           OR: [
@@ -72,7 +72,8 @@ export async function DELETE(request: NextRequest) {
         },
       });
 
-      await tx.booking.deleteMany({
+      // Delete reviews (both given and received)
+      await tx.review.deleteMany({
         where: {
           OR: [
             { Client_idClient: { in: clientIds } },
@@ -81,12 +82,34 @@ export async function DELETE(request: NextRequest) {
         },
       });
 
-      // ←←← NOWE: usuwanie wszystkich recenzji użytkownika (wystawionych i otrzymanych)
-      await tx.review.deleteMany({
+      // Delete reports (must be before bookings)
+      await tx.report.deleteMany({
         where: {
           OR: [
-            { Client_idClient: { in: clientIds } }, // recenzje które wystawił jako klient
-            { Service_Provider_idService_Provider: { in: spIds } }, // recenzje które otrzymał jako usługodawca
+            { Client_idClient: { in: clientIds } },
+            { Service_Provider_idService_Provider: { in: spIds } },
+          ],
+        },
+      });
+
+      // Delete BookingPets before Bookings (foreign key constraint)
+      await tx.bookingPet.deleteMany({
+        where: {
+          Booking: {
+            OR: [
+              { Client_idClient: { in: clientIds } },
+              { Service_Provider_idService_Provider: { in: spIds } },
+            ],
+          },
+        },
+      });
+
+      // Delete bookings related to user
+      await tx.booking.deleteMany({
+        where: {
+          OR: [
+            { Client_idClient: { in: clientIds } },
+            { Service_Provider_idService_Provider: { in: spIds } },
           ],
         },
       });
@@ -114,6 +137,21 @@ export async function DELETE(request: NextRequest) {
       // Delete ad images
       await tx.advertisementImage.deleteMany({
         where: { Advertisement_idAdvertisement: { in: adIds } },
+      });
+
+      // Delete saved advertisements
+      await tx.savedAdvertisement.deleteMany({
+        where: {
+          OR: [
+            { Client_idClient: { in: clientIds } },
+            { Advertisement_idAdvertisement: { in: adIds } },
+          ],
+        },
+      });
+
+      // Delete advertisement species relations
+      await tx.advertisementSpiece.deleteMany({
+        where: { advertisementId: { in: adIds } },
       });
 
       // Delete advertisements
@@ -151,6 +189,11 @@ export async function DELETE(request: NextRequest) {
           where: { User_idUser: user.idUser },
         });
       }
+
+      // Delete payments
+      await tx.payment.deleteMany({
+        where: { userId: user.idUser },
+      });
 
       // Delete user
       await tx.user.delete({
