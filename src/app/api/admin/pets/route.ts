@@ -1,4 +1,3 @@
-// src/app/api/admin/pets/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient, Prisma } from "@prisma/client";
 import { adminAuth } from "@/lib/firebaseAdmin";
@@ -69,11 +68,7 @@ export async function GET(request: NextRequest) {
     const pets = await prisma.pet.findMany({
       where,
       include: {
-        Breed: {
-          include: {
-            Spiece: true,
-          },
-        },
+        Spiece: true,
         Images: {
           select: {
             imageUrl: true,
@@ -105,14 +100,16 @@ export async function GET(request: NextRequest) {
       name: pet.name,
       age: pet.age,
       description: pet.description,
-      species: pet.Breed.Spiece.name,
-      breed: pet.Breed.name,
+      species: pet.customSpeciesName || pet.Spiece.name,
+      breed: null, // Breed is not available in the schema
       keyImage: pet.Images[0]?.imageUrl || null,
-      owner: {
-        firstName: pet.Client.User.firstName,
-        lastName: pet.Client.User.lastName,
-        email: pet.Client.User.email,
-      },
+      owner: pet.Client
+        ? {
+            firstName: pet.Client.User.firstName,
+            lastName: pet.Client.User.lastName,
+            email: pet.Client.User.email,
+          }
+        : null,
       isHealthy: pet.isHealthy,
     }));
 
@@ -203,12 +200,13 @@ export async function GET(request: NextRequest) {
  *                         example: "Dog"
  *                       breed:
  *                         type: string
- *                         example: "Labrador"
+ *                         nullable: true
  *                       keyImage:
  *                         type: string
  *                         nullable: true
  *                       owner:
  *                         type: object
+ *                         nullable: true
  *                         properties:
  *                           firstName:
  *                             type: string
