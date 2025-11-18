@@ -62,6 +62,7 @@ export async function GET(request: NextRequest) {
           { status: "ACCEPTED" }, // No time limit to catch ones needing update
           { status: "AWAITING_PAYMENT" }, // No time limit
           { status: "OVERDUE", updatedAt: { gte: threeMonthsAgo } },
+          { status: "PAID", updatedAt: { gte: threeMonthsAgo } },
         ],
       },
       include: {
@@ -127,7 +128,7 @@ export async function GET(request: NextRequest) {
         booking.updatedAt = now;
       } else if (
         booking.status === "AWAITING_PAYMENT" &&
-        currentTime > endTime + 48 * 60 * 60 * 1000 //5 * 60 * 1000 for 5 min testing
+        currentTime > endTime + 48 * 60 * 60 * 1000
       ) {
         // Change to OVERDUE after 48h
         await prisma.booking.update({
@@ -197,6 +198,7 @@ export async function GET(request: NextRequest) {
  *       - ACCEPTED: No time limit (to check for status updates).
  *       - AWAITING_PAYMENT: No time limit.
  *       - OVERDUE: Only if updated within the last 3 months.
+ *       - PAID: Only if updated within the last 3 months.
  *       Automatically updates booking status to AWAITING_PAYMENT if end date has passed, and to OVERDUE if 48h after end date without payment.
  *       Requires a valid Firebase authentication token.
  *       Only available to clients.
@@ -225,7 +227,7 @@ export async function GET(request: NextRequest) {
  *                         example: 1
  *                       status:
  *                         type: string
- *                         enum: [PENDING, ACCEPTED, REJECTED, CANCELLED, AWAITING_PAYMENT, OVERDUE]
+ *                         enum: [PENDING, ACCEPTED, REJECTED, CANCELLED, AWAITING_PAYMENT, OVERDUE, PAID]
  *                         example: "PENDING"
  *                       startDateTime:
  *                         type: string

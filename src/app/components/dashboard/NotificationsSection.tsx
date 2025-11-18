@@ -43,7 +43,8 @@ interface Booking {
     | "REJECTED"
     | "CANCELLED"
     | "AWAITING_PAYMENT"
-    | "OVERDUE";
+    | "OVERDUE"
+    | "PAID";
   startDateTime: string;
   endDateTime: string;
   message: string | null;
@@ -98,9 +99,9 @@ const PaymentTimer = ({ endDateTime }: { endDateTime: string }) => {
     >
       <IconClock size={16} />
       {isOverdue ? (
-        <span>{format()} po terminie</span>
+        <span>{format()} overdue</span>
       ) : (
-        <span>{format()} do zapłaty</span>
+        <span>{format()} left for payment</span>
       )}
     </div>
   );
@@ -131,8 +132,13 @@ export default function NotificationsSection({
           return "bg-orange-100 text-orange-800";
         case "OVERDUE":
           return "bg-red-200 text-red-900";
+        case "PAID":
+          return "bg-emerald-100 text-emerald-800";
+        default:
+          return "bg-gray-100 text-gray-800";
       }
     };
+
     const getIcon = () => {
       switch (status) {
         case "PENDING":
@@ -145,24 +151,34 @@ export default function NotificationsSection({
         case "AWAITING_PAYMENT":
         case "OVERDUE":
           return <IconCreditCard size={14} />;
+        case "PAID":
+          return <IconCheck size={14} />;
+        default:
+          return null;
       }
     };
+
     const getText = () => {
       switch (status) {
         case "PENDING":
-          return "Oczekuje";
+          return "Pending";
         case "ACCEPTED":
-          return "Zaakceptowane";
+          return "Accepted";
         case "REJECTED":
-          return "Odrzucone";
+          return "Rejected";
         case "CANCELLED":
-          return "Anulowane";
+          return "Cancelled";
         case "AWAITING_PAYMENT":
-          return "Oczekuje na płatność";
+          return "Awaiting Payment";
         case "OVERDUE":
-          return "Przeterminowane";
+          return "Overdue";
+        case "PAID":
+          return "Paid";
+        default:
+          return status;
       }
     };
+
     return (
       <span
         className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${getColor()}`}
@@ -184,9 +200,7 @@ export default function NotificationsSection({
         }
       );
       const data = await response.json();
-      if (data.success) {
-        setNotifications(data.bookings || []);
-      }
+      if (data.success) setNotifications(data.bookings || []);
     } catch (error) {
       console.error("Error fetching notifications:", error);
     } finally {
@@ -202,35 +216,69 @@ export default function NotificationsSection({
   }, [user, showNotifications, userRoles.isServiceProvider]);
 
   const handleAccept = async (id: number) => {
-    /* bez zmian */
+    if (!user) return;
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch("/api/bookings/service-provider/accept", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ bookingId: id }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        fetchNotifications();
+        if (selectedNotification?.id === id) setSelectedNotification(null);
+      }
+    } catch (error) {
+      console.error("Error accepting booking:", error);
+    }
   };
+
   const handleDecline = async (id: number) => {
-    /* bez zmian */
+    if (!user) return;
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch("/api/bookings/service-provider/reject", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ bookingId: id }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        fetchNotifications();
+        if (selectedNotification?.id === id) setSelectedNotification(null);
+      }
+    } catch (error) {
+      console.error("Error rejecting booking:", error);
+    }
   };
 
   const handleReport = async (id: number) => {
-    alert(
-      `Zgłaszanie nieopłaconej rezerwacji #${id}... (do wdrożenia później)`
-    );
+    alert(`Reporting unpaid booking #${id}... (to be implemented)`);
   };
 
   if (!userRoles.isServiceProvider) return null;
 
   return (
     <>
-      {/* TU JEST CAŁY KOD – identyczny jak wcześniej, tylko dodany timer przy OVERDUE i przycisk Zgłoś */}
       <div className="mb-8">
         {showNotifications && (
           <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-xl border border-white transition-all duration-300">
             <div className="flex justify-between items-center mb-6 pb-3 border-b border-gray-100">
               <h2 className="text-xl font-semibold text-gray-800">
-                Moje rezerwacje (opiekun)
+                My Recent Bookings (Provider)
               </h2>
               <button
                 onClick={onToggleNotifications}
                 className="text-indigo-600 hover:text-indigo-800"
               >
-                Ukryj
+                Hide
               </button>
             </div>
 
@@ -240,7 +288,7 @@ export default function NotificationsSection({
               </div>
             ) : notifications.length === 0 ? (
               <div className="text-center py-8 text-gray-600">
-                Brak rezerwacji
+                No recent bookings
               </div>
             ) : (
               <div className="space-y-4">
@@ -266,10 +314,11 @@ export default function NotificationsSection({
                           </div>
                         </div>
                         <p className="text-sm text-gray-600">
-                          Od: {new Date(booking.startDateTime).toLocaleString()}
+                          From:{" "}
+                          {new Date(booking.startDateTime).toLocaleString()}
                         </p>
                         <p className="text-sm text-gray-600">
-                          Do: {new Date(booking.endDateTime).toLocaleString()}
+                          To: {new Date(booking.endDateTime).toLocaleString()}
                         </p>
                       </div>
 
@@ -305,7 +354,7 @@ export default function NotificationsSection({
                             className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium flex items-center gap-2"
                           >
                             <IconReport size={20} />
-                            Zgłoś
+                            Report
                           </button>
                         )}
                       </div>
@@ -318,14 +367,13 @@ export default function NotificationsSection({
         )}
       </div>
 
-      {/* Modal – taki sam jak wcześniej, tylko z timerem i przyciskiem Zgłoś przy OVERDUE */}
       {selectedNotification && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[99999] p-4">
           <div className="bg-white rounded-2xl p-8 w-full max-w-2xl lg:max-w-4xl mx-auto shadow-2xl max-h-[90vh] overflow-y-auto flex flex-col">
             <div className="flex justify-between items-center mb-6 pb-3 border-b border-gray-100">
               <div className="flex items-center gap-4">
                 <h2 className="text-2xl font-bold text-gray-800">
-                  Szczegóły rezerwacji
+                  Booking Details
                 </h2>
                 <StatusBadge status={selectedNotification.status} />
                 {(selectedNotification.status === "AWAITING_PAYMENT" ||
@@ -343,7 +391,100 @@ export default function NotificationsSection({
               </button>
             </div>
 
-            {/* ... cała reszta modalu taka sama jak w ClientNotificationsSection ... */}
+            <div className="space-y-6 flex-1">
+              <div>
+                <h3 className="font-semibold flex items-center mb-4">
+                  <IconPaw className="mr-2 text-indigo-500" />
+                  Pet Information
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {selectedNotification.pets.map((pet) => (
+                    <div
+                      key={pet.id}
+                      className="border rounded-lg p-4 bg-gray-50"
+                    >
+                      <div className="text-center mb-4">
+                        <div className="relative h-32 w-32 mx-auto rounded-full overflow-hidden border-4 border-indigo-200">
+                          <Image
+                            src={pet.keyImage || "/placeholder-pet.jpg"}
+                            alt={pet.name}
+                            fill
+                            className="object-cover"
+                          />
+                        </div>
+                        <h4 className="font-semibold mt-2">{pet.name}</h4>
+                      </div>
+                      <div className="space-y-2 text-sm">
+                        <p>
+                          <span className="font-medium">Age:</span> {pet.age}
+                        </p>
+                        <p>
+                          <span className="font-medium">Species:</span>{" "}
+                          {pet.species}
+                        </p>
+                        <p>
+                          <span className="font-medium">Description:</span>{" "}
+                          {pet.description || "None"}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="border-t pt-6">
+                <h3 className="font-semibold flex items-center mb-4">
+                  <IconUser className="mr-2 text-indigo-500" />
+                  Client Information
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                  <p>
+                    <span className="font-medium">Name:</span>{" "}
+                    {selectedNotification.client.firstName}{" "}
+                    {selectedNotification.client.lastName}
+                  </p>
+                  <p>
+                    <span className="font-medium">Email:</span>{" "}
+                    {selectedNotification.client.email}
+                  </p>
+                  <p>
+                    <span className="font-medium">Phone:</span>{" "}
+                    {selectedNotification.client.phoneNumber}
+                  </p>
+                </div>
+              </div>
+
+              <div className="border-t pt-6">
+                <h3 className="font-semibold flex items-center mb-4">
+                  <IconCalendarClock className="mr-2 text-indigo-500" />
+                  Booking Times
+                </h3>
+                <div className="text-sm space-y-1">
+                  <p>
+                    <span className="font-medium">Start:</span>{" "}
+                    {new Date(
+                      selectedNotification.startDateTime
+                    ).toLocaleString()}
+                  </p>
+                  <p>
+                    <span className="font-medium">End:</span>{" "}
+                    {new Date(
+                      selectedNotification.endDateTime
+                    ).toLocaleString()}
+                  </p>
+                </div>
+              </div>
+
+              {selectedNotification.message && (
+                <div className="border-t pt-6">
+                  <h3 className="font-semibold flex items-center mb-4">
+                    <IconMessage className="mr-2 text-indigo-500" />
+                    Message
+                  </h3>
+                  <p className="text-sm">{selectedNotification.message}</p>
+                </div>
+              )}
+            </div>
 
             <div className="border-t pt-6 mt-auto flex justify-end gap-4">
               {selectedNotification.status === "PENDING" && (
@@ -352,13 +493,13 @@ export default function NotificationsSection({
                     onClick={() => handleDecline(selectedNotification.id)}
                     className="px-6 py-2 bg-red-500 text-white rounded-xl hover:bg-red-600"
                   >
-                    Odrzuć
+                    Decline
                   </button>
                   <button
                     onClick={() => handleAccept(selectedNotification.id)}
                     className="px-6 py-2 bg-green-500 text-white rounded-xl hover:bg-green-600"
                   >
-                    Akceptuj
+                    Accept
                   </button>
                 </>
               )}
@@ -368,7 +509,7 @@ export default function NotificationsSection({
                   className="px-8 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 font-bold flex items-center gap-2"
                 >
                   <IconReport size={24} />
-                  Zgłoś nieopłacenie
+                  Report Non-Payment
                 </button>
               )}
             </div>

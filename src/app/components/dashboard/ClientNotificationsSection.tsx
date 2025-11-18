@@ -42,7 +42,8 @@ interface Booking {
     | "REJECTED"
     | "CANCELLED"
     | "AWAITING_PAYMENT"
-    | "OVERDUE";
+    | "OVERDUE"
+    | "PAID";
   startDateTime: string;
   endDateTime: string;
   message: string | null;
@@ -62,7 +63,6 @@ interface ClientNotificationsSectionProps {
   userRoles: UserRoles;
 }
 
-// Timer component
 const PaymentTimer = ({ endDateTime }: { endDateTime: string }) => {
   const deadline = new Date(endDateTime).getTime() + 48 * 60 * 60 * 1000;
   const [now, setNow] = useState(Date.now());
@@ -131,8 +131,13 @@ export default function ClientNotificationsSection({
           return "bg-orange-100 text-orange-800";
         case "OVERDUE":
           return "bg-red-200 text-red-900";
+        case "PAID":
+          return "bg-emerald-100 text-emerald-800";
+        default:
+          return "bg-gray-100 text-gray-800";
       }
     };
+
     const getIcon = () => {
       switch (status) {
         case "PENDING":
@@ -145,8 +150,13 @@ export default function ClientNotificationsSection({
         case "AWAITING_PAYMENT":
         case "OVERDUE":
           return <IconCreditCard size={14} />;
+        case "PAID":
+          return <IconCheck size={14} />;
+        default:
+          return null;
       }
     };
+
     const getText = () => {
       switch (status) {
         case "PENDING":
@@ -161,8 +171,13 @@ export default function ClientNotificationsSection({
           return "Awaiting Payment";
         case "OVERDUE":
           return "Overdue";
+        case "PAID":
+          return "Paid";
+        default:
+          return status;
       }
     };
+
     return (
       <span
         className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${getColor()}`}
@@ -185,7 +200,7 @@ export default function ClientNotificationsSection({
         const data = await response.json();
         if (data.success) setNotifications(data.bookings || []);
       } catch (error) {
-        console.error("Error fetching notifications:", error);
+        console.error("Error fetching client notifications:", error);
       } finally {
         setIsLoading(false);
       }
@@ -197,11 +212,49 @@ export default function ClientNotificationsSection({
   }, [user, showNotifications, userRoles.isClient]);
 
   const handleCancel = async (id: number) => {
-    // unchanged
+    if (!user) return;
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch("/api/bookings/client/cancel", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ bookingId: id }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        setNotifications((prev) => prev.filter((b) => b.id !== id));
+        if (selectedNotification?.id === id) setSelectedNotification(null);
+      }
+    } catch (error) {
+      console.error("Error cancelling booking:", error);
+    }
   };
 
   const handlePay = async (id: number) => {
-    alert(`Redirecting to payment for booking #${id}... (to be implemented)`);
+    if (!user) return;
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch("/api/payments/create-booking-session", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ bookingId: id }),
+      });
+      const data = await response.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        alert("Could not create payment session");
+      }
+    } catch (error) {
+      console.error("Error starting payment:", error);
+      alert("Payment failed to start");
+    }
   };
 
   const needsPayment = (booking: Booking) =>
@@ -304,7 +357,6 @@ export default function ClientNotificationsSection({
         )}
       </div>
 
-      {/* Full modal – everything is here, no "rest unchanged" */}
       {selectedNotification && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[99999] p-4">
           <div className="bg-white rounded-2xl p-8 w-full max-w-2xl lg:max-w-4xl mx-auto shadow-2xl max-h-[90vh] overflow-y-auto flex flex-col">

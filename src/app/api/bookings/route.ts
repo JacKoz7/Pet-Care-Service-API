@@ -28,14 +28,14 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { petIds, serviceProviderId, startDateTime, endDateTime, message } =
+    const { petIds, advertisementId, startDateTime, endDateTime, message } =
       body;
 
     // Validate required fields
     if (
       !Array.isArray(petIds) ||
       petIds.length === 0 ||
-      !serviceProviderId ||
+      !advertisementId ||
       !startDateTime ||
       !endDateTime
     ) {
@@ -79,15 +79,22 @@ export async function POST(request: NextRequest) {
       clientId = user.Clients[0].idClient;
     }
 
-    // Verify service provider exists
-    const serviceProvider = await prisma.service_Provider.findUnique({
-      where: { idService_Provider: serviceProviderId },
-      select: { isActive: true },
+    // Verify advertisement exists and get provider and price
+    const advertisement = await prisma.advertisement.findUnique({
+      where: { idAdvertisement: advertisementId },
+      include: { Service_Provider: true },
     });
 
-    if (!serviceProvider || !serviceProvider.isActive) {
+    if (!advertisement || advertisement.status !== "ACTIVE") {
       return NextResponse.json(
-        { error: "Invalid or inactive service provider" },
+        { error: "Invalid or inactive advertisement" },
+        { status: 400 }
+      );
+    }
+
+    if (!advertisement.Service_Provider.isActive) {
+      return NextResponse.json(
+        { error: "Service provider is inactive" },
         { status: 400 }
       );
     }
@@ -115,7 +122,10 @@ export async function POST(request: NextRequest) {
         endDateTime: end,
         message: message || null,
         Client_idClient: clientId,
-        Service_Provider_idService_Provider: serviceProviderId,
+        Service_Provider_idService_Provider:
+          advertisement.Service_Provider_idService_Provider,
+        advertisementId: advertisementId,
+        price: advertisement.price,
       },
     });
 
@@ -154,11 +164,11 @@ export async function POST(request: NextRequest) {
  *   post:
  *     summary: Create a new booking (allows multiple pets)
  *     description: |
- *       Creates a new booking request for a service provider, supporting multiple pets in a single booking.
+ *       Creates a new booking request for an advertisement, supporting multiple pets in a single booking.
  *       Requires a valid Firebase authentication token.
  *       The user must be a client (creates client record if none exists).
  *       All pets must belong to the client.
- *       The service provider must exist and be active.
+ *       The advertisement must exist and be active.
  *     tags: [Bookings]
  *     security:
  *       - BearerAuth: []
@@ -170,7 +180,7 @@ export async function POST(request: NextRequest) {
  *             type: object
  *             required:
  *               - petIds
- *               - serviceProviderId
+ *               - advertisementId
  *               - startDateTime
  *               - endDateTime
  *             properties:
@@ -179,7 +189,7 @@ export async function POST(request: NextRequest) {
  *                 items:
  *                   type: integer
  *                 example: [1, 2]
- *               serviceProviderId:
+ *               advertisementId:
  *                 type: integer
  *                 example: 42
  *               startDateTime:
@@ -227,8 +237,12 @@ export async function POST(request: NextRequest) {
  *                       type: integer
  *                     Service_Provider_idService_Provider:
  *                       type: integer
+ *                     advertisementId:
+ *                       type: integer
+ *                     price:
+ *                       type: number
  *       400:
- *         description: Missing/invalid fields, invalid pets/provider, or date issues
+ *         description: Missing/invalid fields, invalid pets/advertisement, or date issues
  *       401:
  *         description: Unauthorized (invalid or missing token)
  *       404:

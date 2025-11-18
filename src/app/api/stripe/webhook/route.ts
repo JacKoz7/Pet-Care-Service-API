@@ -1,3 +1,4 @@
+// src/app/api/stripe/webhook/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { PrismaClient } from "@prisma/client";
@@ -54,11 +55,8 @@ export async function POST(request: NextRequest) {
       console.log("🏷️  Metadata:", session.metadata);
       console.log("👤 User ID:", session.metadata?.userId);
 
-      if (
-        session.metadata?.type === "become_provider" &&
-        session.payment_status === "paid"
-      ) {
-        const userId = session.metadata.userId;
+      if (session.payment_status === "paid") {
+        const userId = session.metadata?.userId;
         if (!userId) {
           console.log("⚠️  No userId in metadata");
           return NextResponse.json({ received: true });
@@ -80,53 +78,6 @@ export async function POST(request: NextRequest) {
 
         console.log("✅ User found:", user.idUser, user.email);
 
-        const existingProvider = await prisma.service_Provider.findFirst({
-          where: { User_idUser: user.idUser },
-        });
-
-        if (existingProvider) {
-          console.log(
-            "📌 Existing provider found:",
-            existingProvider.idService_Provider
-          );
-          if (!existingProvider.isActive) {
-            console.log("🔄 Reactivating provider");
-            await prisma.service_Provider.update({
-              where: {
-                idService_Provider: existingProvider.idService_Provider,
-              },
-              data: { isActive: true },
-            });
-            console.log("✅ Provider reactivated");
-          } else {
-            console.log("⚠️  Provider already active");
-            return NextResponse.json({ received: true });
-          }
-        } else {
-          console.log("➕ Creating new service provider");
-          await prisma.service_Provider.create({
-            data: { User_idUser: user.idUser },
-          });
-          console.log("✅ Service provider created");
-        }
-
-        // Activate advertisements
-        const activeProviders = await prisma.service_Provider.findMany({
-          where: { User_idUser: user.idUser, isActive: true },
-          select: { idService_Provider: true },
-        });
-
-        console.log("📢 Activating ads for providers:", activeProviders.length);
-
-        await prisma.advertisement.updateMany({
-          where: {
-            Service_Provider_idService_Provider: {
-              in: activeProviders.map((p) => p.idService_Provider),
-            },
-          },
-          data: { status: "ACTIVE" },
-        });
-
         // Save payment record
         console.log("💾 Saving payment record");
         await prisma.payment.create({
@@ -135,12 +86,87 @@ export async function POST(request: NextRequest) {
             stripeSessionId: session.id,
             amount: session.amount_total || 0,
             status: "completed",
-            type: "become_provider",
+            type: session.metadata?.type || "unknown",
           },
         });
         console.log("✅ Payment record saved");
 
-        console.log("🎉 User successfully became service provider!");
+        if (session.metadata?.type === "become_provider") {
+          // Existing logic for become_provider
+          const existingProvider = await prisma.service_Provider.findFirst({
+            where: { User_idUser: user.idUser },
+          });
+
+          if (existingProvider) {
+            console.log(
+              "📌 Existing provider found:",
+              existingProvider.idService_Provider
+            );
+            if (!existingProvider.isActive) {
+              console.log("🔄 Reactivating provider");
+              await prisma.service_Provider.update({
+                where: {
+                  idService_Provider: existingProvider.idService_Provider,
+                },
+                data: { isActive: true },
+              });
+              console.log("✅ Provider reactivated");
+            } else {
+              console.log("⚠️  Provider already active");
+              return NextResponse.json({ received: true });
+            }
+          } else {
+            console.log("➕ Creating new service provider");
+            await prisma.service_Provider.create({
+              data: { User_idUser: user.idUser },
+            });
+            console.log("✅ Service provider created");
+          }
+
+          // Activate advertisements
+          const activeProviders = await prisma.service_Provider.findMany({
+            where: { User_idUser: user.idUser, isActive: true },
+            select: { idService_Provider: true },
+          });
+
+          console.log(
+            "📢 Activating ads for providers:",
+            activeProviders.length
+          );
+
+          await prisma.advertisement.updateMany({
+            where: {
+              Service_Provider_idService_Provider: {
+                in: activeProviders.map((p) => p.idService_Provider),
+              },
+            },
+            data: { status: "ACTIVE" },
+          });
+
+          console.log("🎉 User successfully became service provider!");
+        } else if (session.metadata?.type === "booking_payment") {
+          const bookingId = parseInt(session.metadata.bookingId || "0");
+          if (!bookingId) {
+            console.log("⚠️  No bookingId in metadata");
+            return NextResponse.json({ received: true });
+          }
+
+          const booking = await prisma.booking.findUnique({
+            where: { idBooking: bookingId },
+          });
+
+          if (!booking) {
+            console.error("❌ Booking not found:", bookingId);
+            return NextResponse.json({ received: true });
+          }
+
+          await prisma.booking.update({
+            where: { idBooking: bookingId },
+            data: { status: "PAID" },
+          });
+
+          console.log("✅ Booking status updated to PAID:", bookingId);
+        }
       }
     }
 
@@ -165,6 +191,8 @@ export async function POST(request: NextRequest) {
  *       - Creates or reactivates the service provider account
  *       - Activates the user's advertisements
  *       - Records the payment in the database
+ *       For booking payments:
+ *       - Updates booking status to PAID
  *     tags: [Payments]
  *     requestBody:
  *       required: true
