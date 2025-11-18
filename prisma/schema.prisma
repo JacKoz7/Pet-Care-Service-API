@@ -144,6 +144,8 @@ enum BookingStatus {
   ACCEPTED
   REJECTED
   CANCELLED
+  AWAITING_PAYMENT // NEW: Status for settlement after end date
+  OVERDUE // NEW: Status if not paid after 48h
 }
 
 model BookingPet {
