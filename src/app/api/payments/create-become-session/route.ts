@@ -1,4 +1,4 @@
-// src/app/api/payments/create-become-session
+// src/app/api/payments/create-become-session/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { adminAuth } from "@/lib/firebaseAdmin";
@@ -21,6 +21,16 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { email } = body;
 
+    const origin = request.headers.get("origin");
+
+    const successUrl = origin
+      ? `${origin}/payment-success`
+      : "petstaytion://become-provider/success";
+
+    const cancelUrl = origin
+      ? `${origin}/payment-cancelled`
+      : "petstaytion://become-provider/cancelled";
+
     // Create Stripe Checkout Session
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
@@ -35,8 +45,8 @@ export async function POST(request: NextRequest) {
         },
       ],
       mode: "payment",
-      success_url: `${request.headers.get("origin")}/?payment=success`,
-      cancel_url: `${request.headers.get("origin")}/?payment=cancelled`,
+      success_url: successUrl,
+      cancel_url: cancelUrl,
       customer_email: email || decodedToken.email,
       metadata: {
         userId: decodedToken.uid,

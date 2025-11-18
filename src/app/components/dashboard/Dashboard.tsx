@@ -1,5 +1,4 @@
-// Zaktualizowany Dashboard.tsx (dodano handleDeleteDiagnosis i prop do DiagnoseSection)
-
+// Zaktualizowany Dashboard.tsx (usunięto obsługę query params ?payment=success/cancelled, bo teraz jest osobna strona)
 "use client";
 
 import { auth } from "../../firebase";
@@ -165,16 +164,6 @@ export default function Dashboard() {
       fetchAnalyses();
     }
   }, [showDiagnoses, fetchAnalyses]);
-
-  useEffect(() => {
-    const query = new URLSearchParams(window.location.search);
-    if (query.get("payment") === "success") {
-      fetchUserRoles();
-      alert("Payment successful! You are now a service provider.");
-    } else if (query.get("payment") === "cancelled") {
-      alert("Payment cancelled. Try again if you want to become a provider.");
-    }
-  }, [fetchUserRoles]);
 
   const fetchCities = async () => {
     try {
