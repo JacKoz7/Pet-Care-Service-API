@@ -1,3 +1,4 @@
+// src/app/components/NotificationsSection.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -12,6 +13,8 @@ import {
   IconCheck,
   IconX,
   IconAlertCircle,
+  IconReport,
+  IconCreditCard,
 } from "@tabler/icons-react";
 
 interface Pet {
@@ -34,7 +37,13 @@ interface Client {
 
 interface Booking {
   id: number;
-  status: "PENDING" | "ACCEPTED" | "REJECTED" | "CANCELLED";
+  status:
+    | "PENDING"
+    | "ACCEPTED"
+    | "REJECTED"
+    | "CANCELLED"
+    | "AWAITING_PAYMENT"
+    | "OVERDUE";
   startDateTime: string;
   endDateTime: string;
   message: string | null;
@@ -76,6 +85,10 @@ export default function NotificationsSection({
         case "REJECTED":
         case "CANCELLED":
           return "bg-red-100 text-red-800";
+        case "AWAITING_PAYMENT":
+          return "bg-orange-100 text-orange-800";
+        case "OVERDUE":
+          return "bg-red-200 text-red-900";
       }
     };
     const getIcon = () => {
@@ -86,6 +99,10 @@ export default function NotificationsSection({
           return <IconCheck size={14} />;
         case "REJECTED":
         case "CANCELLED":
+          return <IconAlertCircle size={14} />;
+        case "AWAITING_PAYMENT":
+          return <IconCreditCard size={14} />;
+        case "OVERDUE":
           return <IconAlertCircle size={14} />;
       }
     };
@@ -99,6 +116,10 @@ export default function NotificationsSection({
           return "Rejected";
         case "CANCELLED":
           return "Cancelled";
+        case "AWAITING_PAYMENT":
+          return "Awaiting Payment";
+        case "OVERDUE":
+          return "Overdue";
       }
     };
     return (
@@ -198,6 +219,11 @@ export default function NotificationsSection({
     }
   };
 
+  const handleReport = async (id: number) => {
+    // Placeholder for report endpoint (to be implemented later)
+    alert(`Report for overdue booking ${id} will be handled here.`);
+  };
+
   if (!userRoles.isServiceProvider) {
     return null;
   }
@@ -272,6 +298,19 @@ export default function NotificationsSection({
                             className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200"
                           >
                             <IconX size={20} />
+                          </button>
+                        </div>
+                      )}
+                      {booking.status === "OVERDUE" && (
+                        <div className="flex space-x-2 ml-4">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleReport(booking.id);
+                            }}
+                            className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200"
+                          >
+                            <IconReport size={20} />
                           </button>
                         </div>
                       )}
@@ -418,6 +457,14 @@ export default function NotificationsSection({
                     Accept
                   </button>
                 </>
+              )}
+              {selectedNotification.status === "OVERDUE" && (
+                <button
+                  onClick={() => handleReport(selectedNotification.id)}
+                  className="px-6 py-2 bg-red-500 text-white rounded-xl hover:bg-red-600"
+                >
+                  Zgłoś
+                </button>
               )}
             </div>
           </div>

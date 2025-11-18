@@ -52,10 +52,11 @@ export async function GET(request: NextRequest) {
     );
 
     // Calculate time thresholds
-    const oneMonthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    const threeMonthsAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+    const now = new Date();
+    const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const threeMonthsAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
 
-    const bookings = await prisma.booking.findMany({
+    let bookings = await prisma.booking.findMany({
       where: {
         Service_Provider_idService_Provider: {
           in: serviceProviderIds,
@@ -64,7 +65,9 @@ export async function GET(request: NextRequest) {
           { status: "PENDING" },
           { status: "CANCELLED", updatedAt: { gte: oneMonthAgo } },
           { status: "REJECTED", updatedAt: { gte: oneMonthAgo } },
-          { status: "ACCEPTED", updatedAt: { gte: threeMonthsAgo } },
+          { status: "ACCEPTED" }, // No time limit to catch ones needing update
+          { status: "AWAITING_PAYMENT" }, // No time limit
+          { status: "OVERDUE", updatedAt: { gte: threeMonthsAgo } },
         ],
       },
       include: {
@@ -114,6 +117,33 @@ export async function GET(request: NextRequest) {
         idBooking: "desc",
       },
     });
+
+    // Update statuses based on time
+    for (const booking of bookings) {
+      const endTime = new Date(booking.endDateTime).getTime();
+      const currentTime = now.getTime();
+
+      if (booking.status === "ACCEPTED" && currentTime > endTime) {
+        // Change to AWAITING_PAYMENT
+        await prisma.booking.update({
+          where: { idBooking: booking.idBooking },
+          data: { status: "AWAITING_PAYMENT", updatedAt: now },
+        });
+        booking.status = "AWAITING_PAYMENT"; // Update local object
+        booking.updatedAt = now;
+      } else if (
+        booking.status === "AWAITING_PAYMENT" &&
+        currentTime > endTime + 48 * 60 * 60 * 1000
+      ) {
+        // Change to OVERDUE after 48h
+        await prisma.booking.update({
+          where: { idBooking: booking.idBooking },
+          data: { status: "OVERDUE", updatedAt: now },
+        });
+        booking.status = "OVERDUE"; // Update local object
+        booking.updatedAt = now;
+      }
+    }
 
     // Format the response
     const formattedBookings = bookings.map((booking) => ({
@@ -170,7 +200,10 @@ export async function GET(request: NextRequest) {
  *       Retrieves pending bookings (always) and recent completed/cancelled/rejected bookings within time windows for the authenticated service provider.
  *       - PENDING: No time limit (always returned).
  *       - CANCELLED/REJECTED: Only if updated within the last 1 month.
- *       - ACCEPTED: Only if updated within the last 3 months.
+ *       - ACCEPTED: No time limit (to check for status updates).
+ *       - AWAITING_PAYMENT: No time limit.
+ *       - OVERDUE: Only if updated within the last 3 months.
+ *       Automatically updates booking status to AWAITING_PAYMENT if end date has passed, and to OVERDUE if 48h after end date without payment.
  *       Requires a valid Firebase authentication token.
  *       Only available to active service providers.
  *       Returns details about all pets in the booking, client (name, email, phone), message, booking times, and status.
@@ -198,7 +231,7 @@ export async function GET(request: NextRequest) {
  *                         example: 1
  *                       status:
  *                         type: string
- *                         enum: [PENDING, ACCEPTED, REJECTED, CANCELLED]
+ *                         enum: [PENDING, ACCEPTED, REJECTED, CANCELLED, AWAITING_PAYMENT, OVERDUE]
  *                         example: "PENDING"
  *                       startDateTime:
  *                         type: string

@@ -1,3 +1,4 @@
+// src/app/components/ClientNotificationsSection.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -12,6 +13,7 @@ import {
   IconX,
   IconAlertCircle,
   IconCheck,
+  IconCreditCard,
 } from "@tabler/icons-react";
 
 interface Pet {
@@ -34,7 +36,13 @@ interface Provider {
 
 interface Booking {
   id: number;
-  status: "PENDING" | "ACCEPTED" | "REJECTED" | "CANCELLED";
+  status:
+    | "PENDING"
+    | "ACCEPTED"
+    | "REJECTED"
+    | "CANCELLED"
+    | "AWAITING_PAYMENT"
+    | "OVERDUE";
   startDateTime: string;
   endDateTime: string;
   message: string | null;
@@ -76,6 +84,10 @@ export default function ClientNotificationsSection({
         case "REJECTED":
         case "CANCELLED":
           return "bg-red-100 text-red-800";
+        case "AWAITING_PAYMENT":
+          return "bg-orange-100 text-orange-800";
+        case "OVERDUE":
+          return "bg-red-200 text-red-900";
       }
     };
     const getIcon = () => {
@@ -86,6 +98,10 @@ export default function ClientNotificationsSection({
           return <IconCheck size={14} />;
         case "REJECTED":
         case "CANCELLED":
+          return <IconAlertCircle size={14} />;
+        case "AWAITING_PAYMENT":
+          return <IconCreditCard size={14} />;
+        case "OVERDUE":
           return <IconAlertCircle size={14} />;
       }
     };
@@ -99,6 +115,10 @@ export default function ClientNotificationsSection({
           return "Rejected";
         case "CANCELLED":
           return "Cancelled";
+        case "AWAITING_PAYMENT":
+          return "Awaiting Payment";
+        case "OVERDUE":
+          return "Overdue";
       }
     };
     return (
@@ -174,6 +194,11 @@ export default function ClientNotificationsSection({
     }
   };
 
+  const handlePay = async (id: number) => {
+    // Placeholder for payment endpoint (to be implemented later)
+    alert(`Payment for booking ${id} will be handled here.`);
+  };
+
   if (!userRoles.isClient) {
     return null;
   }
@@ -241,6 +266,19 @@ export default function ClientNotificationsSection({
                             className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200"
                           >
                             <IconX size={20} />
+                          </button>
+                        </div>
+                      )}
+                      {booking.status === "AWAITING_PAYMENT" && (
+                        <div className="flex space-x-2 ml-4">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handlePay(booking.id);
+                            }}
+                            className="p-2 bg-orange-100 text-orange-600 rounded-lg hover:bg-orange-200"
+                          >
+                            <IconCreditCard size={20} />
                           </button>
                         </div>
                       )}
@@ -378,6 +416,14 @@ export default function ClientNotificationsSection({
                   className="px-6 py-2 bg-red-500 text-white rounded-xl hover:bg-red-600"
                 >
                   Cancel
+                </button>
+              )}
+              {selectedNotification.status === "AWAITING_PAYMENT" && (
+                <button
+                  onClick={() => handlePay(selectedNotification.id)}
+                  className="px-6 py-2 bg-orange-500 text-white rounded-xl hover:bg-orange-600"
+                >
+                  Zapłać
                 </button>
               )}
             </div>
