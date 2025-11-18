@@ -1,4 +1,3 @@
-// src/app/admin/page.tsx
 "use client";
 
 import { useAuthState } from "react-firebase-hooks/auth";
@@ -11,6 +10,8 @@ import {
   IconUsers,
   IconFileText,
   IconPaw,
+  IconAlertTriangle,
+  IconX,
 } from "@tabler/icons-react";
 import Image from "next/image";
 import { IconMapPin, IconClock } from "@tabler/icons-react";
@@ -66,6 +67,35 @@ interface PetAdmin {
   isHealthy: boolean | null;
 }
 
+interface Report {
+  id: number;
+  message: string | null;
+  createdAt: string;
+  booking: {
+    id: number;
+    startDateTime: string;
+    endDateTime: string;
+    status: string;
+    price: number | null;
+    advertisement: string | null;
+    pets: { name: string; species: string }[];
+  };
+  client: {
+    firebaseUid: string;
+    firstName: string | null;
+    lastName: string | null;
+    email: string | null;
+    phoneNumber: string | null;
+  };
+  serviceProvider: {
+    firebaseUid: string;
+    firstName: string | null;
+    lastName: string | null;
+    email: string | null;
+    phoneNumber: string | null;
+  };
+}
+
 interface Pagination {
   page: number;
   pageSize: number;
@@ -85,10 +115,18 @@ interface PetsResponse {
   pagination: Pagination;
 }
 
+interface ReportsResponse {
+  success: boolean;
+  reports: Report[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
 export default function AdminPanel() {
   const [user] = useAuthState(auth);
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState("users"); // "users", "ads", or "pets"
+  const [activeTab, setActiveTab] = useState("users"); // "users", "ads", "pets", or "reports"
   const [users, setUsers] = useState<User[]>([]);
   const [totalUsers, setTotalUsers] = useState(0);
   const [ads, setAds] = useState<Advertisement[]>([]);
@@ -105,6 +143,11 @@ export default function AdminPanel() {
     total: 0,
     totalPages: 1,
   });
+  const [reports, setReports] = useState<Report[]>([]);
+  const [reportsTotal, setReportsTotal] = useState(0);
+  const [reportsLimit] = useState(10);
+  const [reportsOffset, setReportsOffset] = useState(0);
+  const [selectedReport, setSelectedReport] = useState<Report | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [usersSearch, setUsersSearch] = useState("");
   const [adsSearch, setAdsSearch] = useState("");
@@ -127,6 +170,8 @@ export default function AdminPanel() {
       fetchAds();
     } else if (activeTab === "pets") {
       fetchPets();
+    } else if (activeTab === "reports") {
+      fetchReports();
     }
   }, [
     user,
@@ -137,6 +182,7 @@ export default function AdminPanel() {
     adsPage,
     petsSearch,
     petsPage,
+    reportsOffset,
   ]);
 
   const fetchUsers = async () => {
@@ -225,6 +271,36 @@ export default function AdminPanel() {
       }
     } catch (error) {
       console.error("Error fetching pets:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchReports = async () => {
+    setIsLoading(true);
+    try {
+      const token = await user!.getIdToken();
+      const response = await fetch(
+        `/api/admin/reports?limit=${reportsLimit}&offset=${reportsOffset}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.ok) {
+        const data: ReportsResponse = await response.json();
+        setReports(data.reports || []);
+        setReportsTotal(data.total || 0);
+      } else {
+        console.error("Failed to fetch reports");
+        if (response.status === 403) {
+          router.push("/");
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching reports:", error);
     } finally {
       setIsLoading(false);
     }
@@ -359,6 +435,18 @@ export default function AdminPanel() {
     }
   };
 
+  const nextReportsPage = () => {
+    if (reportsOffset + reportsLimit < reportsTotal) {
+      setReportsOffset(reportsOffset + reportsLimit);
+    }
+  };
+
+  const prevReportsPage = () => {
+    if (reportsOffset > 0) {
+      setReportsOffset(reportsOffset - reportsLimit);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50 py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
@@ -398,6 +486,17 @@ export default function AdminPanel() {
           >
             <IconPaw size={20} className="inline mr-2" />
             Pets
+          </button>
+          <button
+            onClick={() => setActiveTab("reports")}
+            className={`px-4 py-2 font-medium ${
+              activeTab === "reports"
+                ? "border-indigo-500 text-indigo-600 border-b-2"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            <IconAlertTriangle size={20} className="inline mr-2" />
+            Reports
           </button>
         </div>
 
@@ -784,7 +883,292 @@ export default function AdminPanel() {
             )}
           </>
         )}
+
+        {/* Reports Section */}
+        {activeTab === "reports" && (
+          <>
+            {isLoading ? (
+              <p>Loading...</p>
+            ) : (
+              <>
+                <div className="mb-8">
+                  <div className="flex items-center mb-6">
+                    <IconAlertTriangle
+                      className="text-red-500 mr-2"
+                      size={24}
+                    />
+                    <h2 className="text-2xl font-semibold text-gray-800">
+                      Non-Payment Reports
+                    </h2>
+                  </div>
+
+                  {reports.length === 0 ? (
+                    <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 text-center text-gray-600">
+                      No reports found
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {reports.map((report) => (
+                        <div
+                          key={report.id}
+                          className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-white p-6 hover:shadow-xl transition-shadow cursor-pointer"
+                          onClick={() => setSelectedReport(report)}
+                        >
+                          <div className="flex justify-between items-start mb-4">
+                            <div>
+                              <h3 className="text-lg font-semibold text-gray-800">
+                                Report #{report.id}
+                              </h3>
+                              <p className="text-sm text-gray-500">
+                                {new Date(report.createdAt).toLocaleString()}
+                              </p>
+                            </div>
+                            <div className="bg-red-100 text-red-800 px-3 py-1 rounded-full text-xs font-medium">
+                              {report.booking.status}
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                            <div>
+                              <p className="font-medium text-gray-700">
+                                Client:
+                              </p>
+                              <p className="text-gray-600">
+                                {report.client.firstName}{" "}
+                                {report.client.lastName}
+                              </p>
+                              <p className="text-gray-500 text-xs">
+                                {report.client.email}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-700">
+                                Service Provider:
+                              </p>
+                              <p className="text-gray-600">
+                                {report.serviceProvider.firstName}{" "}
+                                {report.serviceProvider.lastName}
+                              </p>
+                              <p className="text-gray-500 text-xs">
+                                {report.serviceProvider.email}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-700">
+                                Booking:
+                              </p>
+                              <p className="text-gray-600">
+                                ID: {report.booking.id}
+                              </p>
+                              <p className="text-gray-600">
+                                Price: $
+                                {report.booking.price?.toFixed(2) || "N/A"}
+                              </p>
+                              <p className="text-gray-500 text-xs">
+                                Pets:{" "}
+                                {report.booking.pets
+                                  .map((p) => p.name)
+                                  .join(", ")}
+                              </p>
+                            </div>
+                          </div>
+
+                          {report.message && (
+                            <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                              <p className="text-sm font-medium text-gray-700 mb-1">
+                                Message:
+                              </p>
+                              <p className="text-sm text-gray-600">
+                                {report.message}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="mt-4 flex justify-between">
+                    <button
+                      onClick={prevReportsPage}
+                      disabled={reportsOffset === 0}
+                      className="px-4 py-2 bg-gray-200 rounded disabled:opacity-50"
+                    >
+                      Previous
+                    </button>
+                    <span>
+                      Showing {reportsOffset + 1} -{" "}
+                      {Math.min(reportsOffset + reportsLimit, reportsTotal)} of{" "}
+                      {reportsTotal}
+                    </span>
+                    <button
+                      onClick={nextReportsPage}
+                      disabled={reportsOffset + reportsLimit >= reportsTotal}
+                      className="px-4 py-2 bg-gray-200 rounded disabled:opacity-50"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+          </>
+        )}
       </div>
+
+      {/* Report Details Modal */}
+      {selectedReport && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[99999] p-4">
+          <div className="bg-white rounded-2xl p-8 w-full max-w-3xl mx-auto shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6 pb-3 border-b border-gray-100">
+              <div className="flex items-center gap-3">
+                <IconAlertTriangle className="text-red-600" size={28} />
+                <h2 className="text-2xl font-bold text-gray-800">
+                  Report Details #{selectedReport.id}
+                </h2>
+              </div>
+              <button
+                onClick={() => setSelectedReport(null)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <IconX size={24} />
+              </button>
+            </div>
+
+            <div className="space-y-6">
+              <div>
+                <h3 className="font-semibold text-gray-700 mb-2">
+                  Report Information
+                </h3>
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <p className="text-sm text-gray-600">
+                    <span className="font-medium">Created:</span>{" "}
+                    {new Date(selectedReport.createdAt).toLocaleString()}
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="font-semibold text-gray-700 mb-2">
+                  Booking Details
+                </h3>
+                <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                  <p className="text-sm text-gray-600">
+                    <span className="font-medium">Booking ID:</span>{" "}
+                    {selectedReport.booking.id}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    <span className="font-medium">Status:</span>{" "}
+                    <span className="bg-red-100 text-red-800 px-2 py-1 rounded text-xs">
+                      {selectedReport.booking.status}
+                    </span>
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    <span className="font-medium">Price:</span> $
+                    {selectedReport.booking.price?.toFixed(2) || "N/A"}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    <span className="font-medium">Start:</span>{" "}
+                    {new Date(
+                      selectedReport.booking.startDateTime
+                    ).toLocaleString()}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    <span className="font-medium">End:</span>{" "}
+                    {new Date(
+                      selectedReport.booking.endDateTime
+                    ).toLocaleString()}
+                  </p>
+                  {selectedReport.booking.advertisement && (
+                    <p className="text-sm text-gray-600">
+                      <span className="font-medium">Advertisement:</span>{" "}
+                      {selectedReport.booking.advertisement}
+                    </p>
+                  )}
+                  <p className="text-sm text-gray-600">
+                    <span className="font-medium">Pets:</span>{" "}
+                    {selectedReport.booking.pets
+                      .map((p) => `${p.name} (${p.species})`)
+                      .join(", ")}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <h3 className="font-semibold text-gray-700 mb-2">
+                    Client Information
+                  </h3>
+                  <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                    <p className="text-sm text-gray-600">
+                      <span className="font-medium">Name:</span>{" "}
+                      {selectedReport.client.firstName}{" "}
+                      {selectedReport.client.lastName}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      <span className="font-medium">Email:</span>{" "}
+                      {selectedReport.client.email}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      <span className="font-medium">Phone:</span>{" "}
+                      {selectedReport.client.phoneNumber || "N/A"}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      UID: {selectedReport.client.firebaseUid}
+                    </p>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold text-gray-700 mb-2">
+                    Service Provider Information
+                  </h3>
+                  <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                    <p className="text-sm text-gray-600">
+                      <span className="font-medium">Name:</span>{" "}
+                      {selectedReport.serviceProvider.firstName}{" "}
+                      {selectedReport.serviceProvider.lastName}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      <span className="font-medium">Email:</span>{" "}
+                      {selectedReport.serviceProvider.email}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      <span className="font-medium">Phone:</span>{" "}
+                      {selectedReport.serviceProvider.phoneNumber || "N/A"}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      UID: {selectedReport.serviceProvider.firebaseUid}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {selectedReport.message && (
+                <div>
+                  <h3 className="font-semibold text-gray-700 mb-2">
+                    Report Message
+                  </h3>
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                    <p className="text-sm text-gray-700">
+                      {selectedReport.message}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-8 flex justify-end">
+              <button
+                onClick={() => setSelectedReport(null)}
+                className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 transition"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -117,6 +117,10 @@ export default function NotificationsSection({
   const [isLoading, setIsLoading] = useState(false);
   const [selectedNotification, setSelectedNotification] =
     useState<Booking | null>(null);
+  const [showReportPopup, setShowReportPopup] = useState(false);
+  const [reportBookingId, setReportBookingId] = useState<number | null>(null);
+  const [reportMessage, setReportMessage] = useState("");
+  const [isSubmittingReport, setIsSubmittingReport] = useState(false);
 
   const StatusBadge = ({ status }: { status: Booking["status"] }) => {
     const getColor = () => {
@@ -259,8 +263,53 @@ export default function NotificationsSection({
     }
   };
 
-  const handleReport = async (id: number) => {
-    alert(`Reporting unpaid booking #${id}... (to be implemented)`);
+  const handleOpenReportPopup = (id: number) => {
+    setReportBookingId(id);
+    setReportMessage("");
+    setShowReportPopup(true);
+  };
+
+  const handleCloseReportPopup = () => {
+    setShowReportPopup(false);
+    setReportBookingId(null);
+    setReportMessage("");
+  };
+
+  const handleSubmitReport = async () => {
+    if (!user || !reportBookingId) return;
+
+    setIsSubmittingReport(true);
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch("/api/bookings/service-provider/report", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          bookingId: reportBookingId,
+          message: reportMessage || undefined,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        alert("Report submitted successfully to admin");
+        handleCloseReportPopup();
+        fetchNotifications();
+        if (selectedNotification?.id === reportBookingId)
+          setSelectedNotification(null);
+      } else {
+        alert(data.error || "Failed to submit report");
+      }
+    } catch (error) {
+      console.error("Error reporting booking:", error);
+      alert("An error occurred while submitting the report");
+    } finally {
+      setIsSubmittingReport(false);
+    }
   };
 
   if (!userRoles.isServiceProvider) return null;
@@ -349,7 +398,7 @@ export default function NotificationsSection({
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleReport(booking.id);
+                              handleOpenReportPopup(booking.id);
                             }}
                             className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium flex items-center gap-2"
                           >
@@ -366,6 +415,65 @@ export default function NotificationsSection({
           </div>
         )}
       </div>
+
+      {/* Report Popup */}
+      {showReportPopup && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100000] p-4">
+          <div className="bg-white rounded-2xl p-8 w-full max-w-md shadow-2xl">
+            <div className="flex items-center gap-3 mb-6">
+              <IconReport className="text-red-600" size={28} />
+              <h2 className="text-2xl font-bold text-gray-800">
+                Report Non-Payment
+              </h2>
+            </div>
+
+            <p className="text-gray-600 mb-4">
+              You are reporting booking #{reportBookingId} for non-payment.
+              Please describe the issue (optional):
+            </p>
+
+            <textarea
+              value={reportMessage}
+              onChange={(e) => setReportMessage(e.target.value)}
+              placeholder="e.g., Client hasn't responded to payment reminders for over a week..."
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 resize-none"
+              rows={5}
+              maxLength={1000}
+            />
+
+            <div className="text-sm text-gray-500 mb-6 text-right">
+              {reportMessage.length}/1000
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={handleCloseReportPopup}
+                disabled={isSubmittingReport}
+                className="flex-1 px-6 py-3 bg-gray-200 text-gray-800 rounded-xl font-medium hover:bg-gray-300 transition disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmitReport}
+                disabled={isSubmittingReport}
+                className="flex-1 px-6 py-3 bg-red-600 text-white rounded-xl font-medium hover:bg-red-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isSubmittingReport ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Submitting...
+                  </>
+                ) : (
+                  <>
+                    <IconReport size={20} />
+                    Submit Report
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {selectedNotification && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[99999] p-4">
@@ -505,7 +613,7 @@ export default function NotificationsSection({
               )}
               {selectedNotification.status === "OVERDUE" && (
                 <button
-                  onClick={() => handleReport(selectedNotification.id)}
+                  onClick={() => handleOpenReportPopup(selectedNotification.id)}
                   className="px-8 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 font-bold flex items-center gap-2"
                 >
                   <IconReport size={24} />
