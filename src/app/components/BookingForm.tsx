@@ -89,29 +89,44 @@ export default function BookingForm({
     const bookingStart = new Date(start);
     const bookingEnd = new Date(end);
     const adStart = new Date(adStartDate);
-    const adEnd = adEndDate ? new Date(adEndDate) : null;
 
     // Basic validation
     if (bookingStart >= bookingEnd) {
       return "End date/time must be after start date/time";
     }
 
-    // Check against ad start date
-    if (bookingStart < adStart) {
+    // Check against ad start date and time
+    if (adServiceStartTime) {
+      const adStartWithTime = new Date(adStartDate);
+      const [startHour, startMinute] = adServiceStartTime
+        .split(":")
+        .map(Number);
+      adStartWithTime.setHours(startHour, startMinute, 0, 0);
+
+      if (bookingStart < adStartWithTime) {
+        return `Booking cannot start before ${adStartWithTime.toLocaleString()}`;
+      }
+    } else if (bookingStart < adStart) {
       return `Booking cannot start before advertisement start date (${adStart.toLocaleDateString()})`;
     }
 
-    // Check against ad end date if provided
-    if (adEnd && bookingEnd > adEnd) {
-      return `Booking cannot end after advertisement end date (${adEnd.toLocaleDateString()})`;
-    }
+    // Check against ad end date and time if provided
+    if (adEndDate) {
+      const adEnd = new Date(adEndDate);
 
-    // Check service times if provided
-    if (adServiceStartTime && adServiceEndTime) {
-      const startTime = bookingStart.toTimeString().slice(0, 5); // HH:MM
-      const endTime = bookingEnd.toTimeString().slice(0, 5);
-      if (startTime < adServiceStartTime || endTime > adServiceEndTime) {
-        return `Booking times must be within service hours (${adServiceStartTime} - ${adServiceEndTime})`;
+      if (adServiceEndTime) {
+        const [endHour, endMinute] = adServiceEndTime.split(":").map(Number);
+        adEnd.setHours(endHour, endMinute, 0, 0);
+
+        if (bookingEnd > adEnd) {
+          return `Booking cannot end after ${adEnd.toLocaleString()}`;
+        }
+      } else {
+        // If no service end time, compare just dates (end of day)
+        adEnd.setHours(23, 59, 59, 999);
+        if (bookingEnd > adEnd) {
+          return `Booking cannot end after advertisement end date (${adEnd.toLocaleDateString()})`;
+        }
       }
     }
 
