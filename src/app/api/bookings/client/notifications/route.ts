@@ -127,7 +127,7 @@ export async function GET(request: NextRequest) {
         booking.updatedAt = now;
       } else if (
         booking.status === "AWAITING_PAYMENT" &&
-        currentTime > endTime + 48 * 60 * 60 * 1000
+        currentTime > endTime + 48 * 60 * 60 * 1000 //5 * 60 * 1000 for 5 min testing
       ) {
         // Change to OVERDUE after 48h
         await prisma.booking.update({
