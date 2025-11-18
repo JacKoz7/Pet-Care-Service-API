@@ -59,6 +59,7 @@ model Service_Provider {
   Availabilities         Availability[]
   Feedbacks              Feedback[]
   Reports                Report[]
+  Reviews                Review[]
 
   @@map("service__provider")
 }
@@ -143,6 +144,7 @@ model Booking {
 
   Pets    BookingPet[]
   Reports Report[]
+  Reviews Review[]
 }
 
 enum BookingStatus {
@@ -175,6 +177,7 @@ model Client {
   Pets                Pet[]
   SavedAdvertisements SavedAdvertisement[]
   Reports             Report[]
+  Reviews             Review[]
 }
 
 model Feedback {
@@ -188,6 +191,22 @@ model Feedback {
   Advertisement_idAdvertisement       Int
   Service_Provider                    Service_Provider @relation(fields: [Service_Provider_idService_Provider], references: [idService_Provider])
   Service_Provider_idService_Provider Int
+}
+
+model Review {
+  idReview   Int      @id @default(autoincrement())
+  rating     Int
+  comment    String?  @db.VarChar(1000)
+  createdAt  DateTime @default(now())
+
+  Client                              Client           @relation(fields: [Client_idClient], references: [idClient])
+  Client_idClient                     Int
+  Service_Provider                    Service_Provider @relation(fields: [Service_Provider_idService_Provider], references: [idService_Provider])
+  Service_Provider_idService_Provider Int
+  Booking                             Booking          @relation(fields: [Booking_idBooking], references: [idBooking])
+  Booking_idBooking                   Int              @unique
+
+  @@index([Service_Provider_idService_Provider])
 }
 
 enum Sex {
