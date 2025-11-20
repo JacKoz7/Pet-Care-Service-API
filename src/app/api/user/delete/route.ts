@@ -169,11 +169,6 @@ export async function DELETE(request: NextRequest) {
         where: { serviceProviderId: { in: spIds } },
       });
 
-      // Delete availabilities
-      await tx.availability.deleteMany({
-        where: { Service_Provider_idService_Provider: { in: spIds } },
-      });
-
       // Delete clients and service providers
       await tx.client.deleteMany({
         where: { idClient: { in: clientIds } },
