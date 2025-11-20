@@ -10,7 +10,7 @@ const prisma = new PrismaClient();
  *     summary: Get all active advertisements with filtering and pagination
  *     description: |
  *       Retrieves all active advertisements in the system, with optional filtering by title and city, and pagination.
- *       Returns title, startDate, endDate, serviceStartTime, serviceEndTime, keyImage (first image), species names, and the service provider's city information for each advertisement.
+ *       Returns detailed information including service name, price, species, and city of the service provider.
  *       This endpoint is unprotected and accessible to all users.
  *     tags: [Advertisements]
  *     parameters:
@@ -62,6 +62,16 @@ const prisma = new PrismaClient();
  *                       title:
  *                         type: string
  *                         example: "Professional Dog Walking in Warsaw"
+ *                       price:
+ *                         type: number
+ *                         nullable: true
+ *                         example: 120.00
+ *                       serviceId:
+ *                         type: integer
+ *                         example: 3
+ *                       serviceName:
+ *                         type: string
+ *                         example: "Opieka nad psem"
  *                       startDate:
  *                         type: string
  *                         format: date-time
@@ -126,19 +136,24 @@ export async function GET(request: NextRequest) {
     // Extract query parameters
     const { searchParams } = new URL(request.url);
     const search = searchParams.get("search") || "";
-    const cityId = searchParams.get("cityId") ? parseInt(searchParams.get("cityId")!) : null;
+    const cityId = searchParams.get("cityId")
+      ? parseInt(searchParams.get("cityId")!)
+      : null;
     const page = parseInt(searchParams.get("page") || "1");
     const pageSize = parseInt(searchParams.get("pageSize") || "10");
 
     // Validate pagination parameters
     if (isNaN(page) || page < 1) {
-      return NextResponse.json({ error: "Invalid page number" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid page number" },
+        { status: 400 }
+      );
     }
     if (isNaN(pageSize) || pageSize < 1 || pageSize > 100) {
       return NextResponse.json({ error: "Invalid page size" }, { status: 400 });
     }
 
-    // Build where clause for filtering with proper typing
+    // Build where clause
     const where: Prisma.AdvertisementWhereInput = {
       status: "ACTIVE",
     };
@@ -158,34 +173,35 @@ export async function GET(request: NextRequest) {
       };
     }
 
-    // Fetch total count for pagination
+    // Count total for pagination
     const totalAds = await prisma.advertisement.count({ where });
 
-    // Fetch advertisements with pagination
+    // Fetch advertisements with needed relations
     const advertisements = await prisma.advertisement.findMany({
       where,
       select: {
         idAdvertisement: true,
         title: true,
+        price: true,
         startDate: true,
         endDate: true,
         serviceStartTime: true,
         serviceEndTime: true,
-        Images: {
+        Service: {
           select: {
-            imageUrl: true,
+            idService: true,
+            name: true,
           },
-          orderBy: {
-            order: "asc",
-          },
+        },
+        Images: {
+          select: { imageUrl: true },
+          orderBy: { order: "asc" },
           take: 1,
         },
         AdvertisementSpieces: {
           select: {
             spiece: {
-              select: {
-                name: true,
-              },
+              select: { name: true },
             },
           },
         },
@@ -215,10 +231,17 @@ export async function GET(request: NextRequest) {
     const mappedAdvertisements = advertisements.map((ad) => ({
       id: ad.idAdvertisement,
       title: ad.title,
+      price: ad.price,
+      serviceId: ad.Service.idService,
+      serviceName: ad.Service.name,
       startDate: ad.startDate,
       endDate: ad.endDate,
-      serviceStartTime: ad.serviceStartTime ? ad.serviceStartTime.toTimeString().slice(0, 5) : null,
-      serviceEndTime: ad.serviceEndTime ? ad.serviceEndTime.toTimeString().slice(0, 5) : null,
+      serviceStartTime: ad.serviceStartTime
+        ? ad.serviceStartTime.toTimeString().slice(0, 5)
+        : null,
+      serviceEndTime: ad.serviceEndTime
+        ? ad.serviceEndTime.toTimeString().slice(0, 5)
+        : null,
       keyImage: ad.Images[0]?.imageUrl || null,
       species: ad.AdvertisementSpieces.map((s) => s.spiece.name),
       city: {
@@ -240,7 +263,10 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error("Error fetching advertisements:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
   } finally {
     await prisma.$disconnect();
   }

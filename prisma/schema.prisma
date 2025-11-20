@@ -194,10 +194,10 @@ model Feedback {
 }
 
 model Review {
-  idReview   Int      @id @default(autoincrement())
-  rating     Int
-  comment    String?  @db.VarChar(1000)
-  createdAt  DateTime @default(now())
+  idReview  Int      @id @default(autoincrement())
+  rating    Int
+  comment   String?  @db.VarChar(1000)
+  createdAt DateTime @default(now())
 
   Client                              Client           @relation(fields: [Client_idClient], references: [idClient])
   Client_idClient                     Int
