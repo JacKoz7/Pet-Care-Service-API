@@ -914,9 +914,11 @@ export async function DELETE(
           Advertisement_idAdvertisement: idNum,
         },
       });
-      await tx.feedback.deleteMany({
+      await tx.review.deleteMany({
         where: {
-          Advertisement_idAdvertisement: idNum,
+          Booking: {
+            advertisementId: idNum,
+          },
         },
       });
       await tx.archive.deleteMany({
