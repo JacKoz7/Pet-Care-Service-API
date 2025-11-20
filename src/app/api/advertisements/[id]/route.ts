@@ -26,7 +26,7 @@ function extractPathFromSignedUrl(url: string): string | null {
  * /api/advertisements/{id}:
  *   get:
  *     summary: Get an advertisement by ID
- *     description: Retrieves detailed information about a specific advertisement, including title, description, price, status, dates, service provider details, city, service name, images, and species.
+ *     description: Retrieves detailed information about a specific advertisement, including title, description, price, status, dates, service provider details (with profile picture), city, service name, images, and species.
  *     tags: [Advertisements]
  *     parameters:
  *       - in: path
@@ -51,54 +51,43 @@ function extractPathFromSignedUrl(url: string): string | null {
  *                   properties:
  *                     id:
  *                       type: integer
- *                       description: The ID of the advertisement
  *                       example: 1
  *                     title:
  *                       type: string
- *                       description: The title of the advertisement
  *                       example: "Professional Dog Walking"
  *                     description:
  *                       type: string
  *                       nullable: true
- *                       description: The description of the advertisement
  *                       example: "Daily dog walking services in Warsaw"
  *                     price:
  *                       type: number
  *                       nullable: true
- *                       description: The price of the service
  *                       example: 50.0
  *                     status:
  *                       type: string
  *                       enum: [ACTIVE, INACTIVE, PENDING, BOOKED]
- *                       description: The status of the advertisement
  *                       example: ACTIVE
  *                     startDate:
  *                       type: string
  *                       format: date-time
- *                       description: The start date of the advertisement
  *                       example: "2025-09-26T00:00:00Z"
  *                     endDate:
  *                       type: string
  *                       format: date-time
- *                       description: The end date of the advertisement
  *                       example: "2025-11-25T00:00:00Z"
  *                     serviceStartTime:
  *                       type: string
  *                       nullable: true
- *                       description: The start time of the service (HH:mm format)
  *                       example: "09:00"
  *                     serviceEndTime:
  *                       type: string
  *                       nullable: true
- *                       description: The end time of the service (HH:mm format)
  *                       example: "17:00"
  *                     serviceProviderId:
  *                       type: integer
- *                       description: The ID of the service provider
  *                       example: 1
  *                     service:
  *                       type: string
- *                       description: The name of the service
  *                       example: "Dog Walking"
  *                     provider:
  *                       type: object
@@ -106,41 +95,38 @@ function extractPathFromSignedUrl(url: string): string | null {
  *                         firstName:
  *                           type: string
  *                           nullable: true
- *                           description: The first name of the service provider
  *                           example: "John"
  *                         lastName:
  *                           type: string
  *                           nullable: true
- *                           description: The last name of the service provider
  *                           example: "Doe"
  *                         phoneNumber:
  *                           type: string
  *                           nullable: true
- *                           description: The phone number of the service provider
  *                           example: "123456789"
+ *                         profilePictureUrl:                # ← NOWE POLE
+ *                           type: string
+ *                           nullable: true
+ *                           description: URL zdjęcia profilowego service providera
+ *                           example: "https://storage.googleapis.com/your-bucket/users/abc123/profile.jpg"
  *                         averageRating:
  *                           type: number
- *                           description: The average rating of the service provider
  *                           example: 4.5
  *                         totalReviews:
  *                           type: integer
- *                           description: The total number of reviews for the service provider
  *                           example: 10
  *                     city:
  *                       type: object
  *                       properties:
  *                         idCity:
  *                           type: integer
- *                           description: The ID of the city
  *                           example: 1
  *                         name:
  *                           type: string
- *                           description: The name of the city
  *                           example: "Warsaw"
  *                         imageUrl:
  *                           type: string
  *                           nullable: true
- *                           description: The URL of the city image
  *                           example: "https://example.com/city.jpg"
  *                     images:
  *                       type: array
@@ -149,12 +135,10 @@ function extractPathFromSignedUrl(url: string): string | null {
  *                         properties:
  *                           imageUrl:
  *                             type: string
- *                             description: The URL of the advertisement image
  *                             example: "https://example.com/image.jpg"
  *                           order:
  *                             type: integer
  *                             nullable: true
- *                             description: The order of the image
  *                             example: 1
  *                     species:
  *                       type: array
@@ -211,7 +195,14 @@ export async function GET(
                 firstName: true,
                 lastName: true,
                 phoneNumber: true,
-                City: true,
+                profilePictureUrl: true, // ← DODANE!
+                City: {
+                  select: {
+                    idCity: true,
+                    name: true,
+                    imageUrl: true,
+                  },
+                },
               },
             },
           },
@@ -255,12 +246,8 @@ export async function GET(
         Service_Provider_idService_Provider:
           advertisement.Service_Provider.idService_Provider,
       },
-      _avg: {
-        rating: true,
-      },
-      _count: {
-        idReview: true,
-      },
+      _avg: { rating: true },
+      _count: { idReview: true },
     });
 
     const averageRating = reviewsAggregate._avg.rating || 0;
@@ -288,6 +275,8 @@ export async function GET(
           firstName: advertisement.Service_Provider.User.firstName,
           lastName: advertisement.Service_Provider.User.lastName,
           phoneNumber: advertisement.Service_Provider.User.phoneNumber,
+          profilePictureUrl:
+            advertisement.Service_Provider.User.profilePictureUrl, // ← ZWRACANE!
           averageRating,
           totalReviews,
         },
