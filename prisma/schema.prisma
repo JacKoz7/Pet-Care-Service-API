@@ -56,32 +56,10 @@ model Service_Provider {
   Advertisements         Advertisement[]
   ArchivedAdvertisements AdvertisementArchive[] @relation("ServiceProviderToAdvertisementArchive")
   Bookings               Booking[]
-  Availabilities         Availability[]
-  Feedbacks              Feedback[]
   Reports                Report[]
   Reviews                Review[]
 
   @@map("service__provider")
-}
-
-model Availability {
-  idAvailability Int       @id @default(autoincrement())
-  dayOfWeek      DayOfWeek
-  startTime      DateTime  @db.Time
-  endTime        DateTime  @db.Time
-
-  Service_Provider                    Service_Provider @relation(fields: [Service_Provider_idService_Provider], references: [idService_Provider])
-  Service_Provider_idService_Provider Int
-}
-
-enum DayOfWeek {
-  Monday
-  Tuesday
-  Wednesday
-  Thursday
-  Friday
-  Saturday
-  Sunday
 }
 
 model Advertisement {
@@ -100,7 +78,6 @@ model Advertisement {
   Service_Provider                    Service_Provider    @relation(fields: [Service_Provider_idService_Provider], references: [idService_Provider])
   Service_Provider_idService_Provider Int
 
-  Feedbacks            Feedback[]
   Archives             Archive[]
   Images               AdvertisementImage[]
   SavedBy              SavedAdvertisement[]
@@ -173,24 +150,10 @@ model Client {
   User_idUser Int
 
   Bookings            Booking[]
-  Feedbacks           Feedback[]
   Pets                Pet[]
   SavedAdvertisements SavedAdvertisement[]
   Reports             Report[]
   Reviews             Review[]
-}
-
-model Feedback {
-  idFeedback  Int     @id @default(autoincrement())
-  rate        Decimal @db.Decimal(2, 1)
-  description String? @db.VarChar(500)
-
-  Client                              Client           @relation(fields: [Client_idClient], references: [idClient])
-  Client_idClient                     Int
-  Advertisement                       Advertisement    @relation(fields: [Advertisement_idAdvertisement], references: [idAdvertisement])
-  Advertisement_idAdvertisement       Int
-  Service_Provider                    Service_Provider @relation(fields: [Service_Provider_idService_Provider], references: [idService_Provider])
-  Service_Provider_idService_Provider Int
 }
 
 model Review {
@@ -207,32 +170,6 @@ model Review {
   Booking_idBooking                   Int              @unique
 
   @@index([Service_Provider_idService_Provider])
-}
-
-enum Sex {
-  MALE
-  FEMALE
-  UNKNOWN
-}
-
-enum ActivityLevel {
-  LOW
-  MEDIUM
-  HIGH
-}
-
-enum DietType {
-  DRY
-  WET
-  BARF
-  HOMEMADE
-  OTHER
-}
-
-enum EnvironmentType {
-  INDOOR
-  OUTDOOR
-  MIXED
 }
 
 enum Severity {
