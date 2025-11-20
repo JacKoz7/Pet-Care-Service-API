@@ -262,6 +262,7 @@ const species = [
   "Mysz",
   "Szczur",
   "Papuga",
+  "Aligator",
   "Małpa",
   "Inne",
 ];
