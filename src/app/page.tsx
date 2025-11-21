@@ -1,7 +1,6 @@
-"use client";
-import Dashboard from "./components/dashboard/Dashboard";
+import ApiDoc from "./docs/page";
 
 export default function Home() {
 
-  return <Dashboard />;
+  return <ApiDoc />;
 }
