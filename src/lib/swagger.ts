@@ -29,7 +29,7 @@ export const getApiDocs = async (): Promise<OpenApiSpec> => {
     definition: {
       openapi: "3.0.0",
       info: {
-        title: "Pet Care Service API",
+        title: "PetStayTion API",
         version: "1.0.0",
         description: "API for pet care service management",
       },
