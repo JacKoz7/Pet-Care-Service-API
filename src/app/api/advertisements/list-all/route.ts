@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
-import { Prisma, PrismaClient } from "@prisma/client";
+import { NextResponse } from "next/server";
+import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
@@ -7,26 +7,12 @@ const prisma = new PrismaClient();
  * @swagger
  * /api/advertisements/list-all:
  *   get:
- *     summary: Get ALL active advertisements without pagination
+ *     summary: Get ALL active advertisements
  *     description: |
  *       Retrieves a flat list of all active advertisements in the system.
- *       This endpoint is optimized for client-side filtering and map displays.
- *       It DOES NOT support pagination parameters (page/pageSize).
- *       It supports basic pre-filtering (search/city) to optimize payload size.
+ *       No filtering, no pagination - just everything.
+ *       All filtering happens on the frontend.
  *     tags: [Advertisements]
- *     parameters:
- *       - in: query
- *         name: search
- *         schema:
- *           type: string
- *         description: Optional text search to pre-filter advertisements by title (case-insensitive)
- *         example: "Pet sitting"
- *       - in: query
- *         name: cityId
- *         schema:
- *           type: integer
- *         description: Optional filter by city ID
- *         example: 1
  *     responses:
  *       200:
  *         description: Full list of advertisements retrieved successfully
@@ -105,37 +91,12 @@ const prisma = new PrismaClient();
  *       500:
  *         description: Internal server error
  */
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    const { searchParams } = new URL(request.url);
-    const search = searchParams.get("search") || "";
-    const cityId = searchParams.get("cityId")
-      ? parseInt(searchParams.get("cityId")!)
-      : null;
-
-    // Budujemy where clause (status ACTIVE jest obowiązkowy)
-    const where: Prisma.AdvertisementWhereInput = {
-      status: "ACTIVE",
-    };
-
-    if (search) {
-      where.title = {
-        contains: search,
-        mode: "insensitive",
-      };
-    }
-
-    if (cityId) {
-      where.Service_Provider = {
-        User: {
-          City_idCity: cityId,
-        },
-      };
-    }
-
-    // UWAGA: Brak skip/take -> pobieramy wszystko co pasuje
     const advertisements = await prisma.advertisement.findMany({
-      where,
+      where: {
+        status: "ACTIVE",
+      },
       select: {
         idAdvertisement: true,
         title: true,
