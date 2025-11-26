@@ -43,7 +43,7 @@ export default function Page() {
   // Redirect if user is logged in
   useEffect(() => {
     if (!loading && user) {
-      router.push("/"); // Redirect to main page
+      router.push("/dashboard"); // Redirect to main page
     }
   }, [user, loading, router]);
 

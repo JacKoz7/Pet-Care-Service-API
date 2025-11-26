@@ -752,7 +752,7 @@ export async function PUT(
  *     summary: Delete an advertisement
  *     description: |
  *       Archives an advertisement by moving it to the AdvertisementArchive table and deletes it from the Advertisement table.
- *       Also deletes associated images from Firebase Storage, feedback, and archive records.
+ *       Also deletes associated images from Firebase Storage, feedback, archive records, and saved advertisements.
  *       Only the advertisement owner (matching service provider) can delete the advertisement.
  *     tags: [Advertisements]
  *     security:
@@ -929,6 +929,11 @@ export async function DELETE(
       await tx.advertisementSpiece.deleteMany({
         where: {
           advertisementId: idNum,
+        },
+      });
+      await tx.savedAdvertisement.deleteMany({
+        where: {
+          Advertisement_idAdvertisement: idNum,
         },
       });
       await tx.advertisement.delete({

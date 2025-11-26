@@ -1,22 +1,22 @@
-// Zaktualizowany Dashboard.tsx (usunięto obsługę query params ?payment=success/cancelled, bo teraz jest osobna strona)
+
 "use client";
 
-import { auth } from "../../firebase";
+import { auth } from "../firebase";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { useRouter } from "next/navigation";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { sendEmailVerification, signOut } from "firebase/auth";
 import { IconAlertCircle, IconRefresh, IconLogout } from "@tabler/icons-react";
 
-import HeaderSection from "./HeaderSection";
-import ActionButtons from "./ActionButtons";
-import DiagnoseSection from "./DiagnoseSection";
-import SearchBar from "./SearchBar";
-import CitiesSection from "./CitiesSection";
-import AdsSection from "./AdsSection";
-import FeaturesSection from "./FeaturesSection";
-import NotificationsSection from "./NotificationsSection";
-import ClientNotificationsSection from "./ClientNotificationsSection";
+import HeaderSection from "../components/dashboard/HeaderSection";
+import ActionButtons from "../components/dashboard/ActionButtons";
+import DiagnoseSection from "../components/dashboard/DiagnoseSection";
+import SearchBar from "../components/dashboard/SearchBar";
+import CitiesSection from "../components/dashboard/CitiesSection";
+import AdsSection from "../components/dashboard/AdsSection";
+import FeaturesSection from "../components/dashboard/FeaturesSection";
+import NotificationsSection from "../components/dashboard/NotificationsSection";
+import ClientNotificationsSection from "../components/dashboard/ClientNotificationsSection";
 
 interface City {
   idCity: number;
