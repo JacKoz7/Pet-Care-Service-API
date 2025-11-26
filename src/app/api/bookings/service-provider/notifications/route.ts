@@ -1,4 +1,3 @@
-// src/app/api/bookings/notifications/service-provider/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { adminAuth } from "@/lib/firebaseAdmin";
@@ -71,7 +70,14 @@ export async function GET(request: NextRequest) {
           { status: "PAID", updatedAt: { gte: threeMonthsAgo } },
         ],
       },
-      include: {
+      select: {
+        idBooking: true,
+        status: true,
+        startDateTime: true,
+        endDateTime: true,
+        message: true,
+        advertisementId: true, // Added: Include advertisementId in the query
+        updatedAt: true,
         Pets: {
           include: {
             Pet: {
@@ -153,6 +159,7 @@ export async function GET(request: NextRequest) {
       startDateTime: booking.startDateTime,
       endDateTime: booking.endDateTime,
       message: booking.message,
+      advertisementId: booking.advertisementId, // Added: Include advertisementId in the response
       pets: booking.Pets.map((bp) => ({
         id: bp.Pet.idPet,
         name: bp.Pet.name,
@@ -208,7 +215,7 @@ export async function GET(request: NextRequest) {
  *       Automatically updates booking status to AWAITING_PAYMENT if end date has passed, and to OVERDUE if 48h after end date without payment.
  *       Requires a valid Firebase authentication token.
  *       Only available to active service providers.
- *       Returns details about all pets in the booking, client (name, email, phone), message, booking times, and status.
+ *       Returns details about all pets in the booking, client (name, email, phone), message, booking times, status, and advertisement ID.
  *     tags: [Bookings]
  *     security:
  *       - BearerAuth: []
@@ -247,6 +254,10 @@ export async function GET(request: NextRequest) {
  *                         type: string
  *                         nullable: true
  *                         example: "Please confirm the exact hours."
+ *                       advertisementId:
+ *                         type: integer
+ *                         nullable: true
+ *                         example: 123
  *                       pets:
  *                         type: array
  *                         items:
