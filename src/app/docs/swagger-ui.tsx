@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { SwaggerUIBundle } from 'swagger-ui-dist'; // Use named export from swagger-ui-dist
-import 'swagger-ui-dist/swagger-ui.css'; // Ensure CSS is included
+import { SwaggerUIBundle } from 'swagger-ui-dist'; 
+import 'swagger-ui-dist/swagger-ui.css'; 
 import { OpenApiSpec } from '@/lib/swagger';
 
 interface Props {
@@ -17,7 +17,7 @@ function ReactSwagger({ spec }: Props) {
       SwaggerUIBundle({
         dom_id: '#swagger',
         spec,
-        presets: [SwaggerUIBundle.presets.apis], // Use SwaggerUIBundle.presets.apis
+        presets: [SwaggerUIBundle.presets.apis], 
       });
     }
   }, [spec]);
