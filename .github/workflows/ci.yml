@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - refactor/code-and-docs-cleanup
+      - feature/add-tests
 
 jobs:
   check:

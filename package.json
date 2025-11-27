@@ -14,6 +14,7 @@
     "migrate-deploy": "prisma migrate deploy",
     "db-push": "prisma db push",
     "test": "jest",
+    "test:integration": "NODE_ENV=development jest --testMatch=\"**/__tests__/**/*.integration.test.ts\" --testTimeout=30000",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage"
   },
