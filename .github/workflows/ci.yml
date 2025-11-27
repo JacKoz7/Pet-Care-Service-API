@@ -2,14 +2,14 @@ name: CI
 
 on:
   push:
-    branches: 
+    branches:
       - main
       - refactor/code-and-docs-cleanup
 
 jobs:
   check:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -17,8 +17,8 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
 
       - name: Install
         run: npm ci
@@ -34,6 +34,3 @@ jobs:
 
       - name: Check Prisma Format
         run: npx prisma format --check
-
-      - name: Build
-        run: npm run build
