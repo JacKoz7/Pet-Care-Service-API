@@ -85,15 +85,6 @@ export async function DELETE(
 
     // Start transaction
     await prisma.$transaction(async (tx) => {
-      // Delete feedbacks and bookings related to user
-      await tx.feedback.deleteMany({
-        where: {
-          OR: [
-            { Client_idClient: { in: clientIds } },
-            { Service_Provider_idService_Provider: { in: spIds } },
-          ],
-        },
-      });
 
       await tx.booking.deleteMany({
         where: {
@@ -142,11 +133,6 @@ export async function DELETE(
       // Delete advertisement archives
       await tx.advertisementArchive.deleteMany({
         where: { serviceProviderId: { in: spIds } },
-      });
-
-      // Delete availabilities
-      await tx.availability.deleteMany({
-        where: { Service_Provider_idService_Provider: { in: spIds } },
       });
 
       // Delete clients and service providers

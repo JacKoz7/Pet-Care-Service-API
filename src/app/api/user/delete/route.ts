@@ -62,16 +62,7 @@ export async function DELETE(request: NextRequest) {
 
     // Start transaction
     await prisma.$transaction(async (tx) => {
-      // Delete feedbacks related to user
-      await tx.feedback.deleteMany({
-        where: {
-          OR: [
-            { Client_idClient: { in: clientIds } },
-            { Service_Provider_idService_Provider: { in: spIds } },
-          ],
-        },
-      });
-
+      
       // Delete reviews (both given and received)
       await tx.review.deleteMany({
         where: {
