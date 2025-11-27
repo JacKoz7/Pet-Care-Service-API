@@ -1,5 +1,7 @@
 // src/app/components/ActionButtons.tsx
 import { User } from "firebase/auth";
+import { signOut } from "firebase/auth";
+import { auth } from "../../firebase";
 import {
   IconStar,
   IconBug,
@@ -7,6 +9,7 @@ import {
   IconList,
   IconUserShield,
   IconBell,
+  IconLogout,
 } from "@tabler/icons-react";
 import { useRouter } from "next/navigation";
 
@@ -53,6 +56,25 @@ export default function ActionButtons({
     router.push("/admin");
   };
 
+  if (!user) {
+    return (
+      <div className="flex justify-center space-x-4 mb-4">
+        <button
+          onClick={() => router.push("/sign-in")}
+          className="bg-blue-500 text-white px-6 py-2 rounded-xl font-medium hover:bg-blue-600 transition-all duration-300 transform hover:-translate-y-0.5 shadow-md hover:shadow-lg"
+        >
+          Sign In
+        </button>
+        <button
+          onClick={() => router.push("/sign-up")}
+          className="bg-green-500 text-white px-6 py-2 rounded-xl font-medium hover:bg-green-600 transition-all duration-300 transform hover:-translate-y-0.5 shadow-md hover:shadow-lg"
+        >
+          Sign Up
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="flex justify-between items-start mb-4">
       <div className="flex flex-col space-y-2">
@@ -88,6 +110,23 @@ export default function ActionButtons({
           >
             <IconUserShield size={18} className="mr-2" />
             Admin Panel
+          </button>
+        )}
+        {user && !isLoadingRole && (
+          <button
+            onClick={async () => {
+              try {
+                await signOut(auth);
+                router.push("/sign-in");
+              } catch (error) {
+                console.error("Logout error:", error);
+                alert("Error logging out. Please try again.");
+              }
+            }}
+            className="flex items-center bg-red-500 text-white px-4 py-2 rounded-xl font-medium hover:bg-red-600 transition-all duration-300 transform hover:-translate-y-0.5 shadow-md hover:shadow-lg"
+          >
+            <IconLogout size={18} className="mr-2" />
+            Logout
           </button>
         )}
       </div>
