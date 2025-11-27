@@ -1,5 +1,3 @@
-// src/app/api/user/me/route.ts (updated: add isVerified to GET response and update docs)
-
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { adminAuth } from "@/lib/firebaseAdmin";
@@ -44,7 +42,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // NEW: Check if email is verified in DB
+    // Check if email is verified in DB
     if (!user.isVerified) {
       return NextResponse.json(
         {
@@ -125,7 +123,7 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // NEW: Check if email is verified in DB before allowing updates
+    // Check if email is verified in DB before allowing updates
     if (!user.isVerified) {
       return NextResponse.json(
         {

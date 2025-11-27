@@ -1,5 +1,3 @@
-// app/api/user/check-role/route.ts (updated: add isVerified check)
-
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { adminAuth } from "@/lib/firebaseAdmin";
@@ -36,9 +34,8 @@ export async function GET(request: NextRequest) {
         ServiceProviders: {
           select: {
             idService_Provider: true,
-            isActive: true, // NEW: Select isActive to check for role
+            isActive: true, // Select isActive to check for role
           },
-          // No 'where'—fetch ALL for full ownership support
         },
         Clients: {
           select: {
@@ -52,7 +49,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // NEW: Check if email is verified in DB
+    // Check if email is verified in DB
     if (!user.isVerified) {
       return NextResponse.json(
         {

@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { petId, ...inputData } = body; // Extract petId and get the rest as inputData (without petId)
 
-    // Validate inputData (now without petId, but check required fields) - symptoms are now optional
+    // Validate inputData (now without petId, but check required fields) - symptoms are optional
     if (!inputData) {
       return NextResponse.json(
         { error: "Invalid input data" },
@@ -188,7 +188,6 @@ export async function POST(request: NextRequest) {
       throw new Error("AI response does not match required schema");
     }
 
-    // NOWOŚĆ: Jeśli overallHealth === "healthy", ustaw isHealthy na true dla peta
     if (diagnoses.overallHealth === "healthy") {
       await prisma.pet.update({
         where: { idPet: petId },
@@ -216,7 +215,7 @@ export async function POST(request: NextRequest) {
       success: true,
       analysisId: analysis.idAnalysis,
       diagnoses: diagnoses.diagnoses,
-      overallHealth: diagnoses.overallHealth, // NOWOŚĆ: Zwróć overallHealth
+      overallHealth: diagnoses.overallHealth, 
     });
   } catch (error) {
     console.error("Error performing analysis:", error);

@@ -1,4 +1,3 @@
-// archived advs - UPDATED TO INCLUDE species: string[]
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { adminAuth } from "@/lib/firebaseAdmin";
@@ -101,7 +100,7 @@ export async function GET(request: NextRequest) {
           ? ad.serviceEndTime.toTimeString().slice(0, 5)
           : null,
         keyImage,
-        species: [], // Species nie są zapisywane w archiwum – po restore będą puste
+        species: [], 
         city: {
           idCity: ad.Service_Provider.User.City.idCity,
           name: ad.Service_Provider.User.City.name,

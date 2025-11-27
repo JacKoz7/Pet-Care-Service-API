@@ -1,4 +1,3 @@
-// src/app/api/user/attributes/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 

@@ -1,4 +1,3 @@
-// src/app/api/bookings/service-provider/accept/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { adminAuth } from "@/lib/firebaseAdmin";

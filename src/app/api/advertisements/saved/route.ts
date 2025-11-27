@@ -1,4 +1,3 @@
-// src/app/api/advertisements/saved/route.ts - UPDATED WITH species: string[]
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { adminAuth } from "@/lib/firebaseAdmin";

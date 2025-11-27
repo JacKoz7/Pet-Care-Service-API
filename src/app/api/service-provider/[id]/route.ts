@@ -1,5 +1,3 @@
-// src/app/api/service-provider/[id]/route.ts
-
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 
@@ -40,7 +38,6 @@ export async function GET(
           },
         },
         Reviews: {
-          // ← poprawna nazwa z Twojego schematu: Reviews (z dużej litery, liczba mnoga)
           include: {
             Client: {
               include: {

@@ -1,5 +1,3 @@
-// Nowy endpoint: api/analysis/[id].ts (już istnieje, więc dodajemy DELETE handler)
-
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { adminAuth } from "@/lib/firebaseAdmin";
@@ -25,10 +23,10 @@ interface DiagnosesJson extends JsonObject {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> } // Dodano Promise<> dla Next.js 15+
+  { params }: { params: Promise<{ id: string }> } 
 ) {
   try {
-    const { id } = await params; // Await params!
+    const { id } = await params; 
     const analysisId = parseInt(id);
     if (isNaN(analysisId)) {
       return NextResponse.json(
@@ -93,7 +91,6 @@ export async function GET(
       );
     }
 
-    // Sprawdź, czy user jest właścicielem pet
     const isOwner = user.Clients.some(
       (client) => client.idClient === analysis.Pet.Client_idClient
     );
@@ -105,11 +102,9 @@ export async function GET(
       );
     }
 
-    // Zwróć dane bez wrażliwych info z Pet
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { Pet: _Pet, ...safeAnalysis } = analysis; // _Pet: unused intentionally (security)
+    const { Pet: _Pet, ...safeAnalysis } = analysis; 
 
-    // FIX: Type guard i assertion dla Json (może być null lub nie obiekt)
     if (!safeAnalysis.diagnoses || typeof safeAnalysis.diagnoses !== "object") {
       return NextResponse.json(
         { error: "Invalid diagnoses data" },
@@ -125,7 +120,6 @@ export async function GET(
       );
     }
 
-    // Teraz diagnosesData.diagnoses jest array!
     return NextResponse.json({
       idAnalysis: safeAnalysis.idAnalysis,
       createdAt: analysis.createdAt.toISOString(),

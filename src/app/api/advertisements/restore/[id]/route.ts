@@ -1,4 +1,3 @@
-// restore adv - UPDATED (species nie są przywracane, bo nie są zapisywane w archiwum)
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient, Prisma } from "@prisma/client";
 import { adminAuth } from "@/lib/firebaseAdmin";
@@ -142,7 +141,6 @@ export async function POST(
       ? JSON.parse(archivedAd.imagesUrls as string)
       : [];
 
-    // Transaction – species nie są przywracane (nie są zapisywane w archiwum)
     const restoredAd = await prisma.$transaction(async (tx) => {
       const newAd = await tx.advertisement.create({
         data: {
@@ -169,9 +167,6 @@ export async function POST(
           })),
         });
       }
-
-      // TODO: jeśli chcesz przywracać species, dodaj pole species Json? do AdvertisementArchive
-      // i tutaj recreate AdvertisementSpiece
 
       await tx.advertisementArchive.delete({
         where: {

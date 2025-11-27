@@ -1,4 +1,3 @@
-// src/app/api/advertisements/[id]/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient, Prisma, StatusAdvertisement } from "@prisma/client";
 import { adminAuth } from "@/lib/firebaseAdmin";
@@ -59,7 +58,7 @@ export async function GET(
                 firstName: true,
                 lastName: true,
                 phoneNumber: true,
-                profilePictureUrl: true, // ← DODANE!
+                profilePictureUrl: true, 
                 City: {
                   select: {
                     idCity: true,
@@ -140,7 +139,7 @@ export async function GET(
           lastName: advertisement.Service_Provider.User.lastName,
           phoneNumber: advertisement.Service_Provider.User.phoneNumber,
           profilePictureUrl:
-            advertisement.Service_Provider.User.profilePictureUrl, // ← ZWRACANE!
+            advertisement.Service_Provider.User.profilePictureUrl, 
           averageRating,
           totalReviews,
         },

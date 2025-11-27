@@ -1,12 +1,9 @@
-// src/app/api/user/verify-email/[firebaseUid]/route.ts (new file, replaces old)
-
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import admin from "firebase-admin";
 
 const prisma = new PrismaClient();
 
-// Initialize Firebase Admin if not already
 if (!admin.apps.length) {
   admin.initializeApp({
     credential: admin.credential.cert({
@@ -51,7 +48,6 @@ export async function PATCH(
     }
 
     if (user.isVerified) {
-      // Idempotent: already verified
       return NextResponse.json({ success: true });
     }
 

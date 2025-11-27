@@ -1,4 +1,3 @@
-// src/app/api/payments/create-become-session/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { adminAuth } from "@/lib/firebaseAdmin";

@@ -64,8 +64,8 @@ export async function GET(request: NextRequest) {
           { status: "PENDING" },
           { status: "CANCELLED", updatedAt: { gte: oneMonthAgo } },
           { status: "REJECTED", updatedAt: { gte: oneMonthAgo } },
-          { status: "ACCEPTED" }, // No time limit to catch ones needing update
-          { status: "AWAITING_PAYMENT" }, // No time limit
+          { status: "ACCEPTED" }, 
+          { status: "AWAITING_PAYMENT" }, 
           { status: "OVERDUE", updatedAt: { gte: threeMonthsAgo } },
           { status: "PAID", updatedAt: { gte: threeMonthsAgo } },
         ],
@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
         startDateTime: true,
         endDateTime: true,
         message: true,
-        advertisementId: true, // Added: Include advertisementId in the query
+        advertisementId: true, // Include advertisementId in the query
         updatedAt: true,
         Pets: {
           include: {
@@ -136,7 +136,7 @@ export async function GET(request: NextRequest) {
           where: { idBooking: booking.idBooking },
           data: { status: "AWAITING_PAYMENT", updatedAt: now },
         });
-        booking.status = "AWAITING_PAYMENT"; // Update local object
+        booking.status = "AWAITING_PAYMENT"; 
         booking.updatedAt = now;
       } else if (
         booking.status === "AWAITING_PAYMENT" &&
@@ -147,7 +147,7 @@ export async function GET(request: NextRequest) {
           where: { idBooking: booking.idBooking },
           data: { status: "OVERDUE", updatedAt: now },
         });
-        booking.status = "OVERDUE"; // Update local object
+        booking.status = "OVERDUE"; 
         booking.updatedAt = now;
       }
     }
@@ -159,7 +159,7 @@ export async function GET(request: NextRequest) {
       startDateTime: booking.startDateTime,
       endDateTime: booking.endDateTime,
       message: booking.message,
-      advertisementId: booking.advertisementId, // Added: Include advertisementId in the response
+      advertisementId: booking.advertisementId, // Include advertisementId in the response
       pets: booking.Pets.map((bp) => ({
         id: bp.Pet.idPet,
         name: bp.Pet.name,

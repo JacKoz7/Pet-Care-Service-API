@@ -1,4 +1,3 @@
-// src/app/api/advertisements/latest/route.ts
 import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 
@@ -13,13 +12,12 @@ export async function GET() {
       select: {
         idAdvertisement: true,
         title: true,
-        price: true, // ← nowe
+        price: true, 
         startDate: true,
         endDate: true,
         serviceStartTime: true,
         serviceEndTime: true,
         Service: {
-          // ← dodane
           select: {
             idService: true,
             name: true,
@@ -68,9 +66,9 @@ export async function GET() {
     const mappedAdvertisements = advertisements.map((ad) => ({
       id: ad.idAdvertisement,
       title: ad.title,
-      price: ad.price, // ← nowe
-      serviceId: ad.Service.idService, // ← nowe
-      serviceName: ad.Service.name, // ← nowe
+      price: ad.price, 
+      serviceId: ad.Service.idService, 
+      serviceName: ad.Service.name, 
       startDate: ad.startDate,
       endDate: ad.endDate,
       serviceStartTime: ad.serviceStartTime
