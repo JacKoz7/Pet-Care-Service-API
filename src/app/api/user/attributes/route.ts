@@ -10,7 +10,6 @@ export async function POST(request: NextRequest) {
     const { firebaseUid, email, firstName, lastName, phoneNumber, cityId } =
       body;
 
-    // Walidacja wymaganych pól
     if (!firebaseUid || !email || !cityId) {
       return NextResponse.json(
         { error: "Firebase UID, email, and cityId are required" },
@@ -18,7 +17,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Walidacja numeru telefonu (opcjonalna)
     if (
       phoneNumber &&
       (phoneNumber.length !== 9 || !/^\d+$/.test(phoneNumber))
@@ -29,7 +27,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Sprawdź czy miasto istnieje
     const city = await prisma.city.findUnique({
       where: { idCity: Number(cityId) },
     });
@@ -37,7 +34,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid city ID" }, { status: 400 });
     }
 
-    // Sprawdź czy użytkownik już istnieje w bazie danych
     const existingUser = await prisma.user.findFirst({
       where: {
         OR: [{ email: email }, { firebaseUid: firebaseUid }],
@@ -51,7 +47,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Dodaj użytkownika do bazy danych
     const newUser = await prisma.user.create({
       data: {
         firebaseUid: firebaseUid,
@@ -68,14 +63,12 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Utwórz klienta dla użytkownika
     await prisma.client.create({
       data: {
         User_idUser: newUser.idUser,
       },
     });
 
-    // Sprawdź, czy email to ADMIN_EMAIL z .env.local i utwórz Admina jeśli tak
     if (email === process.env.ADMIN_EMAIL) {
       await prisma.admin.create({
         data: {
@@ -107,129 +100,3 @@ export async function POST(request: NextRequest) {
     await prisma.$disconnect();
   }
 }
-
-/**
- * @swagger
- * /api/user/attributes:
- *   post:
- *     summary: Register a new user profile
- *     description: |
- *       Creates a new user in the database with attributes such as name, surname, phone number, and city.
- *       A client record is created automatically for the user.
- *       Authentication and password management are handled by Firebase — this endpoint only stores the user's Firebase UID and profile data.
- *     tags: [User]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - firebaseUid
- *               - email
- *               - cityId
- *             properties:
- *               firebaseUid:
- *                 type: string
- *                 description: Firebase UID of the user (from Firebase Auth)
- *                 example: "abcd1234efgh5678"
- *               email:
- *                 type: string
- *                 format: email
- *                 description: User email (must be unique)
- *                 example: "jane.doe@example.com"
- *               firstName:
- *                 type: string
- *                 description: Optional first name
- *                 example: "Jane"
- *               lastName:
- *                 type: string
- *                 description: Optional last name
- *                 example: "Doe"
- *               phoneNumber:
- *                 type: string
- *                 description: Optional 9-digit phone number
- *                 example: "123456789"
- *               cityId:
- *                 type: integer
- *                 description: Required ID of the city (foreign key)
- *                 example: 1
- *     responses:
- *       200:
- *         description: User profile created successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 user:
- *                   type: object
- *                   properties:
- *                     id:
- *                       type: integer
- *                       example: 42
- *                     firebaseUid:
- *                       type: string
- *                       example: "abcd1234efgh5678"
- *                     firstName:
- *                       type: string
- *                       nullable: true
- *                       example: "Jane"
- *                     lastName:
- *                       type: string
- *                       nullable: true
- *                       example: "Doe"
- *                     email:
- *                       type: string
- *                       example: "jane.doe@example.com"
- *                     phoneNumber:
- *                       type: string
- *                       nullable: true
- *                       example: "123456789"
- *                     city:
- *                       type: object
- *                       properties:
- *                         idCity:
- *                           type: integer
- *                           example: 1
- *                         name:
- *                           type: string
- *                           example: "Warszawa"
- *                         imageUrl:
- *                           type: string
- *                           nullable: true
- *                           example: "https://example.com/city.jpg"
- *       400:
- *         description: Invalid input (missing required fields, invalid phone number, or city not found)
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 error:
- *                   type: string
- *                   example: "Firebase UID, email, and cityId are required"
- *       409:
- *         description: User already exists
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 error:
- *                   type: string
- *                   example: "User already exists"
- *       500:
- *         description: Internal server error
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 error:
- *                   type: string
- *                   example: "Internal server error"
- */

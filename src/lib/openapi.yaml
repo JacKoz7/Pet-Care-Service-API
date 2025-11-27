@@ -1,0 +1,4102 @@
+openapi: 3.0.0
+info:
+  title: PetStayTion API
+  version: 1.0.0
+  description: API for pet care service management
+servers:
+  - url: /
+    description: Development server
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Diagnosis:
+      type: object
+      properties:
+        diseaseName:
+          type: string
+          example: "Zapalenie żołądka"
+        probability:
+          type: number
+          example: 0.72
+        riskLevel:
+          type: string
+          enum: [low, medium, high]
+          example: "high"
+        description:
+          type: string
+          example: "Stan zapalny błony śluzowej żołądka..."
+        confidenceReasoning:
+          type: string
+          example: "Wymioty + brak apetytu..."
+        recommendedActions:
+          type: array
+          items:
+            type: string
+          example: ["Odstawić karmę na 12h"]
+        recommendedTests:
+          type: array
+          items:
+            type: string
+          example: ["Badanie kału"]
+        requiresVetVisit:
+          type: boolean
+          example: true
+        urgency:
+          type: string
+          enum: [immediate, within_24h, within_72h, within_week]
+          example: "within_24h"
+        differential:
+          type: array
+          items:
+            type: string
+          example: ["zatrucie pokarmowe"]
+paths:
+  /api/advertisements/{id}:
+    get:
+      summary: Get an advertisement by ID
+      description: Retrieves detailed information about a specific advertisement, including title, description, price, status, dates, service provider details (with profile picture), city, service name, images, and species.
+      tags: [Advertisements]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: The ID of the advertisement to retrieve
+      responses:
+        "200":
+          description: Successfully retrieved the advertisement
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  advertisement:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                        example: 1
+                      title:
+                        type: string
+                        example: "Professional Dog Walking"
+                      description:
+                        type: string
+                        nullable: true
+                        example: "Daily dog walking services in Warsaw"
+                      price:
+                        type: number
+                        nullable: true
+                        example: 50.0
+                      status:
+                        type: string
+                        enum: [ACTIVE, INACTIVE, PENDING, BOOKED]
+                        example: ACTIVE
+                      startDate:
+                        type: string
+                        format: date-time
+                        example: "2025-09-26T00:00:00Z"
+                      endDate:
+                        type: string
+                        format: date-time
+                        example: "2025-11-25T00:00:00Z"
+                      serviceStartTime:
+                        type: string
+                        nullable: true
+                        example: "09:00"
+                      serviceEndTime:
+                        type: string
+                        nullable: true
+                        example: "17:00"
+                      serviceProviderId:
+                        type: integer
+                        example: 1
+                      service:
+                        type: string
+                        example: "Dog Walking"
+                      provider:
+                        type: object
+                        properties:
+                          firstName:
+                            type: string
+                            nullable: true
+                            example: "John"
+                          lastName:
+                            type: string
+                            nullable: true
+                            example: "Doe"
+                          phoneNumber:
+                            type: string
+                            nullable: true
+                            example: "123456789"
+                          profilePictureUrl:
+                            type: string
+                            nullable: true
+                            description: URL zdjęcia profilowego service providera
+                            example: "https://storage.googleapis.com/your-bucket/users/abc123/profile.jpg"
+                          averageRating:
+                            type: number
+                            example: 4.5
+                          totalReviews:
+                            type: integer
+                            example: 10
+                      city:
+                        type: object
+                        properties:
+                          idCity:
+                            type: integer
+                            example: 1
+                          name:
+                            type: string
+                            example: "Warsaw"
+                          imageUrl:
+                            type: string
+                            nullable: true
+                            example: "https://example.com/city.jpg"
+                      images:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            imageUrl:
+                              type: string
+                              example: "https://example.com/image.jpg"
+                            order:
+                              type: integer
+                              nullable: true
+                              example: 1
+                      species:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: integer
+                              example: 1
+                            name:
+                              type: string
+                              example: "Pies"
+        "400":
+          description: Invalid advertisement ID
+        "404":
+          description: Advertisement not found
+        "500":
+          description: Internal server error
+    put:
+      summary: Update an advertisement
+      description: |
+        Updates an existing advertisement owned by the authenticated service provider.
+        Supports updating title, description, price, status, dates, service times, service ID, images, and speciesIds.
+        Only the advertisement owner (matching service provider) can update, and the service provider must be active.
+        Images are handled via multipart/form-data: keepImageUrls (JSON array of URLs to keep), newImages (new files).
+      tags: [Advertisements]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: The ID of the advertisement to update
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                  description: The updated title of the advertisement
+                  example: "Updated Dog Walking Service"
+                description:
+                  type: string
+                  nullable: true
+                  description: The updated description of the advertisement
+                  example: "Updated daily dog walking services in Warsaw"
+                price:
+                  type: string
+                  nullable: true
+                  description: The updated price of the service
+                  example: "60.0"
+                status:
+                  type: string
+                  enum: [ACTIVE, INACTIVE]
+                  description: The updated status of the advertisement
+                  example: ACTIVE
+                startDate:
+                  type: string
+                  format: date-time
+                  description: The updated start date of the advertisement
+                  example: "2025-09-26T00:00:00Z"
+                endDate:
+                  type: string
+                  format: date-time
+                  description: The updated end date of the advertisement
+                  example: "2025-11-25T00:00:00Z"
+                serviceStartTime:
+                  type: string
+                  format: date-time
+                  nullable: true
+                  description: The updated start time of the service
+                  example: "2025-09-26T09:00:00Z"
+                serviceEndTime:
+                  type: string
+                  format: date-time
+                  nullable: true
+                  description: The updated end time of the service
+                  example: "2025-09-26T17:00:00Z"
+                serviceId:
+                  type: integer
+                  description: The ID of the service
+                  example: 1
+                keepImageUrls:
+                  type: string
+                  description: JSON array of existing image URLs to keep
+                  example: '["https://example.com/old-image.jpg"]'
+                newImages:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                speciesIds:
+                  type: string
+                  description: JSON array of species IDs
+                  example: "[1, 2]"
+                  nullable: true
+      responses:
+        "200":
+          description: Successfully updated the advertisement
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+        "400":
+          description: Invalid advertisement ID or invalid status value
+        "401":
+          description: Unauthorized (missing or invalid token)
+        "403":
+          description: User is not a service provider, not the owner, or not an active service provider
+        "404":
+          description: User or advertisement not found
+        "500":
+          description: Internal server error
+    delete:
+      summary: Delete an advertisement
+      description: |
+        Archives an advertisement by moving it to the AdvertisementArchive table and deletes it from the Advertisement table.
+        Also deletes associated images from Firebase Storage, feedback, archive records, and saved advertisements.
+        Only the advertisement owner (matching service provider) can delete the advertisement.
+      tags: [Advertisements]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: The ID of the advertisement to delete
+      responses:
+        "200":
+          description: Successfully deleted the advertisement
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+        "400":
+          description: Invalid advertisement ID
+        "401":
+          description: Unauthorized (missing or invalid token)
+        "403":
+          description: User is not a service provider or not the owner
+        "404":
+          description: User or advertisement not found
+        "500":
+          description: Internal server error
+
+  /api/advertisements/all:
+    get:
+      summary: Get all active advertisements with filtering and pagination
+      description: |
+        Retrieves all active advertisements in the system, with optional filtering by title and city, and pagination.
+        Returns detailed information including service name, price, species, and city of the service provider.
+        This endpoint is unprotected and accessible to all users.
+      tags: [Advertisements]
+      parameters:
+        - in: query
+          name: search
+          schema:
+            type: string
+          description: Search query to filter advertisements by title (case-insensitive)
+          example: "Dog Walking"
+        - in: query
+          name: cityId
+          schema:
+            type: integer
+          description: Filter advertisements by city ID
+          example: 1
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          description: Page number for pagination
+          example: 1
+        - in: query
+          name: pageSize
+          schema:
+            type: integer
+            default: 10
+          description: Number of advertisements per page (max 100)
+          example: 10
+      responses:
+        "200":
+          description: Advertisements retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  advertisements:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                          example: 1
+                        title:
+                          type: string
+                          example: "Professional Dog Walking in Warsaw"
+                        price:
+                          type: number
+                          nullable: true
+                          example: 120.00
+                        serviceId:
+                          type: integer
+                          example: 3
+                        serviceName:
+                          type: string
+                          example: "Opieka nad psem"
+                        startDate:
+                          type: string
+                          format: date-time
+                          example: "2025-09-26T00:00:00Z"
+                        endDate:
+                          type: string
+                          format: date-time
+                          nullable: true
+                          example: "2025-11-25T00:00:00Z"
+                        serviceStartTime:
+                          type: string
+                          nullable: true
+                          example: "09:00"
+                        serviceEndTime:
+                          type: string
+                          nullable: true
+                          example: "17:00"
+                        keyImage:
+                          type: string
+                          nullable: true
+                          example: "https://example.com/image.jpg"
+                        species:
+                          type: array
+                          items:
+                            type: string
+                          example: ["Pies", "Kot"]
+                        city:
+                          type: object
+                          properties:
+                            idCity:
+                              type: integer
+                              example: 1
+                            name:
+                              type: string
+                              example: "Warsaw"
+                            imageUrl:
+                              type: string
+                              nullable: true
+                              example: "https://example.com/city.jpg"
+                  pagination:
+                    type: object
+                    properties:
+                      page:
+                        type: integer
+                        example: 1
+                      pageSize:
+                        type: integer
+                        example: 10
+                      total:
+                        type: integer
+                        example: 50
+                      totalPages:
+                        type: integer
+                        example: 5
+        "400":
+          description: Invalid page number or page size
+        "500":
+          description: Internal server error
+
+  /api/advertisements/archived:
+    get:
+      summary: Get user's archived advertisements
+      description: |
+        Returns a list of archived (deleted) advertisements for the authenticated user who is a service provider.
+        Includes title, start date, end date, service hours, key image, species (always empty – not stored in archive), and city details.
+      tags: [Advertisements]
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Successfully retrieved archived advertisements
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  advertisements:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        originalId:
+                          type: integer
+                        title:
+                          type: string
+                        startDate:
+                          type: string
+                          format: date-time
+                        endDate:
+                          type: string
+                          format: date-time
+                          nullable: true
+                        serviceStartTime:
+                          type: string
+                          nullable: true
+                        serviceEndTime:
+                          type: string
+                          nullable: true
+                        keyImage:
+                          type: string
+                          nullable: true
+                        species:
+                          type: array
+                          items:
+                            type: string
+                          example: []
+                        city:
+                          type: object
+                          properties:
+                            idCity:
+                              type: integer
+                            name:
+                              type: string
+                            imageUrl:
+                              type: string
+                              nullable: true
+
+  /api/advertisements/latest:
+    get:
+      summary: Get 10 latest active advertisements
+      description: |
+        Returns the 10 most recently created active advertisements with full details including service info and price.
+      tags: [Advertisements]
+      responses:
+        "200":
+          description: Latest advertisements retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  advertisements:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                          example: 42
+                        title:
+                          type: string
+                          example: "Spacer z psem w centrum Warszawy"
+                        price:
+                          type: number
+                          nullable: true
+                          example: 85.00
+                        serviceId:
+                          type: integer
+                          example: 2
+                        serviceName:
+                          type: string
+                          example: "Wyprowadzanie psów"
+                        startDate:
+                          type: string
+                          format: date-time
+                        endDate:
+                          type: string
+                          format: date-time
+                          nullable: true
+                        serviceStartTime:
+                          type: string
+                          nullable: true
+                          example: "08:00"
+                        serviceEndTime:
+                          type: string
+                          nullable: true
+                          example: "20:00"
+                        keyImage:
+                          type: string
+                          nullable: true
+                          example: "https://example.com/ad-image.jpg"
+                        species:
+                          type: array
+                          items:
+                            type: string
+                          example: ["Pies"]
+                        city:
+                          type: object
+                          properties:
+                            idCity:
+                              type: integer
+                              example: 1
+                            name:
+                              type: string
+                              example: "Warszawa"
+                            imageUrl:
+                              type: string
+                              nullable: true
+                              example: "https://example.com/warsaw.jpg"
+
+  /api/advertisements/list-all:
+    get:
+      summary: Get ALL active advertisements
+      description: |
+        Retrieves a flat list of all active advertisements in the system.
+        No filtering, no pagination - just everything.
+        All filtering happens on the frontend.
+      tags: [Advertisements]
+      responses:
+        "200":
+          description: Full list of advertisements retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  count:
+                    type: integer
+                    description: Total number of items returned
+                    example: 42
+                  advertisements:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                          example: 101
+                        title:
+                          type: string
+                          example: "Professional Dog Walking"
+                        price:
+                          type: number
+                          nullable: true
+                          example: 50.00
+                        serviceId:
+                          type: integer
+                          example: 2
+                        serviceName:
+                          type: string
+                          example: "Spacer"
+                        startDate:
+                          type: string
+                          format: date-time
+                          example: "2025-01-01T00:00:00Z"
+                        endDate:
+                          type: string
+                          format: date-time
+                          nullable: true
+                          example: "2025-12-31T00:00:00Z"
+                        serviceStartTime:
+                          type: string
+                          nullable: true
+                          example: "08:00"
+                        serviceEndTime:
+                          type: string
+                          nullable: true
+                          example: "16:00"
+                        keyImage:
+                          type: string
+                          nullable: true
+                          example: "https://example.com/img.jpg"
+                        species:
+                          type: array
+                          items:
+                            type: string
+                          example: ["Pies", "Kot"]
+                        city:
+                          type: object
+                          properties:
+                            idCity:
+                              type: integer
+                              example: 1
+                            name:
+                              type: string
+                              example: "Warsaw"
+                            imageUrl:
+                              type: string
+                              nullable: true
+                              example: "https://example.com/waw.jpg"
+        "500":
+          description: Internal server error
+
+  /api/advertisements/restore/{id}:
+    post:
+      summary: Restore an archived advertisement
+      description: |
+        Restores an archived advertisement to the Advertisement table and deletes it from AdvertisementArchive.
+        Only the owner (matching serviceProviderId) who is an active service provider can restore.
+        Ensures the title is unique for the service provider before restoration.
+      tags: [Advertisements]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: Archive ID (idAdvertisementArchive)
+      responses:
+        "200":
+          description: Advertisement restored successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  advertisementId:
+                    type: integer
+                    description: ID of the restored advertisement
+                    example: 101
+        "400":
+          description: Invalid archive ID or title already exists
+        "401":
+          description: Unauthorized (invalid or missing token)
+        "403":
+          description: Forbidden (not owner or not active service provider)
+        "404":
+          description: Archived advertisement or user not found
+        "500":
+          description: Internal server error
+
+  /api/advertisements/saved:
+    get:
+      summary: Get all saved advertisements for the authenticated client
+      description: |
+        Returns all saved advertisements for the authenticated user (client).
+        Includes title, startDate, endDate, serviceStartTime, serviceEndTime, keyImage (first image), and the service provider's city information for each advertisement.
+        Requires a valid Firebase authentication token.
+      tags: [Advertisements]
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Saved advertisements retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  advertisements:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                          example: 1
+                        title:
+                          type: string
+                          example: "Profesjonalne wyprowadzanie psów w centrum Warszawy"
+                        startDate:
+                          type: string
+                          format: date-time
+                          example: "2025-09-26T00:00:00Z"
+                        endDate:
+                          type: string
+                          format: date-time
+                          nullable: true
+                          example: "2025-11-25T00:00:00Z"
+                        serviceStartTime:
+                          type: string
+                          nullable: true
+                          example: "09:00"
+                        serviceEndTime:
+                          type: string
+                          nullable: true
+                          example: "17:00"
+                        keyImage:
+                          type: string
+                          nullable: true
+                          example: "https://images.unsplash.com/photo-1552053831-71594a27632d?w=500"
+                        city:
+                          type: object
+                          properties:
+                            idCity:
+                              type: integer
+                              example: 1
+                            name:
+                              type: string
+                              example: "Warszawa"
+                            imageUrl:
+                              type: string
+                              nullable: true
+                              example: "https://example.com/city.jpg"
+        "401":
+          description: Unauthorized (invalid or missing token)
+        "404":
+          description: User not found
+        "500":
+          description: Internal server error
+
+  /api/advertisements/saved/{id}:
+    post:
+      summary: Save an advertisement for the authenticated client
+      description: |
+        Saves the specified advertisement for the authenticated user (client).
+        If no client record exists, one is created automatically.
+        Requires a valid Firebase authentication token.
+      tags: [Advertisements]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: The ID of the advertisement to save
+      responses:
+        "200":
+          description: Advertisement saved successfully
+        "400":
+          description: Invalid advertisement ID
+        "401":
+          description: Unauthorized (invalid or missing token)
+        "404":
+          description: User or advertisement not found
+        "500":
+          description: Internal server error
+    delete:
+      summary: Remove a saved advertisement for the authenticated client
+      description: |
+        Removes the specified saved advertisement for the authenticated user (client).
+        Requires a valid Firebase authentication token.
+      tags: [Advertisements]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: The ID of the advertisement to remove from saved
+      responses:
+        "200":
+          description: Saved advertisement removed successfully
+        "400":
+          description: Invalid advertisement ID
+        "401":
+          description: Unauthorized (invalid or missing token)
+        "403":
+          description: Forbidden (user has no client association)
+        "404":
+          description: User or saved advertisement not found
+        "500":
+          description: Internal server error
+
+  /api/advertisements:
+    get:
+      summary: Get all advertisements for the authenticated user
+      description: |
+        Returns all advertisements for the authenticated user associated with any of their service providers.
+        Includes advertisements of all statuses. Only returns title, startDate, endDate, serviceStartTime, serviceEndTime, keyImage (first image), species, and the service provider's city information for each advertisement.
+        Requires a valid Firebase authentication token.
+      tags: [Advertisements]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+          description: Page number
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+          description: Number of items per page
+      responses:
+        "200":
+          description: Advertisements retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  advertisements:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                          example: 1
+                        title:
+                          type: string
+                          example: "Profesjonalne wyprowadzanie psów w centrum Warszawy"
+                        startDate:
+                          type: string
+                          format: date-time
+                          example: "2025-09-26T00:00:00Z"
+                        endDate:
+                          type: string
+                          format: date-time
+                          nullable: true
+                          example: "2025-11-25T00:00:00Z"
+                        serviceStartTime:
+                          type: string
+                          nullable: true
+                          example: "09:00"
+                        serviceEndTime:
+                          type: string
+                          nullable: true
+                          example: "17:00"
+                        keyImage:
+                          type: string
+                          nullable: true
+                          example: "https://images.unsplash.com/photo-1552053831-71594a27632d?w=500"
+                        species:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              id:
+                                type: integer
+                                example: 1
+                              name:
+                                type: string
+                                example: "Pies"
+                        city:
+                          type: object
+                          properties:
+                            idCity:
+                              type: integer
+                              example: 1
+                            name:
+                              type: string
+                              example: "Warszawa"
+                            imageUrl:
+                              type: string
+                              nullable: true
+                              example: "https://example.com/city.jpg"
+                  pagination:
+                    type: object
+                    properties:
+                      page:
+                        type: integer
+                        example: 1
+                      limit:
+                        type: integer
+                        example: 20
+                      total:
+                        type: integer
+                        example: 50
+                      totalPages:
+                        type: integer
+                        example: 3
+        "401":
+          description: Unauthorized (invalid or missing token)
+        "404":
+          description: User not found
+        "500":
+          description: Internal server error
+    post:
+      summary: Create a new advertisement
+      description: |
+        Creates a new advertisement for the authenticated user who is an active service provider.
+        Requires a valid Firebase authentication token.
+        At least one image must be provided as multipart/form-data, and price must be a non-negative number if provided.
+        speciesIds is optional array of species IDs.
+      tags: [Advertisements]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - title
+                - startDate
+                - endDate
+                - serviceId
+                - images
+              properties:
+                title:
+                  type: string
+                  example: "Profesjonalne wyprowadzanie psów w centrum Warszawy"
+                description:
+                  type: string
+                  nullable: true
+                  example: "Oferuję profesjonalne wyprowadzanie psów..."
+                price:
+                  type: string
+                  nullable: true
+                  example: "25.0"
+                startDate:
+                  type: string
+                  format: date-time
+                  example: "2025-09-26T00:00:00Z"
+                endDate:
+                  type: string
+                  format: date-time
+                  example: "2025-11-25T00:00:00Z"
+                serviceStartTime:
+                  type: string
+                  nullable: true
+                  example: "1970-01-01T09:00:00Z"
+                serviceEndTime:
+                  type: string
+                  nullable: true
+                  example: "1970-01-01T17:00:00Z"
+                serviceId:
+                  type: integer
+                  example: 1
+                images:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: string
+                    format: binary
+                speciesIds:
+                  type: string
+                  description: JSON array of species IDs
+                  example: "[1, 2]"
+                  nullable: true
+      responses:
+        "200":
+          description: Advertisement created successfully
+        "400":
+          description: Missing required fields, no images provided, or invalid price or speciesIds
+        "401":
+          description: Unauthorized (invalid or missing token)
+        "403":
+          description: Forbidden (user is not an active service provider)
+        "404":
+          description: User or service not found
+        "409":
+          description: Conflict (advertisement with this title already exists for the user)
+        "500":
+          description: Internal server error
+  /api/admin/{firebaseUid}:
+    delete:
+      summary: Delete a user (admin only)
+      description: |
+        Deletes a user from both the database and Firebase Auth.
+        This operation is irreversible and will permanently remove all user data.
+        Requires admin authentication via Firebase ID token.
+      tags: [Admin]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: firebaseUid
+          required: true
+          schema:
+            type: string
+          description: Firebase UID of the user to delete
+          example: "abcd1234efgh5678"
+      responses:
+        "200":
+          description: User deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "User deleted successfully from both database and Firebase Auth"
+                  deletedUser:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                        example: 42
+                      firebaseUid:
+                        type: string
+                        example: "abcd1234efgh5678"
+                      email:
+                        type: string
+                        example: "jane.doe@example.com"
+                      firstName:
+                        type: string
+                        nullable: true
+                        example: "Jane"
+                      lastName:
+                        type: string
+                        nullable: true
+                        example: "Doe"
+        "400":
+          description: Invalid input (missing Firebase UID)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Firebase UID is required"
+        "401":
+          description: Unauthorized (invalid or missing token)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Invalid or expired token"
+        "403":
+          description: Forbidden (not an admin)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Unauthorized: Admin access required"
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "User not found"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Internal server error"
+
+  /api/admin/advertisements/{id}:
+    delete:
+      summary: Delete an advertisement (admin only)
+      description: |
+        Archives an advertisement by moving it to the AdvertisementArchive table and deletes it from the Advertisement table.
+        Also deletes associated images from Firebase Storage, feedbacks, and archive records.
+        This operation is irreversible for the original advertisement. Requires admin authentication via Firebase ID token.
+      tags: [Admin]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: The ID of the advertisement to delete
+          example: 1
+      responses:
+        "200":
+          description: Advertisement deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+        "400":
+          description: Invalid advertisement ID
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Invalid advertisement ID"
+        "401":
+          description: Unauthorized (invalid or missing token)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Invalid or expired token"
+        "403":
+          description: Forbidden (not an admin)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Unauthorized: Admin access required"
+        "404":
+          description: Advertisement not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Advertisement not found"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Internal server error"
+
+  /api/admin/pets:
+    get:
+      summary: Get all pets (admin only)
+      description: |
+        Retrieves a paginated list of all pets in the system.
+        Supports search by pet name.
+        Requires admin authentication via Firebase ID token.
+      tags: [Admin]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: query
+          name: search
+          schema:
+            type: string
+          description: Search term for pet name
+          example: "Max"
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          description: Page number for pagination
+          example: 1
+        - in: query
+          name: pageSize
+          schema:
+            type: integer
+            default: 10
+          description: Number of pets per page
+          example: 10
+      responses:
+        "200":
+          description: Pets retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  pets:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                          example: 1
+                        name:
+                          type: string
+                          example: "Max"
+                        age:
+                          type: number
+                          example: 5
+                        description:
+                          type: string
+                          nullable: true
+                        species:
+                          type: string
+                          example: "Dog"
+                        breed:
+                          type: string
+                          nullable: true
+                        keyImage:
+                          type: string
+                          nullable: true
+                        owner:
+                          type: object
+                          nullable: true
+                          properties:
+                            firstName:
+                              type: string
+                              nullable: true
+                            lastName:
+                              type: string
+                              nullable: true
+                            email:
+                              type: string
+                        isHealthy:
+                          type: boolean
+                          nullable: true
+                  pagination:
+                    type: object
+                    properties:
+                      page:
+                        type: integer
+                        example: 1
+                      pageSize:
+                        type: integer
+                        example: 10
+                      total:
+                        type: integer
+                        example: 50
+                      totalPages:
+                        type: integer
+                        example: 5
+        "400":
+          description: Invalid pagination parameters
+        "401":
+          description: Unauthorized (invalid or missing token)
+        "403":
+          description: Forbidden (not an admin)
+        "500":
+          description: Internal server error
+
+  /api/admin/pets/{id}:
+    delete:
+      summary: Delete a pet (admin only)
+      description: |
+        Deletes a pet and all associated data (images from Firebase Storage, analyses, archives).
+        This operation is irreversible. Requires admin authentication via Firebase ID token.
+      tags: [Admin]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: The ID of the pet to delete
+          example: 1
+      responses:
+        "200":
+          description: Pet deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+        "400":
+          description: Invalid pet ID
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Invalid pet ID"
+        "401":
+          description: Unauthorized (invalid or missing token)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Invalid or expired token"
+        "403":
+          description: Forbidden (not an admin)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Unauthorized: Admin access required"
+        "404":
+          description: Pet not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Pet not found"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Internal server error"
+
+  /api/admin/reports:
+    get:
+      summary: Get all non-payment reports (admin only)
+      description: |
+        Retrieves all payment reports submitted by service providers about clients who haven't paid for OVERDUE bookings.
+        Returns detailed information about:
+        - Booking details (dates, status, price, advertisement, pets)
+        - Client information (name, email, phone, Firebase UID)
+        - Service provider information (name, email, phone, Firebase UID)
+        - Report message and creation date
+        Requires admin authentication via Firebase ID token.
+        Results are sorted by creation date (newest first).
+      tags: [Admin]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 50
+          description: Number of reports to return per page
+          example: 50
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            default: 0
+          description: Offset for pagination (skip first N reports)
+          example: 0
+      responses:
+        "200":
+          description: Reports retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  reports:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                          example: 1
+                        message:
+                          type: string
+                          nullable: true
+                          example: "Client hasn't responded to payment reminders for over a week"
+                        createdAt:
+                          type: string
+                          format: date-time
+                          example: "2025-01-18T11:56:00Z"
+                        booking:
+                          type: object
+                          properties:
+                            id:
+                              type: integer
+                              example: 123
+                            startDateTime:
+                              type: string
+                              format: date-time
+                              example: "2025-01-10T10:00:00Z"
+                            endDateTime:
+                              type: string
+                              format: date-time
+                              example: "2025-01-10T12:00:00Z"
+                            status:
+                              type: string
+                              example: "OVERDUE"
+                            price:
+                              type: number
+                              nullable: true
+                              example: 150.00
+                            advertisement:
+                              type: string
+                              nullable: true
+                              example: "Dog walking service"
+                            pets:
+                              type: array
+                              items:
+                                type: object
+                                properties:
+                                  name:
+                                    type: string
+                                    example: "Max"
+                                  species:
+                                    type: string
+                                    example: "Dog"
+                        client:
+                          type: object
+                          properties:
+                            firebaseUid:
+                              type: string
+                              example: "abcd1234efgh5678"
+                            firstName:
+                              type: string
+                              nullable: true
+                              example: "John"
+                            lastName:
+                              type: string
+                              nullable: true
+                              example: "Doe"
+                            email:
+                              type: string
+                              nullable: true
+                              example: "john.doe@example.com"
+                            phoneNumber:
+                              type: string
+                              nullable: true
+                              example: "123456789"
+                        serviceProvider:
+                          type: object
+                          properties:
+                            firebaseUid:
+                              type: string
+                              example: "wxyz9876abcd4321"
+                            firstName:
+                              type: string
+                              nullable: true
+                              example: "Jane"
+                            lastName:
+                              type: string
+                              nullable: true
+                              example: "Smith"
+                            email:
+                              type: string
+                              nullable: true
+                              example: "jane.smith@example.com"
+                            phoneNumber:
+                              type: string
+                              nullable: true
+                              example: "987654321"
+                  total:
+                    type: integer
+                    description: Total number of reports in the database
+                    example: 15
+                  limit:
+                    type: integer
+                    example: 50
+                  offset:
+                    type: integer
+                    example: 0
+        "401":
+          description: Unauthorized (invalid or missing token)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Invalid or expired token"
+        "403":
+          description: Forbidden (not an admin)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Unauthorized: Admin access required"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Internal server error"
+
+  /api/admin/users:
+    get:
+      summary: Get all users (admin only)
+      description: |
+        Retrieves a paginated list of all users in the system.
+        Supports search by email, first name, or last name.
+        Requires admin authentication via Firebase ID token.
+      tags: [Admin]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: query
+          name: search
+          schema:
+            type: string
+          description: Search term for email, first name, or last name
+          example: "jane"
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+          description: Number of users to return
+          example: 10
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            default: 0
+          description: Offset for pagination
+          example: 0
+      responses:
+        "200":
+          description: Users retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  users:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                          example: 42
+                        firebaseUid:
+                          type: string
+                          example: "abcd1234efgh5678"
+                        firstName:
+                          type: string
+                          nullable: true
+                          example: "Jane"
+                        lastName:
+                          type: string
+                          nullable: true
+                          example: "Doe"
+                        email:
+                          type: string
+                          example: "jane.doe@example.com"
+                        phoneNumber:
+                          type: string
+                          nullable: true
+                          example: "123456789"
+                        profilePictureUrl:
+                          type: string
+                          nullable: true
+                        city:
+                          type: object
+                          properties:
+                            idCity:
+                              type: integer
+                              example: 1
+                            name:
+                              type: string
+                              example: "Warszawa"
+                            imageUrl:
+                              type: string
+                              nullable: true
+                        isAdmin:
+                          type: boolean
+                          example: false
+                        isServiceProvider:
+                          type: boolean
+                          example: false
+                        lastActive:
+                          type: string
+                          format: date-time
+                          nullable: true
+                  total:
+                    type: integer
+                    example: 50
+                  limit:
+                    type: integer
+                    example: 10
+                  offset:
+                    type: integer
+                    example: 0
+        "401":
+          description: Unauthorized (invalid or missing token)
+        "403":
+          description: Forbidden (not an admin)
+        "500":
+          description: Internal server error
+  /api/bookings:
+    post:
+      summary: Create a new booking (allows multiple pets)
+      description: |
+        Creates a new booking request for an advertisement, supporting multiple pets in a single booking.
+        Requires a valid Firebase authentication token.
+        The user must be a client (creates client record if none exists).
+        All pets must belong to the client.
+        The advertisement must exist and be active.
+      tags:
+        - Bookings
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - petIds
+                - advertisementId
+                - startDateTime
+                - endDateTime
+              properties:
+                petIds:
+                  type: array
+                  items:
+                    type: integer
+                  example:
+                    - 1
+                    - 2
+                advertisementId:
+                  type: integer
+                  example: 42
+                startDateTime:
+                  type: string
+                  format: date-time
+                  example: "2025-10-25T10:00:00Z"
+                endDateTime:
+                  type: string
+                  format: date-time
+                  example: "2025-10-25T12:00:00Z"
+                message:
+                  type: string
+                  nullable: true
+                  example: "Please confirm the exact hours."
+      responses:
+        "200":
+          description: Booking created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  booking:
+                    type: object
+                    properties:
+                      idBooking:
+                        type: integer
+                        example: 1
+                      startDateTime:
+                        type: string
+                        format: date-time
+                      endDateTime:
+                        type: string
+                        format: date-time
+                      message:
+                        type: string
+                        nullable: true
+                      status:
+                        type: string
+                        example: "PENDING"
+                      Client_idClient:
+                        type: integer
+                      Service_Provider_idService_Provider:
+                        type: integer
+                      advertisementId:
+                        type: integer
+                      price:
+                        type: number
+        "400":
+          description: Missing/invalid fields, invalid pets/advertisement, or date issues
+        "401":
+          description: Unauthorized (invalid or missing token)
+        "404":
+          description: User not found
+        "500":
+          description: Internal server error
+
+  /api/bookings/client/cancel:
+    post:
+      summary: Cancel a pending booking as client
+      description: |
+        Allows the authenticated client to cancel a pending booking.
+        Only pending bookings can be cancelled.
+        Requires a valid Firebase authentication token.
+        Only available to clients.
+      tags:
+        - Bookings
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                bookingId:
+                  type: integer
+                  example: 1
+                  description: The ID of the booking to cancel
+      responses:
+        "200":
+          description: Booking cancelled successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Booking cancelled successfully"
+        "400":
+          description: Bad request (invalid booking ID or not pending)
+        "401":
+          description: Unauthorized (invalid or missing token)
+        "403":
+          description: Forbidden (user is not a client or unauthorized for this booking)
+        "404":
+          description: Booking or user not found
+        "500":
+          description: Internal server error
+
+  /api/bookings/client/notifications:
+    get:
+      summary: Get recent booking notifications for client
+      description: |
+        Retrieves pending bookings (always) and recent completed/cancelled/rejected bookings within time windows for the authenticated client.
+        - PENDING: No time limit (always returned).
+        - CANCELLED/REJECTED: Only if updated within the last 1 month.
+        - ACCEPTED: No time limit (to check for status updates).
+        - AWAITING_PAYMENT: No time limit.
+        - OVERDUE: Only if updated within the last 3 months.
+        - PAID: Only if updated within the last 3 months.
+        Automatically updates booking status to AWAITING_PAYMENT if end date has passed, and to OVERDUE if 48h after end date without payment.
+        Requires a valid Firebase authentication token.
+        Only available to clients.
+        Returns details about all pets in the booking, service provider (name, email, phone), message, booking times, status, and advertisement ID.
+      tags:
+        - Bookings
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Recent bookings retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  bookings:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                          example: 1
+                        status:
+                          type: string
+                          enum:
+                            - PENDING
+                            - ACCEPTED
+                            - REJECTED
+                            - CANCELLED
+                            - AWAITING_PAYMENT
+                            - OVERDUE
+                            - PAID
+                          example: "PENDING"
+                        startDateTime:
+                          type: string
+                          format: date-time
+                          example: "2025-10-25T10:00:00Z"
+                        endDateTime:
+                          type: string
+                          format: date-time
+                          example: "2025-10-25T12:00:00Z"
+                        message:
+                          type: string
+                          nullable: true
+                          example: "Please confirm the exact hours."
+                        advertisementId:
+                          type: integer
+                          nullable: true
+                          example: 123
+                        pets:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              id:
+                                type: integer
+                                example: 1
+                              name:
+                                type: string
+                                example: "Max"
+                              age:
+                                type: number
+                                example: 5
+                              description:
+                                type: string
+                                nullable: true
+                                example: "Friendly dog"
+                              chronicDiseases:
+                                type: array
+                                items:
+                                  type: string
+                                example:
+                                  - "Allergies"
+                              isHealthy:
+                                type: boolean
+                                nullable: true
+                                example: true
+                              species:
+                                type: string
+                                example: "Dog"
+                              keyImage:
+                                type: string
+                                nullable: true
+                                example: "https://example.com/pet.jpg"
+                        provider:
+                          type: object
+                          properties:
+                            firstName:
+                              type: string
+                              nullable: true
+                              example: "Jane"
+                            lastName:
+                              type: string
+                              nullable: true
+                              example: "Smith"
+                            email:
+                              type: string
+                              nullable: true
+                              example: "jane.smith@example.com"
+                            phoneNumber:
+                              type: string
+                              nullable: true
+                              example: "987654321"
+        "401":
+          description: Unauthorized (invalid or missing token)
+        "403":
+          description: Forbidden (user is not a client)
+        "404":
+          description: User not found
+        "500":
+          description: Internal server error
+
+  /api/bookings/service-provider/accept:
+    post:
+      summary: Accept a pending booking as service provider
+      description: |
+        Allows the authenticated service provider to accept a pending booking.
+        Only pending bookings can be accepted.
+        Requires a valid Firebase authentication token.
+        Only available to active service providers.
+      tags:
+        - Bookings
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                bookingId:
+                  type: integer
+                  example: 1
+                  description: The ID of the booking to accept
+      responses:
+        "200":
+          description: Booking accepted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Booking accepted successfully"
+        "400":
+          description: Bad request (invalid booking ID or not pending)
+        "401":
+          description: Unauthorized (invalid or missing token)
+        "403":
+          description: Forbidden (user is not an active service provider or unauthorized for this booking)
+        "404":
+          description: Booking or user not found
+        "500":
+          description: Internal server error
+
+  /api/bookings/service-provider/notifications:
+    get:
+      summary: Get recent booking notifications for service provider
+      description: |
+        Retrieves pending bookings (always) and recent completed/cancelled/rejected bookings within time windows for the authenticated service provider.
+        - PENDING: No time limit (always returned).
+        - CANCELLED/REJECTED: Only if updated within the last 1 month.
+        - ACCEPTED: No time limit (to check for status updates).
+        - AWAITING_PAYMENT: No time limit.
+        - OVERDUE: Only if updated within the last 3 months.
+        - PAID: Only if updated within the last 3 months.
+        Automatically updates booking status to AWAITING_PAYMENT if end date has passed, and to OVERDUE if 48h after end date without payment.
+        Requires a valid Firebase authentication token.
+        Only available to active service providers.
+        Returns details about all pets in the booking, client (name, email, phone), message, booking times, status, and advertisement ID.
+      tags:
+        - Bookings
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Recent bookings retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  bookings:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                          example: 1
+                        status:
+                          type: string
+                          enum:
+                            - PENDING
+                            - ACCEPTED
+                            - REJECTED
+                            - CANCELLED
+                            - AWAITING_PAYMENT
+                            - OVERDUE
+                            - PAID
+                          example: "PENDING"
+                        startDateTime:
+                          type: string
+                          format: date-time
+                          example: "2025-10-25T10:00:00Z"
+                        endDateTime:
+                          type: string
+                          format: date-time
+                          example: "2025-10-25T12:00:00Z"
+                        message:
+                          type: string
+                          nullable: true
+                          example: "Please confirm the exact hours."
+                        advertisementId:
+                          type: integer
+                          nullable: true
+                          example: 123
+                        pets:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              id:
+                                type: integer
+                                example: 1
+                              name:
+                                type: string
+                                example: "Max"
+                              age:
+                                type: number
+                                example: 5
+                              description:
+                                type: string
+                                nullable: true
+                                example: "Friendly dog"
+                              chronicDiseases:
+                                type: array
+                                items:
+                                  type: string
+                                example:
+                                  - "Allergies"
+                              isHealthy:
+                                type: boolean
+                                nullable: true
+                                example: true
+                              species:
+                                type: string
+                                example: "Dog"
+                              keyImage:
+                                type: string
+                                nullable: true
+                                example: "https://example.com/pet.jpg"
+                        client:
+                          type: object
+                          properties:
+                            firstName:
+                              type: string
+                              nullable: true
+                              example: "John"
+                            lastName:
+                              type: string
+                              nullable: true
+                              example: "Doe"
+                            email:
+                              type: string
+                              nullable: true
+                              example: "john.doe@example.com"
+                            phoneNumber:
+                              type: string
+                              nullable: true
+                              example: "123456789"
+        "401":
+          description: Unauthorized (invalid or missing token)
+        "403":
+          description: Forbidden (user is not an active service provider)
+        "404":
+          description: User not found
+        "500":
+          description: Internal server error
+
+  /api/bookings/service-provider/reject:
+    post:
+      summary: Reject a pending booking as service provider
+      description: |
+        Allows the authenticated service provider to reject a pending booking.
+        Only pending bookings can be rejected.
+        Requires a valid Firebase authentication token.
+        Only available to active service providers.
+      tags:
+        - Bookings
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                bookingId:
+                  type: integer
+                  example: 1
+                  description: The ID of the booking to reject
+      responses:
+        "200":
+          description: Booking rejected successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Booking rejected successfully"
+        "400":
+          description: Bad request (invalid booking ID or not pending)
+        "401":
+          description: Unauthorized (invalid or missing token)
+        "403":
+          description: Forbidden (user is not an active service provider or unauthorized for this booking)
+        "404":
+          description: Booking or user not found
+        "500":
+          description: Internal server error
+
+  /api/bookings/service-provider/report:
+    post:
+      summary: Report a client for non-payment (service provider only)
+      description: |
+        Allows service providers to report clients who haven't paid for OVERDUE bookings.
+        Creates a report that will be visible to admins.
+        - Can only report bookings with OVERDUE status.
+        - Each booking can only be reported once.
+        - Requires valid Firebase authentication token.
+        - Only available to active service providers.
+      tags:
+        - Bookings
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - bookingId
+              properties:
+                bookingId:
+                  type: integer
+                  description: ID of the OVERDUE booking to report
+                  example: 123
+                message:
+                  type: string
+                  maxLength: 1000
+                  description: Optional message describing the non-payment issue
+                  example: "Client hasn't responded to payment reminders for over a week"
+      responses:
+        "200":
+          description: Report submitted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Report submitted successfully"
+                  report:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                        example: 1
+                      bookingId:
+                        type: integer
+                        example: 123
+                      createdAt:
+                        type: string
+                        format: date-time
+                        example: "2025-01-18T11:56:00Z"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Only OVERDUE bookings can be reported"
+        "401":
+          description: Unauthorized (invalid or missing token)
+        "403":
+          description: Forbidden (user is not an active service provider)
+        "404":
+          description: Booking not found or no permission
+        "500":
+          description: Internal server error
+
+  /api/analysis:
+    post:
+      summary: Perform pet diagnosis analysis
+      description: |
+        Performs AI-based diagnosis analysis for a pet based on provided input data.
+        Requires a valid Firebase authentication token and ownership of the pet.
+        Saves the analysis to the database.
+      tags:
+        - Analysis
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - petId
+              properties:
+                petId:
+                  type: integer
+                  example: 1
+                weight:
+                  type: number
+                  nullable: true
+                  example: 12
+                sex:
+                  type: string
+                  enum:
+                    - MALE
+                    - FEMALE
+                    - UNKNOWN
+                  nullable: true
+                  example: "MALE"
+                isSterilized:
+                  type: boolean
+                  nullable: true
+                  example: true
+                activityLevel:
+                  type: string
+                  enum:
+                    - LOW
+                    - MEDIUM
+                    - HIGH
+                  nullable: true
+                  example: "MEDIUM"
+                dietType:
+                  type: string
+                  enum:
+                    - DRY
+                    - WET
+                    - BARF
+                    - HOMEMADE
+                    - OTHER
+                  nullable: true
+                  example: "WET"
+                knownAllergies:
+                  type: array
+                  items:
+                    type: string
+                  nullable: true
+                  example:
+                    - "peanuts"
+                vaccinationUpToDate:
+                  type: boolean
+                  nullable: true
+                  example: true
+                environmentType:
+                  type: string
+                  enum:
+                    - INDOOR
+                    - OUTDOOR
+                    - MIXED
+                  nullable: true
+                  example: "OUTDOOR"
+                chronicDiseases:
+                  type: array
+                  items:
+                    type: string
+                  nullable: true
+                  example:
+                    - "diabetes"
+                selectedSymptoms:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      code:
+                        type: string
+                      name:
+                        type: string
+                      description:
+                        type: string
+                        nullable: true
+                      defaultSeverity:
+                        type: string
+      responses:
+        "200":
+          description: Analysis performed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  analysisId:
+                    type: integer
+                    example: 1
+                  diagnoses:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        diseaseName:
+                          type: string
+                          example: "Zapalenie żołądka"
+                        probability:
+                          type: number
+                          example: 0.72
+                        riskLevel:
+                          type: string
+                          enum:
+                            - low
+                            - medium
+                            - high
+                          example: "high"
+                        description:
+                          type: string
+                          example: "Stan zapalny błony śluzowej żołądka powodujący wymioty i brak apetytu."
+                        confidenceReasoning:
+                          type: string
+                          example: "Wymioty + brak apetytu + nowa karma tydzień temu; objawy pasują klinicznie."
+                        recommendedActions:
+                          type: array
+                          items:
+                            type: string
+                          example:
+                            - "Odstawić karmę na 12h"
+                            - "Podawać małe porcje wody co 1-2h"
+                        recommendedTests:
+                          type: array
+                          items:
+                            type: string
+                          example:
+                            - "Badanie kału"
+                            - "Morfologia i biochemia krwi"
+                        requiresVetVisit:
+                          type: boolean
+                          example: true
+                        urgency:
+                          type: string
+                          enum:
+                            - immediate
+                            - within_24h
+                            - within_72h
+                            - within_week
+                          example: "within_24h"
+                        differential:
+                          type: array
+                          items:
+                            type: string
+                          example:
+                            - "zatrucie pokarmowe"
+                            - "choroba wrzodowa"
+                  overallHealth:
+                    type: string
+                    enum:
+                      - healthy
+                      - hard to tell
+                      - unhealthy
+                    example: "healthy"
+        "400":
+          description: Invalid input data
+        "401":
+          description: Unauthorized (invalid or missing token)
+        "403":
+          description: Forbidden (user is not a client or not pet owner)
+        "404":
+          description: User or pet not found
+        "500":
+          description: Internal server error
+    get:
+      summary: Get all pet diagnosis analyses for user
+      description: Retrieves all analyses for the authenticated user's pets. Requires client role.
+      tags:
+        - Analysis
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Analyses retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  analyses:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        idAnalysis:
+                          type: integer
+                          example: 1
+                        createdAt:
+                          type: string
+                          format: date-time
+                          example: "2025-10-12T12:00:00.000Z"
+                        petName:
+                          type: string
+                          example: "Bella"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden (not client)
+        "404":
+          description: User not found
+        "500":
+          description: Internal server error
+
+  /api/analysis/{id}:
+    get:
+      summary: Get pet diagnosis analysis results
+      description: Retrieves a specific analysis by ID. Requires authentication and ownership of the pet.
+      tags:
+        - Analysis
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: Analysis ID
+      responses:
+        "200":
+          description: Analysis retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  idAnalysis:
+                    type: integer
+                    example: 1
+                  createdAt:
+                    type: string
+                    format: date-time
+                    example: "2025-10-12T12:00:00.000Z"
+                  overallHealth:
+                    type: string
+                    enum:
+                      - healthy
+                      - hard to tell
+                      - unhealthy
+                    example: "healthy"
+                  diagnoses:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Diagnosis"
+        "400":
+          description: Invalid analysis ID
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden (not owner)
+        "404":
+          description: Analysis not found
+        "500":
+          description: Internal server error
+    delete:
+      summary: Delete pet diagnosis analysis
+      description: Deletes a specific analysis by ID. Requires authentication and ownership of the pet.
+      tags:
+        - Analysis
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: Analysis ID
+      responses:
+        "200":
+          description: Analysis deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+        "400":
+          description: Invalid analysis ID
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden (not owner)
+        "404":
+          description: Analysis not found
+        "500":
+          description: Internal server error
+  /api/pets:
+    get:
+      summary: Get all pets for the authenticated user
+      description: |
+        Returns all pets for the authenticated user associated with any of their clients.
+        Requires a valid Firebase authentication token.
+      tags: [Pets]
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Pets retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  pets:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                          example: 1
+                        name:
+                          type: string
+                          example: "Max"
+                        age:
+                          type: number
+                          example: 5
+                        description:
+                          type: string
+                          nullable: true
+                          example: "Friendly dog"
+                        keyImage:
+                          type: string
+                          nullable: true
+                          example: "https://example.com/pet.jpg"
+                        species:
+                          type: string
+                          example: "Dog"
+        "401":
+          description: Unauthorized (invalid or missing token)
+        "404":
+          description: User not found
+        "500":
+          description: Internal server error
+    post:
+      summary: Create a new pet
+      description: |
+        Creates a new pet for the authenticated user.
+        Species is created if it doesn't exist.
+        Requires a valid Firebase authentication token.
+        At least one image must be provided.
+      tags: [Pets]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - name
+                - age
+                - images
+                - speciesName
+              properties:
+                name:
+                  type: string
+                  example: "Max"
+                age:
+                  type: number
+                  minimum: 0
+                  maximum: 999
+                  example: 5
+                description:
+                  type: string
+                  nullable: true
+                  example: "Friendly dog"
+                images:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: string
+                    format: binary
+                speciesName:
+                  type: string
+                  example: "Dog"
+      responses:
+        "200":
+          description: Pet created successfully
+        "400":
+          description: Missing required fields, no images provided, or invalid age
+        "401":
+          description: Unauthorized (invalid or missing token)
+        "404":
+          description: User or client not found
+        "409":
+          description: Conflict (pet with this name already exists for the user)
+        "500":
+          description: Internal server error
+
+  /api/pets/species:
+    get:
+      summary: Get all species
+      description: Returns a list of all predefined species.
+      tags: [Pets]
+      responses:
+        "200":
+          description: Species retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  species:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        idSpiece:
+                          type: integer
+                          example: 1
+                        name:
+                          type: string
+                          example: "Pies"
+        "500":
+          description: Internal server error
+
+  /api/pets/{id}:
+    get:
+      summary: Get a pet by ID
+      description: Returns detailed information about a specific pet including images and species.
+      tags: [Pets]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: The pet ID
+      responses:
+        "200":
+          description: Pet details retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  pet:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                        example: 1
+                      name:
+                        type: string
+                        example: "Max"
+                      age:
+                        type: number
+                        example: 5
+                      description:
+                        type: string
+                        nullable: true
+                        example: "Friendly dog"
+                      species:
+                        type: string
+                        example: "Dog"
+                      images:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            imageUrl:
+                              type: string
+                              example: "https://example.com/pet.jpg"
+                            order:
+                              type: integer
+                              nullable: true
+                              example: 1
+        "400":
+          description: Invalid pet ID
+        "404":
+          description: Pet not found
+        "500":
+          description: Internal server error
+    put:
+      summary: Update a pet
+      description: |
+        Updates an existing pet's information. Only the pet owner can update the pet.
+        Requires a valid Firebase authentication token.
+        Species is created if it doesn't exist.
+        At least one image must be provided (new or kept).
+      tags: [Pets]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: The pet ID
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - name
+                - age
+                - speciesName
+              properties:
+                name:
+                  type: string
+                  example: "Max"
+                age:
+                  type: number
+                  minimum: 0
+                  maximum: 999
+                  example: 5
+                description:
+                  type: string
+                  nullable: true
+                  example: "Friendly dog"
+                speciesName:
+                  type: string
+                  example: "Dog"
+                keepImageUrls:
+                  type: string
+                  description: JSON array of URLs to keep
+                  example: '["https://example.com/old1.jpg"]'
+                newImages:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+      responses:
+        "200":
+          description: Pet updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+        "400":
+          description: Missing required fields, no images provided, invalid pet ID, or invalid age
+        "401":
+          description: Unauthorized (invalid or missing token)
+        "403":
+          description: Forbidden (user is not the pet owner or not a client)
+        "404":
+          description: Pet not found or user not found
+        "409":
+          description: Conflict (pet with this name already exists for the user)
+        "500":
+          description: Internal server error
+
+  /api/pets/{id}/diagnoses:
+    get:
+      summary: Get all diagnostic analyses for a specific pet
+      description: Returns a list of all AI diagnostic analyses performed for the given pet. Only accessible by the pet owner.
+      tags: [Analysis]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: Pet ID
+      responses:
+        "200":
+          description: List of diagnostic analyses
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  analyses:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        idAnalysis:
+                          type: integer
+                          example: 42
+                        createdAt:
+                          type: string
+                          format: date-time
+                          example: "2025-11-18T10:30:00.000Z"
+                        overallHealth:
+                          type: string
+                          enum: [healthy, hard to tell, unhealthy]
+                          example: "healthy"
+        "400":
+          description: Invalid pet ID
+        "401":
+          description: Unauthorized (missing or invalid token)
+        "403":
+          description: Forbidden (not the pet owner)
+        "404":
+          description: Pet not found
+        "500":
+          description: Internal server error
+
+  /api/pets/{id}/detach:
+    patch:
+      summary: Detach a pet from owner
+      description: |
+        Detaches an existing pet from the owner by setting Client_idClient to null.
+        Does not delete any data, including images or the pet record itself, to preserve associated bookings and history.
+        Only the pet owner can detach the pet.
+        Requires a valid Firebase authentication token.
+      tags: [Pets]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: The pet ID
+      responses:
+        "200":
+          description: Pet detached successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+        "400":
+          description: Invalid pet ID
+        "401":
+          description: Unauthorized (invalid or missing token)
+        "403":
+          description: Forbidden (user is not the pet owner or has no client association)
+        "404":
+          description: Pet not found or user not found
+        "500":
+          description: Internal server error
+  /api/services:
+    get:
+      summary: Get all services
+      description: |
+        Returns a list of all available services in the system, sorted alphabetically by name.
+        Each service includes its ID and name. This endpoint does not require authentication.
+      tags: [Services]
+      responses:
+        "200":
+          description: Services retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  services:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        idService:
+                          type: integer
+                          example: 1
+                        name:
+                          type: string
+                          example: "Wyprowadzanie psów"
+        "500":
+          description: Internal server error
+
+  /api/service-provider/{id}:
+    get:
+      summary: Get public service provider profile with all reviews
+      description: Returns full public profile of a service provider including personal data, average rating and list of all client reviews. No auth required.
+      tags: [Service Provider]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: Service Provider ID
+          example: 5
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  serviceProvider:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      firstName:
+                        type: string
+                        nullable: true
+                      lastName:
+                        type: string
+                        nullable: true
+                      email:
+                        type: string
+                        nullable: true
+                      phone:
+                        type: string
+                        nullable: true
+                      profilePictureUrl:
+                        type: string
+                        nullable: true
+                      city:
+                        type: string
+                        nullable: true
+                      isActive:
+                        type: boolean
+                      averageRating:
+                        type: number
+                        format: float
+                        example: 4.7
+                      totalReviews:
+                        type: integer
+                      reviews:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: integer
+                            rating:
+                              type: integer
+                              minimum: 1
+                              maximum: 5
+                            comment:
+                              type: string
+                              nullable: true
+                            createdAt:
+                              type: string
+                              format: date-time
+                            clientName:
+                              type: string
+        "400":
+          description: Invalid ID
+        "404":
+          description: Service provider not found
+        "500":
+          description: Internal server error
+
+  /api/reviews:
+    post:
+      summary: Create a review for a service provider
+      description: |
+        Allows clients to create a review (rating 1-5 and optional comment) for a service provider after a booking with PAID status.
+        - Only clients can create reviews.
+        - Booking must have PAID status.
+        - Each booking can only be reviewed once.
+        - Rating must be between 1 and 5.
+        - Requires valid Firebase authentication token.
+      tags: [Reviews]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - bookingId
+                - rating
+              properties:
+                bookingId:
+                  type: integer
+                  description: ID of the PAID booking to review
+                  example: 123
+                rating:
+                  type: integer
+                  minimum: 1
+                  maximum: 5
+                  description: Rating from 1 to 5
+                  example: 5
+                comment:
+                  type: string
+                  maxLength: 1000
+                  description: Optional comment about the service
+                  example: "Excellent service! Very professional and caring."
+      responses:
+        "200":
+          description: Review created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Review created successfully"
+                  review:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                        example: 1
+                      rating:
+                        type: integer
+                        example: 5
+                      comment:
+                        type: string
+                        nullable: true
+                        example: "Excellent service! Very professional and caring."
+                      createdAt:
+                        type: string
+                        format: date-time
+                        example: "2025-11-18T12:00:00Z"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "You can only review bookings with PAID status"
+        "401":
+          description: Unauthorized (invalid or missing token)
+        "403":
+          description: Forbidden (user is not a client)
+        "404":
+          description: Booking not found or no permission
+        "500":
+          description: Internal server error
+
+  /api/reviews/{id}:
+    delete:
+      summary: Dead that review you dropped, nigga
+      description: You the one who wrote it, so you the only nigga that can wipe it. Anybody else move funny, they get lined out the whole app.
+      tags: [Reviews]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: Review ID you finna smoke
+      responses:
+        "200":
+          description: Gone. That shit deleted, nigga.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                    example: "Review took a dirt nap"
+        "401":
+          description: You ain't logged in, who the fuck is you nigga?
+        "403":
+          description: That ain't yo review nigga, touch it and you catch a permanent ban
+        "404":
+          description: Shit already ghost, can't find it
+        "500":
+          description: Server down bad, whole block bleedin' rn
+    put:
+      summary: Switch up on yo old take, nigga
+      description: Mind changed? Flip the rating, rewrite the comment, do what you gotta do. But try to touch another nigga shit and we got real problems.
+      tags: [Reviews]
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: The review ID you own, nigga
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                rating:
+                  type: integer
+                  minimum: 1
+                  maximum: 5
+                  description: How many stars you givin' it now, nigga
+                  example: 1
+                comment:
+                  type: string
+                  nullable: true
+                  maxLength: 1000
+                  description: New shit you spittin' or null to clear it
+                  example: "On some real nigga shit, this trash. I was trippin' when I said it was fire."
+              anyOf:
+                - required: [rating]
+                - required: [comment]
+      responses:
+        "200":
+          description: Updated clean, nigga. It's official.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                    example: "Review flipped, no 🧢"
+                  review:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      rating:
+                        type: integer
+                      comment:
+                        type: string
+                        nullable: true
+                      createdAt:
+                        type: string
+                        format: date-time
+        "400":
+          description: Request lookin' dumb, fix that shit nigga
+        "401":
+          description: Ain't signed in, get yo credentials right
+        "403":
+          description: Tryna edit another nigga review? You wild for that
+        "404":
+          description: That review already in the grave
+        "500":
+          description: Backend crashin' out, trap house on fire rn
+
+  /api/payments/create-booking-session:
+    post:
+      summary: Create a Stripe checkout session for booking payment
+      description: |
+        Creates a one-time payment session for settling a booking.
+        Requires a valid Firebase authentication token.
+        Only for bookings in AWAITING_PAYMENT or OVERDUE status.
+        The session redirects to success or cancellation URLs after payment processing.
+      tags: [Payments]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                bookingId:
+                  type: integer
+                  description: ID of the booking to pay for
+                  example: 1
+      responses:
+        "200":
+          description: Checkout session created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url:
+                    type: string
+                    description: Stripe Checkout URL to redirect the user
+                    example: "https://checkout.stripe.com/pay/cs_test_..."
+        "400":
+          description: Bad request (missing bookingId or ineligible status)
+        "401":
+          description: Unauthorized - Invalid or missing authentication token
+        "403":
+          description: Forbidden - User not a client
+        "404":
+          description: Booking not found or unauthorized
+        "500":
+          description: Internal server error
+
+  /api/payments/create-become-session:
+    post:
+      summary: Create a Stripe checkout session for becoming a service provider
+      description: |
+        Creates a one-time payment session for users who want to become service providers.
+        Requires a valid Firebase authentication token.
+        The session redirects to success or cancellation URLs after payment processing.
+      tags: [Payments]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                  description: Customer email (optional, defaults to authenticated user's email)
+                  example: "user@example.com"
+      responses:
+        "200":
+          description: Checkout session created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url:
+                    type: string
+                    description: Stripe Checkout URL to redirect the user
+                    example: "https://checkout.stripe.com/pay/cs_test_..."
+        "401":
+          description: Unauthorized - Invalid or missing authentication token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Unauthorized"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Internal server error"
+  /api/user/my-reviews:
+    get:
+      summary: Get all reviews written by current user
+      description: Returns list of all reviews that the authenticated client has written for service providers.
+      tags: [User]
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  total:
+                    type: integer
+                  reviews:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        rating:
+                          type: integer
+                          minimum: 1
+                          maximum: 5
+                        comment:
+                          type: string
+                          nullable: true
+                        createdAt:
+                          type: string
+                          format: date-time
+                        serviceProvider:
+                          type: object
+                          properties:
+                            name:
+                              type: string
+                            profilePictureUrl:
+                              type: string
+                              nullable: true
+                        advertisementTitle:
+                          type: string
+        "401":
+          description: Unauthorized
+        "404":
+          description: User not found or not a client
+        "500":
+          description: Internal server error
+
+  /api/user/profile-picture:
+    post:
+      summary: Set the initial profile picture for the user
+      description: Uploads a profile picture to Firebase Storage and saves the URL in the database. Only allowed if no picture is already set. Available only to authenticated users.
+      tags: [User]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                image:
+                  type: string
+                  format: binary
+                  description: The image file to upload (e.g., JPG, PNG)
+      responses:
+        "200":
+          description: Profile picture set successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  profilePictureUrl:
+                    type: string
+                    example: "https://storage.googleapis.com/bucket/profile_pictures/1_123456789_image.jpg?..."
+        "400":
+          description: Bad request (no file provided or picture already set)
+        "401":
+          description: Unauthorized (missing or invalid token)
+        "404":
+          description: User not found
+        "500":
+          description: Internal server error
+    patch:
+      summary: Update the user's profile picture
+      description: Uploads a new profile picture to Firebase Storage, deletes the old one if exists, and updates the URL in the database. Available only to authenticated users with an existing picture.
+      tags: [User]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                image:
+                  type: string
+                  format: binary
+                  description: The new image file to upload (e.g., JPG, PNG)
+      responses:
+        "200":
+          description: Profile picture updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  profilePictureUrl:
+                    type: string
+                    example: "https://storage.googleapis.com/bucket/profile_pictures/1_123456789_newimage.jpg?..."
+        "400":
+          description: Bad request (no file provided or no picture set)
+        "401":
+          description: Unauthorized (missing or invalid token)
+        "404":
+          description: User not found
+        "500":
+          description: Internal server error
+    delete:
+      summary: Delete the user's profile picture
+      description: Deletes the profile picture from Firebase Storage and sets the URL to null in the database. Available only to authenticated users with an existing picture.
+      tags: [User]
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Profile picture deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+        "400":
+          description: Bad request (no picture set to delete)
+        "401":
+          description: Unauthorized (missing or invalid token)
+        "404":
+          description: User not found
+        "500":
+          description: Internal server error
+
+  /api/user/verify-email/{firebaseUid}:
+    patch:
+      summary: Verify user email in database
+      description: |
+        Updates the user's verification status in the database based on Firebase email verification.
+        This endpoint is called after the user clicks the verification link in their email.
+        It is idempotent: if already verified, it returns success without changes.
+        Authentication is handled via Firebase UID in the path; no body required.
+      tags: [User]
+      parameters:
+        - name: firebaseUid
+          in: path
+          required: true
+          description: Firebase UID of the user (from Firebase Auth)
+          schema:
+            type: string
+            example: "abcd1234efgh5678"
+      responses:
+        "200":
+          description: Email verification updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+        "400":
+          description: Invalid input or email not verified in Firebase
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Email not verified"
+        "404":
+          description: User not found in database
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "User not found"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Internal server error"
+
+  /api/stripe/webhook:
+    post:
+      summary: Handle Stripe webhook events
+      description: |
+        Processes Stripe webhook events, such as completed checkout sessions.
+        When a payment for becoming a service provider is completed, this endpoint:
+        - Verifies the webhook signature
+        - Creates or reactivates the service provider account
+        - Activates the user's advertisements
+        - Records the payment in the database
+        For booking payments:
+        - Updates booking status to PAID
+      tags: [Payments]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Stripe webhook event payload
+      responses:
+        "200":
+          description: Event received and processed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  received:
+                    type: boolean
+                    example: true
+        "400":
+          description: Invalid signature or webhook processing error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Webhook Error: Invalid signature"
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "User not found"
+  /api/user/check-role:
+    get:
+      summary: Check user roles and IDs
+      description: |
+        Returns all roles and associated service provider and client IDs of the currently authenticated user.
+        Requires a valid Firebase ID token in the Authorization header.
+        All users have the 'client' role. Additional roles can be 'admin' and/or 'service_provider' (only if at least one ServiceProvider is active).
+        serviceProviderIds includes ALL linked providers (active or inactive).
+        clientIds includes ALL linked clients.
+        Checks if email is verified in DB; returns 403 if not.
+      tags: [Debug]
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: User roles and IDs retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  roles:
+                    type: array
+                    items:
+                      type: string
+                      enum: [client, admin, service_provider]
+                    example: ["client", "service_provider"]
+                  serviceProviderIds:
+                    type: array
+                    items:
+                      type: integer
+                    example: [1, 2]
+                    description: Array of all service provider IDs linked to the user
+                  clientIds:
+                    type: array
+                    items:
+                      type: integer
+                    example: [1]
+                    description: Array of all client IDs linked to the user
+        "401":
+          description: Unauthorized (invalid or missing token)
+        "403":
+          description: Email not verified in database
+        "404":
+          description: User not found in database
+        "500":
+          description: Internal server error
+
+  /api/user/delete:
+    delete:
+      summary: Delete own account (self-deletion)
+      description: |
+        Deletes the authenticated user's account from both the database and Firebase Auth.
+        This operation is irreversible and will permanently remove all user data, including pets, advertisements, bookings, and related entities.
+        Requires authentication via Firebase ID token. Any user (client, service provider, or admin) can delete their own account.
+      tags: [User]
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Account deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Account deleted successfully from both database and Firebase Auth"
+        "401":
+          description: Unauthorized (invalid or missing token)
+        "404":
+          description: User not found
+        "500":
+          description: Internal server error
+
+  /api/user/me:
+    get:
+      summary: Get current user attributes
+      description: |
+        Returns the profile information of the currently authenticated user.
+        Requires a valid Firebase ID token in the Authorization header.
+        Also updates the user's lastActive timestamp.
+        Now checks if email is verified in DB; returns 403 if not.
+      tags: [User]
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: User attributes retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  user:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                        example: 42
+                      firebaseUid:
+                        type: string
+                        example: "abcd1234efgh5678"
+                      firstName:
+                        type: string
+                        nullable: true
+                        example: "Jane"
+                      lastName:
+                        type: string
+                        nullable: true
+                        example: "Doe"
+                      email:
+                        type: string
+                        example: "jane.doe@example.com"
+                      phoneNumber:
+                        type: string
+                        nullable: true
+                        example: "123456789"
+                      profilePictureUrl:
+                        type: string
+                        nullable: true
+                        example: "https://storage.googleapis.com/bucket/profile_pictures/1_123456789_image.jpg?..."
+                      isVerified:
+                        type: boolean
+                        example: true
+                      city:
+                        type: object
+                        properties:
+                          idCity:
+                            type: integer
+                            example: 1
+                          name:
+                            type: string
+                            example: "Warszawa"
+                          imageUrl:
+                            type: string
+                            nullable: true
+                            example: "https://example.com/city.jpg"
+                      isAdmin:
+                        type: boolean
+                        example: false
+                      isServiceProvider:
+                        type: boolean
+                        example: false
+                      lastActive:
+                        type: string
+                        format: date-time
+                        example: "2025-09-16T12:00:00Z"
+        "400":
+          description: User profile incomplete (e.g., missing city)
+        "401":
+          description: Unauthorized (invalid or missing token)
+        "403":
+          description: Email not verified in database
+        "404":
+          description: User not found in database
+        "500":
+          description: Internal server error
+    put:
+      summary: Update current user attributes
+      description: |
+        Updates the profile information of the currently authenticated user.
+        Requires a valid Firebase ID token in the Authorization header.
+        Only firstName, lastName, phoneNumber, and cityId can be updated.
+        Now checks if email is verified in DB; returns 403 if not.
+      tags: [User]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                firstName:
+                  type: string
+                  nullable: true
+                  example: "Jane"
+                lastName:
+                  type: string
+                  nullable: true
+                  example: "Doe"
+                phoneNumber:
+                  type: string
+                  nullable: true
+                  example: "123456789"
+                cityId:
+                  type: integer
+                  nullable: true
+                  example: 1
+      responses:
+        "200":
+          description: User attributes updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  user:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                        example: 42
+                      firebaseUid:
+                        type: string
+                        example: "abcd1234efgh5678"
+                      firstName:
+                        type: string
+                        nullable: true
+                        example: "Jane"
+                      lastName:
+                        type: string
+                        nullable: true
+                        example: "Doe"
+                      email:
+                        type: string
+                        example: "jane.doe@example.com"
+                      phoneNumber:
+                        type: string
+                        nullable: true
+                        example: "123456789"
+                      profilePictureUrl:
+                        type: string
+                        nullable: true
+                        example: "https://storage.googleapis.com/bucket/profile_pictures/1_123456789_image.jpg?..."
+                      city:
+                        type: object
+                        properties:
+                          idCity:
+                            type: integer
+                            example: 1
+                          name:
+                            type: string
+                            example: "Warszawa"
+                          imageUrl:
+                            type: string
+                            nullable: true
+                            example: "https://example.com/city.jpg"
+                      isAdmin:
+                        type: boolean
+                        example: false
+                      isServiceProvider:
+                        type: boolean
+                        example: false
+                      lastActive:
+                        type: string
+                        format: date-time
+                        example: "2025-09-16T12:00:00Z"
+        "400":
+          description: Invalid input (e.g., invalid phone number or city ID)
+        "401":
+          description: Unauthorized (invalid or missing token)
+        "403":
+          description: Email not verified in database
+        "404":
+          description: User not found in database
+        "500":
+          description: Internal server error
+  /api/user/attributes:
+    post:
+      summary: Register a new user profile
+      description: |
+        Creates a new user in the database with attributes such as name, surname, phone number, and city.
+        A client record is created automatically for the user.
+        Authentication and password management are handled by Firebase — this endpoint only stores the user's Firebase UID and profile data.
+      tags: [User]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - firebaseUid
+                - email
+                - cityId
+              properties:
+                firebaseUid:
+                  type: string
+                  description: Firebase UID of the user (from Firebase Auth)
+                  example: "abcd1234efgh5678"
+                email:
+                  type: string
+                  format: email
+                  description: User email (must be unique)
+                  example: "jane.doe@example.com"
+                firstName:
+                  type: string
+                  description: Optional first name
+                  example: "Jane"
+                lastName:
+                  type: string
+                  description: Optional last name
+                  example: "Doe"
+                phoneNumber:
+                  type: string
+                  description: Optional 9-digit phone number
+                  example: "123456789"
+                cityId:
+                  type: integer
+                  description: Required ID of the city (foreign key)
+                  example: 1
+      responses:
+        "200":
+          description: User profile created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  user:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                        example: 42
+                      firebaseUid:
+                        type: string
+                        example: "abcd1234efgh5678"
+                      firstName:
+                        type: string
+                        nullable: true
+                        example: "Jane"
+                      lastName:
+                        type: string
+                        nullable: true
+                        example: "Doe"
+                      email:
+                        type: string
+                        example: "jane.doe@example.com"
+                      phoneNumber:
+                        type: string
+                        nullable: true
+                        example: "123456789"
+                      city:
+                        type: object
+                        properties:
+                          idCity:
+                            type: integer
+                            example: 1
+                          name:
+                            type: string
+                            example: "Warszawa"
+                          imageUrl:
+                            type: string
+                            nullable: true
+                            example: "https://example.com/city.jpg"
+        "400":
+          description: Invalid input (missing required fields, invalid phone number, or city not found)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Firebase UID, email, and cityId are required"
+        "409":
+          description: User already exists
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "User already exists"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Internal server error"
+
+  /api/symptoms:
+    get:
+      summary: Retrieve a list of all symptoms
+      description: |
+        Returns all symptoms ordered by their `idSymptom`.
+        Requires a valid Firebase authentication token and the user must be a client.
+      tags: [Symptoms]
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: A JSON object containing an array of symptoms
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  symptoms:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        idSymptom:
+                          type: integer
+                          example: 1
+                        code:
+                          type: string
+                          example: "vomiting"
+                        name:
+                          type: string
+                          example: "Wymioty"
+                        description:
+                          type: string
+                          nullable: true
+                          example: "Zwracanie treści pokarmowej."
+                        defaultSeverity:
+                          type: string
+                          example: "MODERATE"
+        "401":
+          description: Unauthorized (invalid or missing token)
+        "403":
+          description: Forbidden (user is not a client)
+        "404":
+          description: User not found
+        "500":
+          description: Internal server error
+  /api/cities:
+    get:
+      summary: Retrieve a list of all cities
+      description: Returns all cities ordered by their `idCity`.
+      tags: [Cities]
+      responses:
+        "200":
+          description: A JSON object containing an array of cities
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cities:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        idCity:
+                          type: integer
+                          example: 1
+                        name:
+                          type: string
+                          example: "Warszawa"
+                        imageUrl:
+                          type: string
+                          nullable: true
+                          example: "https://example.com/city.jpg"
+        "500":
+          description: Failed to fetch cities
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Failed to fetch cities"

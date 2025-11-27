@@ -1,4 +1,3 @@
-// src/app/api/stripe/webhook/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { PrismaClient } from "@prisma/client";
@@ -9,7 +8,7 @@ const stripe = new Stripe(process.env.STRIPE_API_KEY!, {
 });
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
-// IMPORTANT: Next.js 13+ App Router requires this export
+// Next.js 13+ App Router requires this export
 export const runtime = "nodejs";
 
 export async function POST(request: NextRequest) {
@@ -178,58 +177,3 @@ export async function POST(request: NextRequest) {
     await prisma.$disconnect();
   }
 }
-
-/**
- * @swagger
- * /api/stripe/webhook:
- *   post:
- *     summary: Handle Stripe webhook events
- *     description: |
- *       Processes Stripe webhook events, such as completed checkout sessions.
- *       When a payment for becoming a service provider is completed, this endpoint:
- *       - Verifies the webhook signature
- *       - Creates or reactivates the service provider account
- *       - Activates the user's advertisements
- *       - Records the payment in the database
- *       For booking payments:
- *       - Updates booking status to PAID
- *     tags: [Payments]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             description: Stripe webhook event payload
- *     responses:
- *       200:
- *         description: Event received and processed successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 received:
- *                   type: boolean
- *                   example: true
- *       400:
- *         description: Invalid signature or webhook processing error
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 error:
- *                   type: string
- *                   example: "Webhook Error: Invalid signature"
- *       404:
- *         description: User not found
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 error:
- *                   type: string
- *                   example: "User not found"
- */
