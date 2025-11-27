@@ -4,7 +4,10 @@ import { adminAuth } from "@/lib/firebaseAdmin";
 
 const prisma = new PrismaClient();
 
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
     const authHeader = request.headers.get("authorization");
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -26,9 +29,15 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       );
     }
 
-    const advertisementId = parseInt(params.id);
+    // Resolve the params promise
+    const resolvedParams = await params;
+    const advertisementId = parseInt(resolvedParams.id);
+
     if (isNaN(advertisementId)) {
-      return NextResponse.json({ error: "Invalid advertisement ID" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid advertisement ID" },
+        { status: 400 }
+      );
     }
 
     const user = await prisma.user.findUnique({
@@ -61,7 +70,10 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     });
 
     if (!advertisement) {
-      return NextResponse.json({ error: "Advertisement not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Advertisement not found" },
+        { status: 404 }
+      );
     }
 
     await prisma.savedAdvertisement.create({
@@ -85,7 +97,10 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
     const authHeader = request.headers.get("authorization");
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -107,9 +122,15 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       );
     }
 
-    const advertisementId = parseInt(params.id);
+    // Resolve the params promise
+    const resolvedParams = await params;
+    const advertisementId = parseInt(resolvedParams.id);
+
     if (isNaN(advertisementId)) {
-      return NextResponse.json({ error: "Invalid advertisement ID" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid advertisement ID" },
+        { status: 400 }
+      );
     }
 
     const user = await prisma.user.findUnique({
@@ -124,7 +145,10 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     }
 
     if (user.Clients.length === 0) {
-      return NextResponse.json({ error: "User has no client association" }, { status: 403 });
+      return NextResponse.json(
+        { error: "User has no client association" },
+        { status: 403 }
+      );
     }
 
     const clientId = user.Clients[0].idClient;
@@ -137,7 +161,10 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     });
 
     if (deleted.count === 0) {
-      return NextResponse.json({ error: "Saved advertisement not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Saved advertisement not found" },
+        { status: 404 }
+      );
     }
 
     return NextResponse.json({

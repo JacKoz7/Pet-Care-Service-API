@@ -26,8 +26,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params;
-    const idNum = parseInt(id);
+    // Resolve the params promise
+    const resolvedParams = await params;
+    const idNum = parseInt(resolvedParams.id);
 
     if (isNaN(idNum)) {
       return NextResponse.json(
@@ -168,13 +169,15 @@ export async function GET(
     await prisma.$disconnect();
   }
 }
+
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params;
-    const idNum = parseInt(id);
+    // Resolve the params promise
+    const resolvedParams = await params;
+    const idNum = parseInt(resolvedParams.id);
 
     if (isNaN(idNum)) {
       return NextResponse.json(
@@ -504,8 +507,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params;
-    const idNum = parseInt(id);
+    // Resolve the params promise
+    const resolvedParams = await params;
+    const idNum = parseInt(resolvedParams.id);
 
     if (isNaN(idNum)) {
       return NextResponse.json(

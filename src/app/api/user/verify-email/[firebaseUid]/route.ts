@@ -16,10 +16,12 @@ if (!admin.apps.length) {
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { firebaseUid: string } }
+  { params }: { params: Promise<{ firebaseUid: string }> }
 ) {
   try {
-    const { firebaseUid } = params;
+    // Resolve the params promise
+    const resolvedParams = await params;
+    const { firebaseUid } = resolvedParams;
 
     if (!firebaseUid) {
       return NextResponse.json(

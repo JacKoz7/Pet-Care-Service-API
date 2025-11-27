@@ -24,7 +24,7 @@ async function getAuthenticatedClient(token: string) {
 // ======================
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const authHeader = request.headers.get("authorization");
@@ -44,7 +44,10 @@ export async function DELETE(
       );
     }
 
-    const reviewId = parseInt(params.id);
+    // Resolve the params promise
+    const resolvedParams = await params;
+    const reviewId = parseInt(resolvedParams.id);
+
     if (isNaN(reviewId)) {
       return NextResponse.json(
         { error: "ID lookin retarded, send a real number nigga" },
@@ -107,7 +110,7 @@ export async function DELETE(
 // ======================
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const authHeader = request.headers.get("authorization");
@@ -127,7 +130,10 @@ export async function PUT(
       );
     }
 
-    const reviewId = parseInt(params.id);
+    // Resolve the params promise
+    const resolvedParams = await params;
+    const reviewId = parseInt(resolvedParams.id);
+
     if (isNaN(reviewId)) {
       return NextResponse.json(
         { error: "ID lookin retarded, send a real number nigga" },
