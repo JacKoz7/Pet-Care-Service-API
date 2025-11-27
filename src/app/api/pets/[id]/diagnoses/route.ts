@@ -76,6 +76,7 @@ export async function GET(
     });
 
     const results = analyses.map((a) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const diagnoses = a.diagnoses as any;
       return {
         idAnalysis: a.idAnalysis,

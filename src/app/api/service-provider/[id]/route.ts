@@ -96,7 +96,7 @@ export async function GET(
         })),
       },
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error fetching service provider profile:", error);
     return NextResponse.json(
       { error: "Internal server error" },

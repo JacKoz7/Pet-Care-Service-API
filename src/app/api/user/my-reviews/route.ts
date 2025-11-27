@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
       reviews: formattedReviews,
       total: formattedReviews.length,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error fetching user reviews:", error);
     return NextResponse.json(
       { error: "Internal server error" },

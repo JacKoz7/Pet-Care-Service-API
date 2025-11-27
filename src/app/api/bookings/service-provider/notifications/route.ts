@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
     const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
     const threeMonthsAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
 
-    let bookings = await prisma.booking.findMany({
+    const bookings = await prisma.booking.findMany({
       where: {
         Service_Provider_idService_Provider: {
           in: serviceProviderIds,
