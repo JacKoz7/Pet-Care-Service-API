@@ -1710,6 +1710,7 @@ paths:
         The user must be a client (creates client record if none exists).
         All pets must belong to the client.
         The advertisement must exist and be active.
+        Prevents service providers from booking their own advertisements.
       tags:
         - Bookings
       security:
@@ -1789,6 +1790,8 @@ paths:
           description: Missing/invalid fields, invalid pets/advertisement, or date issues
         "401":
           description: Unauthorized (invalid or missing token)
+        "403":
+          description: Cannot book own advertisement
         "404":
           description: User not found
         "500":

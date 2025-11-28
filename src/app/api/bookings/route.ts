@@ -1,4 +1,3 @@
-// src/app/api/bookings/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { adminAuth } from "@/lib/firebaseAdmin";
@@ -59,6 +58,7 @@ export async function POST(request: NextRequest) {
       where: { firebaseUid: decodedToken.uid },
       include: {
         Clients: true,
+        ServiceProviders: true,
       },
     });
 
@@ -96,6 +96,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: "Service provider is inactive" },
         { status: 400 }
+      );
+    }
+
+    // Prevent booking own advertisement
+    const isOwner = user.ServiceProviders.some(
+      (sp) => sp.idService_Provider === advertisement.Service_Provider_idService_Provider
+    );
+    if (isOwner) {
+      return NextResponse.json(
+        { error: "Cannot book your own advertisement" },
+        { status: 403 }
       );
     }
 
