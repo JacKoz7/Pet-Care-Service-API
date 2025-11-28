@@ -58,6 +58,11 @@ export async function GET(request: NextRequest) {
       data: { lastActive: new Date() },
     });
 
+    const serviceProviderId =
+      user.ServiceProviders.length > 0
+        ? user.ServiceProviders[0].idService_Provider
+        : null;
+
     return NextResponse.json({
       success: true,
       user: {
@@ -76,6 +81,7 @@ export async function GET(request: NextRequest) {
         },
         isAdmin: !!user.Admin,
         isServiceProvider: user.ServiceProviders.length > 0,
+        serviceProviderId,
         lastActive: user.lastActive,
       },
     });
@@ -173,6 +179,11 @@ export async function PUT(request: NextRequest) {
       },
     });
 
+    const serviceProviderId =
+      updatedUser.ServiceProviders.length > 0
+        ? updatedUser.ServiceProviders[0].idService_Provider
+        : null;
+
     return NextResponse.json({
       success: true,
       user: {
@@ -190,6 +201,7 @@ export async function PUT(request: NextRequest) {
         },
         isAdmin: !!updatedUser.Admin,
         isServiceProvider: updatedUser.ServiceProviders.length > 0,
+        serviceProviderId,
         lastActive: updatedUser.lastActive,
       },
     });

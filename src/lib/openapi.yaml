@@ -3707,6 +3707,7 @@ paths:
         Requires a valid Firebase ID token in the Authorization header.
         Also updates the user's lastActive timestamp.
         Now checks if email is verified in DB; returns 403 if not.
+        If the user is a service provider, returns the serviceProviderId (assumes one primary service provider).
       tags: [User]
       security:
         - BearerAuth: []
@@ -3770,7 +3771,12 @@ paths:
                         example: false
                       isServiceProvider:
                         type: boolean
-                        example: false
+                        example: true
+                      serviceProviderId:
+                        type: integer
+                        nullable: true
+                        example: 1
+                        description: The ID of the service provider associated with the user, if the user is a service provider
                       lastActive:
                         type: string
                         format: date-time
@@ -3792,6 +3798,7 @@ paths:
         Requires a valid Firebase ID token in the Authorization header.
         Only firstName, lastName, phoneNumber, and cityId can be updated.
         Now checks if email is verified in DB; returns 403 if not.
+        If the user is a service provider, returns the serviceProviderId (assumes one primary service provider).
       tags: [User]
       security:
         - BearerAuth: []
@@ -3875,7 +3882,12 @@ paths:
                         example: false
                       isServiceProvider:
                         type: boolean
-                        example: false
+                        example: true
+                      serviceProviderId:
+                        type: integer
+                        nullable: true
+                        example: 1
+                        description: The ID of the service provider associated with the user, if the user is a service provider
                       lastActive:
                         type: string
                         format: date-time
