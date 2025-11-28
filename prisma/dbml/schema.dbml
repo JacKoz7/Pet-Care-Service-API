@@ -1,0 +1,361 @@
+//// ------------------------------------------------------
+//// THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+//// ------------------------------------------------------
+
+Table User {
+  idUser Int [pk, increment]
+  firebaseUid String [unique, not null]
+  firstName String
+  lastName String
+  email String
+  phoneNumber String
+  lastActive DateTime
+  profilePictureUrl String
+  isVerified Boolean [not null, default: false]
+  verifiedAt DateTime
+  City City [not null]
+  City_idCity Int [not null]
+  ServiceProviders service__provider [not null]
+  Clients Client [not null]
+  Admin Admin
+  Payments Payment [not null]
+}
+
+Table Admin {
+  idAdmin Int [pk, increment]
+  User User [not null]
+  User_idUser Int [unique, not null]
+}
+
+Table City {
+  idCity Int [pk, increment]
+  name String [unique, not null]
+  imageUrl String
+  Users User [not null]
+}
+
+Table service__provider {
+  idService_Provider Int [pk, increment]
+  User User [not null]
+  User_idUser Int [not null]
+  isActive Boolean [not null, default: true]
+  Advertisements Advertisement [not null]
+  ArchivedAdvertisements AdvertisementArchive [not null]
+  Bookings Booking [not null]
+  Reports Report [not null]
+  Reviews Review [not null]
+}
+
+Table Advertisement {
+  idAdvertisement Int [pk, increment]
+  title String [not null]
+  description String
+  price Float
+  status StatusAdvertisement [not null, default: 'ACTIVE']
+  startDate DateTime [default: `now()`, not null]
+  endDate DateTime [not null]
+  createdAt DateTime [default: `now()`, not null]
+  serviceStartTime DateTime
+  serviceEndTime DateTime
+  Service Service [not null]
+  Service_idService Int [not null]
+  Service_Provider service__provider [not null]
+  Service_Provider_idService_Provider Int [not null]
+  Archives Archive [not null]
+  Images AdvertisementImage [not null]
+  SavedBy SavedAdvertisement [not null]
+  AdvertisementSpieces AdvertisementSpiece [not null]
+  Bookings Booking [not null]
+
+  indexes {
+    (title, Service_Provider_idService_Provider) [unique]
+  }
+}
+
+Table Service {
+  idService Int [pk, increment]
+  name String [unique, not null]
+  Advertisements Advertisement [not null]
+  ArchivedAdvertisements AdvertisementArchive [not null]
+}
+
+Table Booking {
+  idBooking Int [pk, increment]
+  startDateTime DateTime [not null]
+  endDateTime DateTime [not null]
+  updatedAt DateTime [not null]
+  message String
+  status BookingStatus [not null, default: 'PENDING']
+  price Float
+  Client Client [not null]
+  Client_idClient Int [not null]
+  Service_Provider service__provider [not null]
+  Service_Provider_idService_Provider Int [not null]
+  Advertisement Advertisement
+  advertisementId Int
+  Pets BookingPet [not null]
+  Reports Report [not null]
+  Reviews Review [not null]
+}
+
+Table BookingPet {
+  idBookingPet Int [pk, increment]
+  Booking Booking [not null]
+  Booking_idBooking Int [not null]
+  Pet Pet [not null]
+  Pet_idPet Int [not null]
+
+  indexes {
+    (Booking_idBooking, Pet_idPet) [unique]
+  }
+}
+
+Table Client {
+  idClient Int [pk, increment]
+  User User [not null]
+  User_idUser Int [not null]
+  Bookings Booking [not null]
+  Pets Pet [not null]
+  SavedAdvertisements SavedAdvertisement [not null]
+  Reports Report [not null]
+  Reviews Review [not null]
+}
+
+Table Review {
+  idReview Int [pk, increment]
+  rating Int [not null]
+  comment String
+  createdAt DateTime [default: `now()`, not null]
+  Client Client [not null]
+  Client_idClient Int [not null]
+  Service_Provider service__provider [not null]
+  Service_Provider_idService_Provider Int [not null]
+  Booking Booking [not null]
+  Booking_idBooking Int [unique, not null]
+}
+
+Table Pet {
+  idPet Int [pk, increment]
+  name String [not null]
+  age Decimal [not null]
+  description String
+  chronicDiseases String[] [not null]
+  isHealthy Boolean
+  customSpeciesName String
+  Spiece Spiece [not null]
+  Spiece_idSpiece Int [not null]
+  Client Client
+  Client_idClient Int
+  Images PetImage [not null]
+  Archives Archive [not null]
+  Analyses Analysis [not null]
+  Bookings BookingPet [not null]
+}
+
+Table PetImage {
+  idPetImage Int [pk, increment]
+  imageUrl String [not null]
+  order Int
+  Pet Pet [not null]
+  Pet_idPet Int [not null]
+}
+
+Table Spiece {
+  idSpiece Int [pk, increment]
+  name String [unique, not null]
+  Pets Pet [not null]
+  AdvertisementSpieces AdvertisementSpiece [not null]
+}
+
+Table Archive {
+  idArchive Int [pk, increment]
+  date DateTime [not null]
+  status StatusArchive [not null, default: 'COMPLETED']
+  Pet Pet [not null]
+  Pet_idPet Int [not null]
+  Advertisement Advertisement [not null]
+  Advertisement_idAdvertisement Int [not null]
+}
+
+Table AdvertisementArchive {
+  idAdvertisementArchive Int [pk, increment]
+  originalAdvertisementId Int [unique, not null]
+  title String [not null]
+  description String
+  price Float
+  status StatusAdvertisement [not null, default: 'INACTIVE']
+  startDate DateTime [not null]
+  endDate DateTime [not null]
+  createdAt DateTime [default: `now()`, not null]
+  serviceStartTime DateTime
+  serviceEndTime DateTime
+  serviceId Int [not null]
+  serviceProviderId Int [not null]
+  deletedAt DateTime [default: `now()`, not null]
+  imagesUrls Json
+  Service Service [not null]
+  Service_Provider service__provider [not null]
+}
+
+Table AdvertisementImage {
+  idAdvertisementImage Int [pk, increment]
+  imageUrl String [not null]
+  order Int
+  Advertisement Advertisement [not null]
+  Advertisement_idAdvertisement Int [not null]
+}
+
+Table Symptom {
+  idSymptom Int [pk, increment]
+  code String [unique, not null]
+  name String [not null]
+  description String
+  defaultSeverity Severity [not null, default: 'MODERATE']
+}
+
+Table Analysis {
+  idAnalysis Int [pk, increment]
+  inputData Json [not null]
+  diagnoses Json [not null]
+  createdAt DateTime [default: `now()`, not null]
+  Pet Pet [not null]
+  Pet_idPet Int [not null]
+}
+
+Table SavedAdvertisement {
+  id Int [pk, increment]
+  savedAt DateTime [default: `now()`, not null]
+  Client Client [not null]
+  Client_idClient Int [not null]
+  Advertisement Advertisement [not null]
+  Advertisement_idAdvertisement Int [not null]
+
+  indexes {
+    (Client_idClient, Advertisement_idAdvertisement) [unique]
+  }
+}
+
+Table AdvertisementSpiece {
+  advertisement Advertisement [not null]
+  advertisementId Int [not null]
+  spiece Spiece [not null]
+  spieceId Int [not null]
+
+  indexes {
+    (advertisementId, spieceId) [pk]
+  }
+}
+
+Table Payment {
+  id Int [pk, increment]
+  userId Int [not null]
+  stripeSessionId String [unique, not null]
+  amount Int [not null]
+  status String [not null]
+  type String [not null]
+  createdAt DateTime [default: `now()`, not null]
+  User User [not null]
+}
+
+Table Report {
+  idReport Int [pk, increment]
+  message String
+  createdAt DateTime [default: `now()`, not null]
+  Booking Booking [not null]
+  Booking_idBooking Int [not null]
+  Client Client [not null]
+  Client_idClient Int [not null]
+  Service_Provider service__provider [not null]
+  Service_Provider_idService_Provider Int [not null]
+}
+
+Enum StatusAdvertisement {
+  ACTIVE
+  INACTIVE
+  PENDING
+  BOOKED
+}
+
+Enum BookingStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  CANCELLED
+  AWAITING_PAYMENT
+  OVERDUE
+  PAID
+}
+
+Enum Severity {
+  LOW
+  MODERATE
+  HIGH
+}
+
+Enum StatusArchive {
+  COMPLETED
+  CANCELLED
+  PENDING
+}
+
+Ref: User.City_idCity > City.idCity
+
+Ref: Admin.User_idUser - User.idUser
+
+Ref: service__provider.User_idUser > User.idUser
+
+Ref: Advertisement.Service_idService > Service.idService
+
+Ref: Advertisement.Service_Provider_idService_Provider > service__provider.idService_Provider
+
+Ref: Booking.Client_idClient > Client.idClient
+
+Ref: Booking.Service_Provider_idService_Provider > service__provider.idService_Provider
+
+Ref: Booking.advertisementId > Advertisement.idAdvertisement
+
+Ref: BookingPet.Booking_idBooking > Booking.idBooking
+
+Ref: BookingPet.Pet_idPet > Pet.idPet
+
+Ref: Client.User_idUser > User.idUser
+
+Ref: Review.Client_idClient > Client.idClient
+
+Ref: Review.Service_Provider_idService_Provider > service__provider.idService_Provider
+
+Ref: Review.Booking_idBooking > Booking.idBooking
+
+Ref: Pet.Spiece_idSpiece > Spiece.idSpiece
+
+Ref: Pet.Client_idClient > Client.idClient
+
+Ref: PetImage.Pet_idPet > Pet.idPet
+
+Ref: Archive.Pet_idPet > Pet.idPet
+
+Ref: Archive.Advertisement_idAdvertisement > Advertisement.idAdvertisement
+
+Ref: AdvertisementArchive.serviceId > Service.idService
+
+Ref: AdvertisementArchive.serviceProviderId > service__provider.idService_Provider
+
+Ref: AdvertisementImage.Advertisement_idAdvertisement > Advertisement.idAdvertisement
+
+Ref: Analysis.Pet_idPet > Pet.idPet
+
+Ref: SavedAdvertisement.Client_idClient > Client.idClient
+
+Ref: SavedAdvertisement.Advertisement_idAdvertisement > Advertisement.idAdvertisement
+
+Ref: AdvertisementSpiece.advertisementId > Advertisement.idAdvertisement
+
+Ref: AdvertisementSpiece.spieceId > Spiece.idSpiece
+
+Ref: Payment.userId > User.idUser
+
+Ref: Report.Booking_idBooking > Booking.idBooking
+
+Ref: Report.Client_idClient > Client.idClient
+
+Ref: Report.Service_Provider_idService_Provider > service__provider.idService_Provider

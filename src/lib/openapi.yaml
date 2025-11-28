@@ -3148,7 +3148,7 @@ paths:
 
   /api/reviews/{id}:
     delete:
-      summary: Dead that review you dropped, nigga
+      summary: Dead that review you dropped
       description: You the one who wrote it, so you the only nigga that can wipe it. Anybody else move funny, they get lined out the whole app.
       tags: [Reviews]
       security:
@@ -3182,7 +3182,7 @@ paths:
         "500":
           description: Server down bad, whole block bleedin' rn
     put:
-      summary: Switch up on yo old take, nigga
+      summary: Switch up on yo old take
       description: Mind changed? Flip the rating, rewrite the comment, do what you gotta do. But try to touch another nigga shit and we got real problems.
       tags: [Reviews]
       security:
