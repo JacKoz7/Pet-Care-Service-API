@@ -1,4 +1,3 @@
-// src/app/api/admin/[firebaseUid]/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { adminAuth } from "@/lib/firebaseAdmin";
@@ -86,15 +85,6 @@ export async function DELETE(
 
     // Start transaction
     await prisma.$transaction(async (tx) => {
-      // Delete feedbacks and bookings related to user
-      await tx.feedback.deleteMany({
-        where: {
-          OR: [
-            { Client_idClient: { in: clientIds } },
-            { Service_Provider_idService_Provider: { in: spIds } },
-          ],
-        },
-      });
 
       await tx.booking.deleteMany({
         where: {
@@ -143,11 +133,6 @@ export async function DELETE(
       // Delete advertisement archives
       await tx.advertisementArchive.deleteMany({
         where: { serviceProviderId: { in: spIds } },
-      });
-
-      // Delete availabilities
-      await tx.availability.deleteMany({
-        where: { Service_Provider_idService_Provider: { in: spIds } },
       });
 
       // Delete clients and service providers
@@ -224,109 +209,3 @@ export async function DELETE(
     await prisma.$disconnect();
   }
 }
-
-/**
- * @swagger
- * /api/admin/{firebaseUid}:
- *   delete:
- *     summary: Delete a user (admin only)
- *     description: |
- *       Deletes a user from both the database and Firebase Auth.
- *       This operation is irreversible and will permanently remove all user data.
- *       Requires admin authentication via Firebase ID token.
- *     tags: [Admin]
- *     security:
- *       - BearerAuth: []
- *     parameters:
- *       - in: path
- *         name: firebaseUid
- *         required: true
- *         schema:
- *           type: string
- *         description: Firebase UID of the user to delete
- *         example: "abcd1234efgh5678"
- *     responses:
- *       200:
- *         description: User deleted successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                   example: "User deleted successfully from both database and Firebase Auth"
- *                 deletedUser:
- *                   type: object
- *                   properties:
- *                     id:
- *                       type: integer
- *                       example: 42
- *                     firebaseUid:
- *                       type: string
- *                       example: "abcd1234efgh5678"
- *                     email:
- *                       type: string
- *                       example: "jane.doe@example.com"
- *                     firstName:
- *                       type: string
- *                       nullable: true
- *                       example: "Jane"
- *                     lastName:
- *                       type: string
- *                       nullable: true
- *                       example: "Doe"
- *       400:
- *         description: Invalid input (missing Firebase UID)
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 error:
- *                   type: string
- *                   example: "Firebase UID is required"
- *       401:
- *         description: Unauthorized (invalid or missing token)
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 error:
- *                   type: string
- *                   example: "Invalid or expired token"
- *       403:
- *         description: Forbidden (not an admin)
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 error:
- *                   type: string
- *                   example: "Unauthorized: Admin access required"
- *       404:
- *         description: User not found
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 error:
- *                   type: string
- *                   example: "User not found"
- *       500:
- *         description: Internal server error
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 error:
- *                   type: string
- *                   example: "Internal server error"
- */

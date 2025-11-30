@@ -1,5 +1,3 @@
-// app/api/user/check-role/route.ts (updated: add isVerified check)
-
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { adminAuth } from "@/lib/firebaseAdmin";
@@ -36,9 +34,8 @@ export async function GET(request: NextRequest) {
         ServiceProviders: {
           select: {
             idService_Provider: true,
-            isActive: true, // NEW: Select isActive to check for role
+            isActive: true, // Select isActive to check for role
           },
-          // No 'where'—fetch ALL for full ownership support
         },
         Clients: {
           select: {
@@ -52,7 +49,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // NEW: Check if email is verified in DB
+    // Check if email is verified in DB
     if (!user.isVerified) {
       return NextResponse.json(
         {
@@ -108,54 +105,3 @@ export async function GET(request: NextRequest) {
     await prisma.$disconnect();
   }
 }
-
-/**
- * @swagger
- * /api/user/check-role:
- *   get:
- *     summary: Check user roles and IDs
- *     description: |
- *       Returns all roles and associated service provider and client IDs of the currently authenticated user.
- *       Requires a valid Firebase ID token in the Authorization header.
- *       All users have the 'client' role. Additional roles can be 'admin' and/or 'service_provider' (only if at least one ServiceProvider is active).
- *       serviceProviderIds includes ALL linked providers (active or inactive).
- *       clientIds includes ALL linked clients.
- *       Checks if email is verified in DB; returns 403 if not.
- *     tags: [Debug]
- *     security:
- *       - BearerAuth: []
- *     responses:
- *       200:
- *         description: User roles and IDs retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 roles:
- *                   type: array
- *                   items:
- *                     type: string
- *                     enum: [client, admin, service_provider]
- *                   example: ["client", "service_provider"]
- *                 serviceProviderIds:
- *                   type: array
- *                   items:
- *                     type: integer
- *                   example: [1, 2]
- *                   description: Array of all service provider IDs linked to the user
- *                 clientIds:
- *                   type: array
- *                   items:
- *                     type: integer
- *                   example: [1]
- *                   description: Array of all client IDs linked to the user
- *       401:
- *         description: Unauthorized (invalid or missing token)
- *       403:
- *         description: Email not verified in database
- *       404:
- *         description: User not found in database
- *       500:
- *         description: Internal server error
- */

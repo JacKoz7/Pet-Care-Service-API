@@ -1,4 +1,3 @@
-// src/app/api/advertisements/latest/route.ts
 import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 
@@ -13,13 +12,12 @@ export async function GET() {
       select: {
         idAdvertisement: true,
         title: true,
-        price: true, // ← nowe
+        price: true, 
         startDate: true,
         endDate: true,
         serviceStartTime: true,
         serviceEndTime: true,
         Service: {
-          // ← dodane
           select: {
             idService: true,
             name: true,
@@ -68,9 +66,9 @@ export async function GET() {
     const mappedAdvertisements = advertisements.map((ad) => ({
       id: ad.idAdvertisement,
       title: ad.title,
-      price: ad.price, // ← nowe
-      serviceId: ad.Service.idService, // ← nowe
-      serviceName: ad.Service.name, // ← nowe
+      price: ad.price, 
+      serviceId: ad.Service.idService, 
+      serviceName: ad.Service.name, 
       startDate: ad.startDate,
       endDate: ad.endDate,
       serviceStartTime: ad.serviceStartTime
@@ -102,82 +100,3 @@ export async function GET() {
     await prisma.$disconnect();
   }
 }
-
-/**
- * @swagger
- * /api/advertisements/latest:
- *   get:
- *     summary: Get 10 latest active advertisements
- *     description: |
- *       Returns the 10 most recently created active advertisements with full details including service info and price.
- *     tags: [Advertisements]
- *     responses:
- *       200:
- *         description: Latest advertisements retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 advertisements:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       id:
- *                         type: integer
- *                         example: 42
- *                       title:
- *                         type: string
- *                         example: "Spacer z psem w centrum Warszawy"
- *                       price:
- *                         type: number
- *                         nullable: true
- *                         example: 85.00
- *                       serviceId:
- *                         type: integer
- *                         example: 2
- *                       serviceName:
- *                         type: string
- *                         example: "Wyprowadzanie psów"
- *                       startDate:
- *                         type: string
- *                         format: date-time
- *                       endDate:
- *                         type: string
- *                         format: date-time
- *                         nullable: true
- *                       serviceStartTime:
- *                         type: string
- *                         nullable: true
- *                         example: "08:00"
- *                       serviceEndTime:
- *                         type: string
- *                         nullable: true
- *                         example: "20:00"
- *                       keyImage:
- *                         type: string
- *                         nullable: true
- *                         example: "https://example.com/ad-image.jpg"
- *                       species:
- *                         type: array
- *                         items:
- *                           type: string
- *                         example: ["Pies"]
- *                       city:
- *                         type: object
- *                         properties:
- *                           idCity:
- *                             type: integer
- *                             example: 1
- *                           name:
- *                             type: string
- *                             example: "Warszawa"
- *                           imageUrl:
- *                             type: string
- *                             nullable: true
- *                             example: "https://example.com/warsaw.jpg"
- */

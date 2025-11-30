@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { petId, ...inputData } = body; // Extract petId and get the rest as inputData (without petId)
 
-    // Validate inputData (now without petId, but check required fields) - symptoms are now optional
+    // Validate inputData (now without petId, but check required fields) - symptoms are optional
     if (!inputData) {
       return NextResponse.json(
         { error: "Invalid input data" },
@@ -188,7 +188,6 @@ export async function POST(request: NextRequest) {
       throw new Error("AI response does not match required schema");
     }
 
-    // NOWOŚĆ: Jeśli overallHealth === "healthy", ustaw isHealthy na true dla peta
     if (diagnoses.overallHealth === "healthy") {
       await prisma.pet.update({
         where: { idPet: petId },
@@ -216,7 +215,7 @@ export async function POST(request: NextRequest) {
       success: true,
       analysisId: analysis.idAnalysis,
       diagnoses: diagnoses.diagnoses,
-      overallHealth: diagnoses.overallHealth, // NOWOŚĆ: Zwróć overallHealth
+      overallHealth: diagnoses.overallHealth, 
     });
   } catch (error) {
     console.error("Error performing analysis:", error);
@@ -228,164 +227,6 @@ export async function POST(request: NextRequest) {
     await prisma.$disconnect();
   }
 }
-
-/**
- * @swagger
- * /api/analysis:
- *   post:
- *     summary: Perform pet diagnosis analysis
- *     description: |
- *       Performs AI-based diagnosis analysis for a pet based on provided input data.
- *       Requires a valid Firebase authentication token and ownership of the pet.
- *       Saves the analysis to the database.
- *     tags: [Analysis]
- *     security:
- *       - BearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - petId
- *             properties:
- *               petId:
- *                 type: integer
- *                 example: 1
- *               weight:
- *                 type: number
- *                 nullable: true
- *                 example: 12
- *               sex:
- *                 type: string
- *                 enum: [MALE, FEMALE, UNKNOWN]
- *                 nullable: true
- *                 example: "MALE"
- *               isSterilized:
- *                 type: boolean
- *                 nullable: true
- *                 example: true
- *               activityLevel:
- *                 type: string
- *                 enum: [LOW, MEDIUM, HIGH]
- *                 nullable: true
- *                 example: "MEDIUM"
- *               dietType:
- *                 type: string
- *                 enum: [DRY, WET, BARF, HOMEMADE, OTHER]
- *                 nullable: true
- *                 example: "WET"
- *               knownAllergies:
- *                 type: array
- *                 items:
- *                   type: string
- *                 nullable: true
- *                 example: ["peanuts"]
- *               vaccinationUpToDate:
- *                 type: boolean
- *                 nullable: true
- *                 example: true
- *               environmentType:
- *                 type: string
- *                 enum: [INDOOR, OUTDOOR, MIXED]
- *                 nullable: true
- *                 example: "OUTDOOR"
- *               chronicDiseases:
- *                 type: array
- *                 items:
- *                   type: string
- *                 nullable: true
- *                 example: ["diabetes"]
- *               selectedSymptoms:
- *                 type: array
- *                 items:
- *                   type: object
- *                   properties:
- *                     id:
- *                       type: integer
- *                     code:
- *                       type: string
- *                     name:
- *                       type: string
- *                     description:
- *                       type: string
- *                       nullable: true
- *                     defaultSeverity:
- *                       type: string
- *                 # minItems removed - now optional
- *     responses:
- *       200:
- *         description: Analysis performed successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 analysisId:
- *                   type: integer
- *                   example: 1
- *                 diagnoses:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       diseaseName:
- *                         type: string
- *                         example: "Zapalenie żołądka"
- *                       probability:
- *                         type: number
- *                         example: 0.72
- *                       riskLevel:
- *                         type: string
- *                         enum: [low, medium, high]
- *                         example: "high"
- *                       description:
- *                         type: string
- *                         example: "Stan zapalny błony śluzowej żołądka powodujący wymioty i brak apetytu."
- *                       confidenceReasoning:
- *                         type: string
- *                         example: "Wymioty + brak apetytu + nowa karma tydzień temu; objawy pasują klinicznie."
- *                       recommendedActions:
- *                         type: array
- *                         items:
- *                           type: string
- *                         example: ["Odstawić karmę na 12h", "Podawać małe porcje wody co 1-2h"]
- *                       recommendedTests:
- *                         type: array
- *                         items:
- *                           type: string
- *                         example: ["Badanie kału", "Morfologia i biochemia krwi"]
- *                       requiresVetVisit:
- *                         type: boolean
- *                         example: true
- *                       urgency:
- *                         type: string
- *                         enum: [immediate, within_24h, within_72h, within_week]
- *                         example: "within_24h"
- *                       differential:
- *                         type: array
- *                         items:
- *                           type: string
- *                         example: ["zatrucie pokarmowe", "choroba wrzodowa"]
- *                 overallHealth:
- *                   type: string
- *                   enum: [healthy, hard to tell, unhealthy]
- *                   example: "healthy"
- *       400:
- *         description: Invalid input data
- *       401:
- *         description: Unauthorized (invalid or missing token)
- *       403:
- *         description: Forbidden (user is not a client or not pet owner)
- *       404:
- *         description: User or pet not found
- *       500:
- *         description: Internal server error
- */
 
 export async function GET(request: NextRequest) {
   try {
@@ -471,44 +312,3 @@ export async function GET(request: NextRequest) {
   }
 }
 
-/**
- * @swagger
- * /api/analysis:
- *   get:
- *     summary: Get all pet diagnosis analyses for user
- *     description: Retrieves all analyses for the authenticated user's pets. Requires client role.
- *     tags: [Analysis]
- *     security:
- *       - BearerAuth: []
- *     responses:
- *       200:
- *         description: Analyses retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 analyses:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       idAnalysis:
- *                         type: integer
- *                         example: 1
- *                       createdAt:
- *                         type: string
- *                         format: date-time
- *                         example: "2025-10-12T12:00:00.000Z"
- *                       petName:
- *                         type: string
- *                         example: "Bella"
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Forbidden (not client)
- *       404:
- *         description: User not found
- *       500:
- *         description: Internal server error
- */

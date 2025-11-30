@@ -51,15 +51,15 @@ export async function GET(request: NextRequest) {
     const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
     const threeMonthsAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
 
-    let bookings = await prisma.booking.findMany({
+    const bookings = await prisma.booking.findMany({
       where: {
         Client_idClient: clientId,
         OR: [
           { status: "PENDING" },
           { status: "CANCELLED", updatedAt: { gte: oneMonthAgo } },
           { status: "REJECTED", updatedAt: { gte: oneMonthAgo } },
-          { status: "ACCEPTED" }, // No time limit to catch ones needing update
-          { status: "AWAITING_PAYMENT" }, // No time limit
+          { status: "ACCEPTED" }, 
+          { status: "AWAITING_PAYMENT" }, 
           { status: "OVERDUE", updatedAt: { gte: threeMonthsAgo } },
           { status: "PAID", updatedAt: { gte: threeMonthsAgo } },
         ],
@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
         startDateTime: true,
         endDateTime: true,
         message: true,
-        advertisementId: true, // Added: Include advertisementId in the query
+        advertisementId: true, 
         updatedAt: true,
         Pets: {
           include: {
@@ -130,7 +130,7 @@ export async function GET(request: NextRequest) {
           where: { idBooking: booking.idBooking },
           data: { status: "AWAITING_PAYMENT", updatedAt: now },
         });
-        booking.status = "AWAITING_PAYMENT"; // Update local object
+        booking.status = "AWAITING_PAYMENT"; 
         booking.updatedAt = now;
       } else if (
         booking.status === "AWAITING_PAYMENT" &&
@@ -141,7 +141,7 @@ export async function GET(request: NextRequest) {
           where: { idBooking: booking.idBooking },
           data: { status: "OVERDUE", updatedAt: now },
         });
-        booking.status = "OVERDUE"; // Update local object
+        booking.status = "OVERDUE"; 
         booking.updatedAt = now;
       }
     }
@@ -153,7 +153,7 @@ export async function GET(request: NextRequest) {
       startDateTime: booking.startDateTime,
       endDateTime: booking.endDateTime,
       message: booking.message,
-      advertisementId: booking.advertisementId, // Added: Include advertisementId in the response
+      advertisementId: booking.advertisementId, 
       pets: booking.Pets.map((bp) => ({
         id: bp.Pet.idPet,
         name: bp.Pet.name,
@@ -192,125 +192,3 @@ export async function GET(request: NextRequest) {
     await prisma.$disconnect();
   }
 }
-
-/**
- * @swagger
- * /api/bookings/client/notifications:
- *   get:
- *     summary: Get recent booking notifications for client
- *     description: |
- *       Retrieves pending bookings (always) and recent completed/cancelled/rejected bookings within time windows for the authenticated client.
- *       - PENDING: No time limit (always returned).
- *       - CANCELLED/REJECTED: Only if updated within the last 1 month.
- *       - ACCEPTED: No time limit (to check for status updates).
- *       - AWAITING_PAYMENT: No time limit.
- *       - OVERDUE: Only if updated within the last 3 months.
- *       - PAID: Only if updated within the last 3 months.
- *       Automatically updates booking status to AWAITING_PAYMENT if end date has passed, and to OVERDUE if 48h after end date without payment.
- *       Requires a valid Firebase authentication token.
- *       Only available to clients.
- *       Returns details about all pets in the booking, service provider (name, email, phone), message, booking times, status, and advertisement ID.
- *     tags: [Bookings]
- *     security:
- *       - BearerAuth: []
- *     responses:
- *       200:
- *         description: Recent bookings retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 bookings:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       id:
- *                         type: integer
- *                         example: 1
- *                       status:
- *                         type: string
- *                         enum: [PENDING, ACCEPTED, REJECTED, CANCELLED, AWAITING_PAYMENT, OVERDUE, PAID]
- *                         example: "PENDING"
- *                       startDateTime:
- *                         type: string
- *                         format: date-time
- *                         example: "2025-10-25T10:00:00Z"
- *                       endDateTime:
- *                         type: string
- *                         format: date-time
- *                         example: "2025-10-25T12:00:00Z"
- *                       message:
- *                         type: string
- *                         nullable: true
- *                         example: "Please confirm the exact hours."
- *                       advertisementId:
- *                         type: integer
- *                         nullable: true
- *                         example: 123
- *                       pets:
- *                         type: array
- *                         items:
- *                           type: object
- *                           properties:
- *                             id:
- *                               type: integer
- *                               example: 1
- *                             name:
- *                               type: string
- *                               example: "Max"
- *                             age:
- *                               type: number
- *                               example: 5
- *                             description:
- *                               type: string
- *                               nullable: true
- *                               example: "Friendly dog"
- *                             chronicDiseases:
- *                               type: array
- *                               items:
- *                                 type: string
- *                               example: ["Allergies"]
- *                             isHealthy:
- *                               type: boolean
- *                               nullable: true
- *                               example: true
- *                             species:
- *                               type: string
- *                               example: "Dog"
- *                             keyImage:
- *                               type: string
- *                               nullable: true
- *                               example: "https://example.com/pet.jpg"
- *                       provider:
- *                         type: object
- *                         properties:
- *                           firstName:
- *                             type: string
- *                             nullable: true
- *                             example: "Jane"
- *                           lastName:
- *                             type: string
- *                             nullable: true
- *                             example: "Smith"
- *                           email:
- *                             type: string
- *                             nullable: true
- *                             example: "jane.smith@example.com"
- *                           phoneNumber:
- *                             type: string
- *                             nullable: true
- *                             example: "987654321"
- *       401:
- *         description: Unauthorized (invalid or missing token)
- *       403:
- *         description: Forbidden (user is not a client)
- *       404:
- *         description: User not found
- *       500:
- *         description: Internal server error
- */

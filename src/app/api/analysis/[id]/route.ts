@@ -1,5 +1,3 @@
-// Nowy endpoint: api/analysis/[id].ts (już istnieje, więc dodajemy DELETE handler)
-
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { adminAuth } from "@/lib/firebaseAdmin";
@@ -25,10 +23,10 @@ interface DiagnosesJson extends JsonObject {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> } // Dodano Promise<> dla Next.js 15+
+  { params }: { params: Promise<{ id: string }> } 
 ) {
   try {
-    const { id } = await params; // Await params!
+    const { id } = await params; 
     const analysisId = parseInt(id);
     if (isNaN(analysisId)) {
       return NextResponse.json(
@@ -93,7 +91,6 @@ export async function GET(
       );
     }
 
-    // Sprawdź, czy user jest właścicielem pet
     const isOwner = user.Clients.some(
       (client) => client.idClient === analysis.Pet.Client_idClient
     );
@@ -105,11 +102,9 @@ export async function GET(
       );
     }
 
-    // Zwróć dane bez wrażliwych info z Pet
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { Pet: _Pet, ...safeAnalysis } = analysis; // _Pet: unused intentionally (security)
+    const { Pet: _Pet, ...safeAnalysis } = analysis; 
 
-    // FIX: Type guard i assertion dla Json (może być null lub nie obiekt)
     if (!safeAnalysis.diagnoses || typeof safeAnalysis.diagnoses !== "object") {
       return NextResponse.json(
         { error: "Invalid diagnoses data" },
@@ -125,7 +120,6 @@ export async function GET(
       );
     }
 
-    // Teraz diagnosesData.diagnoses jest array!
     return NextResponse.json({
       idAnalysis: safeAnalysis.idAnalysis,
       createdAt: analysis.createdAt.toISOString(),
@@ -239,131 +233,3 @@ export async function DELETE(
     await prisma.$disconnect();
   }
 }
-
-/**
- * @swagger
- * /api/analysis/{id}:
- *   get:
- *     summary: Get pet diagnosis analysis results
- *     description: Retrieves a specific analysis by ID. Requires authentication and ownership of the pet.
- *     tags: [Analysis]
- *     security:
- *       - BearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *         description: Analysis ID
- *     responses:
- *       200:
- *         description: Analysis retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 idAnalysis:
- *                   type: integer
- *                   example: 1
- *                 createdAt:
- *                   type: string
- *                   format: date-time
- *                   example: "2025-10-12T12:00:00.000Z"
- *                 overallHealth:
- *                   type: string
- *                   enum: [healthy, hard to tell, unhealthy]
- *                   example: "healthy"
- *                 diagnoses:
- *                   type: array
- *                   items:
- *                     $ref: '#/components/schemas/Diagnosis'
- *       400:
- *         description: Invalid analysis ID
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Forbidden (not owner)
- *       404:
- *         description: Analysis not found
- *       500:
- *         description: Internal server error
- *   delete:
- *     summary: Delete pet diagnosis analysis
- *     description: Deletes a specific analysis by ID. Requires authentication and ownership of the pet.
- *     tags: [Analysis]
- *     security:
- *       - BearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *         description: Analysis ID
- *     responses:
- *       200:
- *         description: Analysis deleted successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *       400:
- *         description: Invalid analysis ID
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Forbidden (not owner)
- *       404:
- *         description: Analysis not found
- *       500:
- *         description: Internal server error
- * components:
- *   schemas:
- *     Diagnosis:
- *       type: object
- *       properties:
- *         diseaseName:
- *           type: string
- *           example: "Zapalenie żołądka"
- *         probability:
- *           type: number
- *           example: 0.72
- *         riskLevel:
- *           type: string
- *           enum: [low, medium, high]
- *           example: "high"
- *         description:
- *           type: string
- *           example: "Stan zapalny błony śluzowej żołądka..."
- *         confidenceReasoning:
- *           type: string
- *           example: "Wymioty + brak apetytu..."
- *         recommendedActions:
- *           type: array
- *           items:
- *             type: string
- *           example: ["Odstawić karmę na 12h"]
- *         recommendedTests:
- *           type: array
- *           items:
- *             type: string
- *           example: ["Badanie kału"]
- *         requiresVetVisit:
- *           type: boolean
- *           example: true
- *         urgency:
- *           type: string
- *           enum: [immediate, within_24h, within_72h, within_week]
- *           example: "within_24h"
- *         differential:
- *           type: array
- *           items:
- *             type: string
- *           example: ["zatrucie pokarmowe"]
- */

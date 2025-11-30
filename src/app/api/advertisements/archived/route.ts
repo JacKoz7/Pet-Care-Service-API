@@ -1,4 +1,3 @@
-// archived advs - UPDATED TO INCLUDE species: string[]
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { adminAuth } from "@/lib/firebaseAdmin";
@@ -101,7 +100,7 @@ export async function GET(request: NextRequest) {
           ? ad.serviceEndTime.toTimeString().slice(0, 5)
           : null,
         keyImage,
-        species: [], // Species nie są zapisywane w archiwum – po restore będą puste
+        species: [], 
         city: {
           idCity: ad.Service_Provider.User.City.idCity,
           name: ad.Service_Provider.User.City.name,
@@ -124,69 +123,3 @@ export async function GET(request: NextRequest) {
     await prisma.$disconnect();
   }
 }
-
-/**
- * @swagger
- * /api/advertisements/archived:
- *   get:
- *     summary: Get user's archived advertisements
- *     description: |
- *       Returns a list of archived (deleted) advertisements for the authenticated user who is a service provider.
- *       Includes title, start date, end date, service hours, key image, species (always empty – not stored in archive), and city details.
- *     tags: [Advertisements]
- *     security:
- *       - BearerAuth: []
- *     responses:
- *       200:
- *         description: Successfully retrieved archived advertisements
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 advertisements:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       id:
- *                         type: integer
- *                       originalId:
- *                         type: integer
- *                       title:
- *                         type: string
- *                       startDate:
- *                         type: string
- *                         format: date-time
- *                       endDate:
- *                         type: string
- *                         format: date-time
- *                         nullable: true
- *                       serviceStartTime:
- *                         type: string
- *                         nullable: true
- *                       serviceEndTime:
- *                         type: string
- *                         nullable: true
- *                       keyImage:
- *                         type: string
- *                         nullable: true
- *                       species:
- *                         type: array
- *                         items:
- *                           type: string
- *                         example: []
- *                       city:
- *                         type: object
- *                         properties:
- *                           idCity:
- *                             type: integer
- *                           name:
- *                             type: string
- *                           imageUrl:
- *                             type: string
- *                             nullable: true
- */

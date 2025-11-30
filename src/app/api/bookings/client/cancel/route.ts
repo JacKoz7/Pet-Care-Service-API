@@ -1,4 +1,3 @@
-// src/app/api/bookings/client/cancel/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { adminAuth } from "@/lib/firebaseAdmin";
@@ -105,53 +104,3 @@ export async function POST(request: NextRequest) {
     await prisma.$disconnect();
   }
 }
-
-/**
- * @swagger
- * /api/bookings/client/cancel:
- *   post:
- *     summary: Cancel a pending booking as client
- *     description: |
- *       Allows the authenticated client to cancel a pending booking.
- *       Only pending bookings can be cancelled.
- *       Requires a valid Firebase authentication token.
- *       Only available to clients.
- *     tags: [Bookings]
- *     security:
- *       - BearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               bookingId:
- *                 type: integer
- *                 example: 1
- *                 description: The ID of the booking to cancel
- *     responses:
- *       200:
- *         description: Booking cancelled successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                   example: "Booking cancelled successfully"
- *       400:
- *         description: Bad request (invalid booking ID or not pending)
- *       401:
- *         description: Unauthorized (invalid or missing token)
- *       403:
- *         description: Forbidden (user is not a client or unauthorized for this booking)
- *       404:
- *         description: Booking or user not found
- *       500:
- *         description: Internal server error
- */

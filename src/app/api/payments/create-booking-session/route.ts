@@ -1,4 +1,3 @@
-// src/app/api/payments/create-booking-session/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { adminAuth } from "@/lib/firebaseAdmin";
@@ -109,51 +108,3 @@ export async function POST(request: NextRequest) {
     await prisma.$disconnect();
   }
 }
-
-/**
- * @swagger
- * /api/payments/create-booking-session:
- *   post:
- *     summary: Create a Stripe checkout session for booking payment
- *     description: |
- *       Creates a one-time payment session for settling a booking.
- *       Requires a valid Firebase authentication token.
- *       Only for bookings in AWAITING_PAYMENT or OVERDUE status.
- *       The session redirects to success or cancellation URLs after payment processing.
- *     tags: [Payments]
- *     security:
- *       - BearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               bookingId:
- *                 type: integer
- *                 description: ID of the booking to pay for
- *                 example: 1
- *     responses:
- *       200:
- *         description: Checkout session created successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 url:
- *                   type: string
- *                   description: Stripe Checkout URL to redirect the user
- *                   example: "https://checkout.stripe.com/pay/cs_test_..."
- *       400:
- *         description: Bad request (missing bookingId or ineligible status)
- *       401:
- *         description: Unauthorized - Invalid or missing authentication token
- *       403:
- *         description: Forbidden - User not a client
- *       404:
- *         description: Booking not found or unauthorized
- *       500:
- *         description: Internal server error
- */

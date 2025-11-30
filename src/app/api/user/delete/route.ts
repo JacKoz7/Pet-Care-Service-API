@@ -1,4 +1,3 @@
-// app/api/user/delete/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { adminAuth } from "@/lib/firebaseAdmin";
@@ -22,6 +21,7 @@ export async function DELETE(request: NextRequest) {
     try {
       decodedToken = await adminAuth.verifyIdToken(token);
     } catch (error) {
+      void error;
       return NextResponse.json(
         { error: "Invalid or expired token" },
         { status: 401 }
@@ -62,16 +62,7 @@ export async function DELETE(request: NextRequest) {
 
     // Start transaction
     await prisma.$transaction(async (tx) => {
-      // Delete feedbacks related to user
-      await tx.feedback.deleteMany({
-        where: {
-          OR: [
-            { Client_idClient: { in: clientIds } },
-            { Service_Provider_idService_Provider: { in: spIds } },
-          ],
-        },
-      });
-
+      
       // Delete reviews (both given and received)
       await tx.review.deleteMany({
         where: {
@@ -235,37 +226,3 @@ export async function DELETE(request: NextRequest) {
     await prisma.$disconnect();
   }
 }
-
-/**
- * @swagger
- * /api/user/delete:
- *   delete:
- *     summary: Delete own account (self-deletion)
- *     description: |
- *       Deletes the authenticated user's account from both the database and Firebase Auth.
- *       This operation is irreversible and will permanently remove all user data, including pets, advertisements, bookings, and related entities.
- *       Requires authentication via Firebase ID token. Any user (client, service provider, or admin) can delete their own account.
- *     tags: [User]
- *     security:
- *       - BearerAuth: []
- *     responses:
- *       200:
- *         description: Account deleted successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                   example: "Account deleted successfully from both database and Firebase Auth"
- *       401:
- *         description: Unauthorized (invalid or missing token)
- *       404:
- *         description: User not found
- *       500:
- *         description: Internal server error
- */

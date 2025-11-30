@@ -156,12 +156,12 @@ export async function PATCH(request: NextRequest) {
     // Delete old image
     if (user.profilePictureUrl) {
       const oldPath = extractPathFromSignedUrl(user.profilePictureUrl);
-      console.log("PATCH: Attempting to delete old image path:", oldPath); // Added log
-      console.log("PATCH: Full URL:", user.profilePictureUrl); // Added log
+      console.log("PATCH: Attempting to delete old image path:", oldPath); 
+      console.log("PATCH: Full URL:", user.profilePictureUrl); 
       if (oldPath) {
         try {
           const [exists] = await bucket.file(oldPath).exists(); // Check if exists
-          console.log("PATCH: File exists:", exists); // Added log
+          console.log("PATCH: File exists:", exists); 
           if (exists) {
             await bucket.file(oldPath).delete();
             console.log(`PATCH: Deleted old image: ${oldPath}`);
@@ -255,25 +255,25 @@ export async function DELETE(request: NextRequest) {
 
     const bucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
     if (!bucketName) {
-      console.error("DELETE: Storage bucket not configured"); // Added log
+      console.error("DELETE: Storage bucket not configured"); 
       return NextResponse.json(
         { error: "Storage bucket not configured" },
         { status: 500 }
       );
     }
 
-    console.log("DELETE: Bucket name:", bucketName); // Added log
+    console.log("DELETE: Bucket name:", bucketName); 
 
     const bucket = getStorage().bucket(bucketName);
 
     // Delete image from Firebase Storage
     const imagePath = extractPathFromSignedUrl(user.profilePictureUrl);
-    console.log("DELETE: Attempting to delete image path:", imagePath); // Added log
-    console.log("DELETE: Full URL:", user.profilePictureUrl); // Added log
+    console.log("DELETE: Attempting to delete image path:", imagePath); 
+    console.log("DELETE: Full URL:", user.profilePictureUrl); 
     if (imagePath) {
       try {
-        const [exists] = await bucket.file(imagePath).exists(); // Check if exists
-        console.log("DELETE: File exists:", exists); // Added log
+        const [exists] = await bucket.file(imagePath).exists(); 
+        console.log("DELETE: File exists:", exists); 
         if (exists) {
           await bucket.file(imagePath).delete();
           console.log(
@@ -281,7 +281,6 @@ export async function DELETE(request: NextRequest) {
           );
         } else {
           console.log(`DELETE: File not found in storage: ${imagePath}`);
-          // Optionally return error if file not found
           return NextResponse.json(
             { error: "Profile picture file not found in storage" },
             { status: 404 }
@@ -294,7 +293,6 @@ export async function DELETE(request: NextRequest) {
         );
         // Optionally throw to fail the operation
         // throw deleteErr;
-        // For now, continue but log
       }
     } else {
       console.error("DELETE: Could not extract image path from URL");
@@ -339,111 +337,3 @@ function extractPathFromSignedUrl(url: string): string | null {
     return null;
   }
 }
-
-/**
- * @swagger
- * /api/user/profile-picture:
- *   post:
- *     summary: Set the initial profile picture for the user
- *     description: Uploads a profile picture to Firebase Storage and saves the URL in the database. Only allowed if no picture is already set. Available only to authenticated users.
- *     tags: [User]
- *     security:
- *       - BearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         multipart/form-data:
- *           schema:
- *             type: object
- *             properties:
- *               image:
- *                 type: string
- *                 format: binary
- *                 description: The image file to upload (e.g., JPG, PNG)
- *     responses:
- *       200:
- *         description: Profile picture set successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 profilePictureUrl:
- *                   type: string
- *                   example: "https://storage.googleapis.com/bucket/profile_pictures/1_123456789_image.jpg?..."
- *       400:
- *         description: Bad request (no file provided or picture already set)
- *       401:
- *         description: Unauthorized (missing or invalid token)
- *       404:
- *         description: User not found
- *       500:
- *         description: Internal server error
- *   patch:
- *     summary: Update the user's profile picture
- *     description: Uploads a new profile picture to Firebase Storage, deletes the old one if exists, and updates the URL in the database. Available only to authenticated users with an existing picture.
- *     tags: [User]
- *     security:
- *       - BearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         multipart/form-data:
- *           schema:
- *             type: object
- *             properties:
- *               image:
- *                 type: string
- *                 format: binary
- *                 description: The new image file to upload (e.g., JPG, PNG)
- *     responses:
- *       200:
- *         description: Profile picture updated successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 profilePictureUrl:
- *                   type: string
- *                   example: "https://storage.googleapis.com/bucket/profile_pictures/1_123456789_newimage.jpg?..."
- *       400:
- *         description: Bad request (no file provided or no picture set)
- *       401:
- *         description: Unauthorized (missing or invalid token)
- *       404:
- *         description: User not found
- *       500:
- *         description: Internal server error
- *   delete:
- *     summary: Delete the user's profile picture
- *     description: Deletes the profile picture from Firebase Storage and sets the URL to null in the database. Available only to authenticated users with an existing picture.
- *     tags: [User]
- *     security:
- *       - BearerAuth: []
- *     responses:
- *       200:
- *         description: Profile picture deleted successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *       400:
- *         description: Bad request (no picture set to delete)
- *       401:
- *         description: Unauthorized (missing or invalid token)
- *       404:
- *         description: User not found
- *       500:
- *         description: Internal server error
- */

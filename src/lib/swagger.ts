@@ -1,7 +1,9 @@
-import { createSwaggerSpec } from "next-swagger-doc";
+import fs from "fs";
+import path from "path";
+import yaml from "js-yaml";
 
 export interface OpenApiSpec {
-  [key: string]: unknown; 
+  [key: string]: unknown;
   openapi: string;
   info: {
     title: string;
@@ -24,31 +26,7 @@ export interface OpenApiSpec {
 }
 
 export const getApiDocs = async (): Promise<OpenApiSpec> => {
-  const spec = createSwaggerSpec({
-    apiFolder: "src/app/api",
-    definition: {
-      openapi: "3.0.0",
-      info: {
-        title: "PetStayTion API",
-        version: "1.0.0",
-        description: "API for pet care service management",
-      },
-      servers: [
-        {
-          url: "/",
-          description: "Development server",
-        },
-      ],
-      components: {
-        securitySchemes: {
-          BearerAuth: {
-            type: "http",
-            scheme: "bearer",
-            bearerFormat: "JWT",
-          },
-        },
-      },
-    },
-  });
-  return spec as OpenApiSpec; 
+  const specPath = path.join(process.cwd(), "src/lib/openapi.yaml");
+  const fileContents = fs.readFileSync(specPath, "utf8");
+  return yaml.load(fileContents) as OpenApiSpec;
 };

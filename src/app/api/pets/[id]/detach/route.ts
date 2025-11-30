@@ -1,4 +1,3 @@
-// app/api/pets/[id]/detach/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { adminAuth } from "@/lib/firebaseAdmin";
@@ -99,46 +98,3 @@ export async function PATCH(
     await prisma.$disconnect();
   }
 }
-
-/**
- * @swagger
- * /api/pets/{id}/detach:
- *   patch:
- *     summary: Detach a pet from owner
- *     description: |
- *       Detaches an existing pet from the owner by setting Client_idClient to null.
- *       Does not delete any data, including images or the pet record itself, to preserve associated bookings and history.
- *       Only the pet owner can detach the pet.
- *       Requires a valid Firebase authentication token.
- *     tags: [Pets]
- *     security:
- *       - BearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *         description: The pet ID
- *     responses:
- *       200:
- *         description: Pet detached successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *       400:
- *         description: Invalid pet ID
- *       401:
- *         description: Unauthorized (invalid or missing token)
- *       403:
- *         description: Forbidden (user is not the pet owner or has no client association)
- *       404:
- *         description: Pet not found or user not found
- *       500:
- *         description: Internal server error
- */

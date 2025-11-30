@@ -1,4 +1,3 @@
-// app/api/pets/[id]/diagnoses/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { adminAuth } from "@/lib/firebaseAdmin";
@@ -76,6 +75,7 @@ export async function GET(
     });
 
     const results = analyses.map((a) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const diagnoses = a.diagnoses as any;
       return {
         idAnalysis: a.idAnalysis,
@@ -95,55 +95,3 @@ export async function GET(
     await prisma.$disconnect();
   }
 }
-
-/**
- * @swagger
- * /api/pets/{id}/diagnoses:
- *   get:
- *     summary: Get all diagnostic analyses for a specific pet
- *     description: Returns a list of all AI diagnostic analyses performed for the given pet. Only accessible by the pet owner.
- *     tags: [Analysis]
- *     security:
- *       - BearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *         description: Pet ID
- *     responses:
- *       200:
- *         description: List of diagnostic analyses
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 analyses:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       idAnalysis:
- *                         type: integer
- *                         example: 42
- *                       createdAt:
- *                         type: string
- *                         format: date-time
- *                         example: "2025-11-18T10:30:00.000Z"
- *                       overallHealth:
- *                         type: string
- *                         enum: [healthy, hard to tell, unhealthy]
- *                         example: "healthy"
- *       400:
- *         description: Invalid pet ID
- *       401:
- *         description: Unauthorized (missing or invalid token)
- *       403:
- *         description: Forbidden (not the pet owner)
- *       404:
- *         description: Pet not found
- *       500:
- *         description: Internal server error
- */

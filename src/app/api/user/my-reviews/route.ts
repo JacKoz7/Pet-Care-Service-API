@@ -1,4 +1,3 @@
-// src/app/api/user/my-reviews/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { adminAuth } from "@/lib/firebaseAdmin";
@@ -74,7 +73,7 @@ export async function GET(request: NextRequest) {
       reviews: formattedReviews,
       total: formattedReviews.length,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error fetching user reviews:", error);
     return NextResponse.json(
       { error: "Internal server error" },
@@ -84,45 +83,3 @@ export async function GET(request: NextRequest) {
     await prisma.$disconnect();
   }
 }
-
-/**
- * @swagger
- * /api/user/my-reviews:
- *   get:
- *     summary: Get all reviews written by current user
- *     description: Returns list of all reviews that the authenticated client has written for service providers.
- *     tags: [User]
- *     security:
- *       - BearerAuth: []
- *     responses:
- *       200:
- *         description: Success
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success: { type: boolean }
- *                 total: { type: integer }
- *                 reviews:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       id: { type: integer }
- *                       rating: { type: integer, minimum: 1, maximum: 5 }
- *                       comment: { type: string, nullable: true }
- *                       createdAt: { type: string, format: date-time }
- *                       serviceProvider:
- *                         type: object
- *                         properties:
- *                           name: { type: string }
- *                           profilePictureUrl: { type: string, nullable: true }
- *                       advertisementTitle: { type: string }
- *       401:
- *         description: Unauthorized
- *       404:
- *         description: User not found or not a client
- *       500:
- *         description: Internal server error
- */

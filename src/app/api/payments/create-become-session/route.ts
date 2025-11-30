@@ -1,4 +1,3 @@
-// src/app/api/payments/create-become-session/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { adminAuth } from "@/lib/firebaseAdmin";
@@ -66,61 +65,3 @@ export async function POST(request: NextRequest) {
     await prisma.$disconnect();
   }
 }
-
-/**
- * @swagger
- * /api/payments/create-become-session:
- *   post:
- *     summary: Create a Stripe checkout session for becoming a service provider
- *     description: |
- *       Creates a one-time payment session for users who want to become service providers.
- *       Requires a valid Firebase authentication token.
- *       The session redirects to success or cancellation URLs after payment processing.
- *     tags: [Payments]
- *     security:
- *       - BearerAuth: []
- *     requestBody:
- *       required: false
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               email:
- *                 type: string
- *                 format: email
- *                 description: Customer email (optional, defaults to authenticated user's email)
- *                 example: "user@example.com"
- *     responses:
- *       200:
- *         description: Checkout session created successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 url:
- *                   type: string
- *                   description: Stripe Checkout URL to redirect the user
- *                   example: "https://checkout.stripe.com/pay/cs_test_..."
- *       401:
- *         description: Unauthorized - Invalid or missing authentication token
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 error:
- *                   type: string
- *                   example: "Unauthorized"
- *       500:
- *         description: Internal server error
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 error:
- *                   type: string
- *                   example: "Internal server error"
- */

@@ -21,150 +21,14 @@ function extractPathFromSignedUrl(url: string): string | null {
   }
 }
 
-/**
- * @swagger
- * /api/advertisements/{id}:
- *   get:
- *     summary: Get an advertisement by ID
- *     description: Retrieves detailed information about a specific advertisement, including title, description, price, status, dates, service provider details (with profile picture), city, service name, images, and species.
- *     tags: [Advertisements]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *         description: The ID of the advertisement to retrieve
- *     responses:
- *       200:
- *         description: Successfully retrieved the advertisement
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 advertisement:
- *                   type: object
- *                   properties:
- *                     id:
- *                       type: integer
- *                       example: 1
- *                     title:
- *                       type: string
- *                       example: "Professional Dog Walking"
- *                     description:
- *                       type: string
- *                       nullable: true
- *                       example: "Daily dog walking services in Warsaw"
- *                     price:
- *                       type: number
- *                       nullable: true
- *                       example: 50.0
- *                     status:
- *                       type: string
- *                       enum: [ACTIVE, INACTIVE, PENDING, BOOKED]
- *                       example: ACTIVE
- *                     startDate:
- *                       type: string
- *                       format: date-time
- *                       example: "2025-09-26T00:00:00Z"
- *                     endDate:
- *                       type: string
- *                       format: date-time
- *                       example: "2025-11-25T00:00:00Z"
- *                     serviceStartTime:
- *                       type: string
- *                       nullable: true
- *                       example: "09:00"
- *                     serviceEndTime:
- *                       type: string
- *                       nullable: true
- *                       example: "17:00"
- *                     serviceProviderId:
- *                       type: integer
- *                       example: 1
- *                     service:
- *                       type: string
- *                       example: "Dog Walking"
- *                     provider:
- *                       type: object
- *                       properties:
- *                         firstName:
- *                           type: string
- *                           nullable: true
- *                           example: "John"
- *                         lastName:
- *                           type: string
- *                           nullable: true
- *                           example: "Doe"
- *                         phoneNumber:
- *                           type: string
- *                           nullable: true
- *                           example: "123456789"
- *                         profilePictureUrl:                # ← NOWE POLE
- *                           type: string
- *                           nullable: true
- *                           description: URL zdjęcia profilowego service providera
- *                           example: "https://storage.googleapis.com/your-bucket/users/abc123/profile.jpg"
- *                         averageRating:
- *                           type: number
- *                           example: 4.5
- *                         totalReviews:
- *                           type: integer
- *                           example: 10
- *                     city:
- *                       type: object
- *                       properties:
- *                         idCity:
- *                           type: integer
- *                           example: 1
- *                         name:
- *                           type: string
- *                           example: "Warsaw"
- *                         imageUrl:
- *                           type: string
- *                           nullable: true
- *                           example: "https://example.com/city.jpg"
- *                     images:
- *                       type: array
- *                       items:
- *                         type: object
- *                         properties:
- *                           imageUrl:
- *                             type: string
- *                             example: "https://example.com/image.jpg"
- *                           order:
- *                             type: integer
- *                             nullable: true
- *                             example: 1
- *                     species:
- *                       type: array
- *                       items:
- *                         type: object
- *                         properties:
- *                           id:
- *                             type: integer
- *                             example: 1
- *                           name:
- *                             type: string
- *                             example: "Pies"
- *       400:
- *         description: Invalid advertisement ID
- *       404:
- *         description: Advertisement not found
- *       500:
- *         description: Internal server error
- */
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params;
-    const idNum = parseInt(id);
+    // Resolve the params promise
+    const resolvedParams = await params;
+    const idNum = parseInt(resolvedParams.id);
 
     if (isNaN(idNum)) {
       return NextResponse.json(
@@ -195,7 +59,7 @@ export async function GET(
                 firstName: true,
                 lastName: true,
                 phoneNumber: true,
-                profilePictureUrl: true, // ← DODANE!
+                profilePictureUrl: true, 
                 City: {
                   select: {
                     idCity: true,
@@ -276,7 +140,7 @@ export async function GET(
           lastName: advertisement.Service_Provider.User.lastName,
           phoneNumber: advertisement.Service_Provider.User.phoneNumber,
           profilePictureUrl:
-            advertisement.Service_Provider.User.profilePictureUrl, // ← ZWRACANE!
+            advertisement.Service_Provider.User.profilePictureUrl, 
           averageRating,
           totalReviews,
         },
@@ -306,121 +170,14 @@ export async function GET(
   }
 }
 
-/**
- * @swagger
- * /api/advertisements/{id}:
- *   put:
- *     summary: Update an advertisement
- *     description: |
- *       Updates an existing advertisement owned by the authenticated service provider.
- *       Supports updating title, description, price, status, dates, service times, service ID, images, and speciesIds.
- *       Only the advertisement owner (matching service provider) can update, and the service provider must be active.
- *       Images are handled via multipart/form-data: keepImageUrls (JSON array of URLs to keep), newImages (new files).
- *     tags: [Advertisements]
- *     security:
- *       - BearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *         description: The ID of the advertisement to update
- *     requestBody:
- *       required: true
- *       content:
- *         multipart/form-data:
- *           schema:
- *             type: object
- *             properties:
- *               title:
- *                 type: string
- *                 description: The updated title of the advertisement
- *                 example: "Updated Dog Walking Service"
- *               description:
- *                 type: string
- *                 nullable: true
- *                 description: The updated description of the advertisement
- *                 example: "Updated daily dog walking services in Warsaw"
- *               price:
- *                 type: string
- *                 nullable: true
- *                 description: The updated price of the service
- *                 example: "60.0"
- *               status:
- *                 type: string
- *                 enum: [ACTIVE, INACTIVE]
- *                 description: The updated status of the advertisement
- *                 example: ACTIVE
- *               startDate:
- *                 type: string
- *                 format: date-time
- *                 description: The updated start date of the advertisement
- *                 example: "2025-09-26T00:00:00Z"
- *               endDate:
- *                 type: string
- *                 format: date-time
- *                 description: The updated end date of the advertisement
- *                 example: "2025-11-25T00:00:00Z"
- *               serviceStartTime:
- *                 type: string
- *                 format: date-time
- *                 nullable: true
- *                 description: The updated start time of the service
- *                 example: "2025-09-26T09:00:00Z"
- *               serviceEndTime:
- *                 type: string
- *                 format: date-time
- *                 nullable: true
- *                 description: The updated end time of the service
- *                 example: "2025-09-26T17:00:00Z"
- *               serviceId:
- *                 type: integer
- *                 description: The ID of the service
- *                 example: 1
- *               keepImageUrls:
- *                 type: string
- *                 description: JSON array of existing image URLs to keep
- *                 example: '["https://example.com/old-image.jpg"]'
- *               newImages:
- *                 type: array
- *                 items:
- *                   type: string
- *                   format: binary
- *               speciesIds:
- *                 type: string
- *                 description: JSON array of species IDs
- *                 example: "[1, 2]"
- *                 nullable: true
- *     responses:
- *       200:
- *         description: Successfully updated the advertisement
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *       400:
- *         description: Invalid advertisement ID or invalid status value
- *       401:
- *         description: Unauthorized (missing or invalid token)
- *       403:
- *         description: User is not a service provider, not the owner, or not an active service provider
- *       404:
- *         description: User or advertisement not found
- *       500:
- *         description: Internal server error
- */
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params;
-    const idNum = parseInt(id);
+    // Resolve the params promise
+    const resolvedParams = await params;
+    const idNum = parseInt(resolvedParams.id);
 
     if (isNaN(idNum)) {
       return NextResponse.json(
@@ -745,54 +502,14 @@ export async function PUT(
   }
 }
 
-/**
- * @swagger
- * /api/advertisements/{id}:
- *   delete:
- *     summary: Delete an advertisement
- *     description: |
- *       Archives an advertisement by moving it to the AdvertisementArchive table and deletes it from the Advertisement table.
- *       Also deletes associated images from Firebase Storage, feedback, archive records, and saved advertisements.
- *       Only the advertisement owner (matching service provider) can delete the advertisement.
- *     tags: [Advertisements]
- *     security:
- *       - BearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *         description: The ID of the advertisement to delete
- *     responses:
- *       200:
- *         description: Successfully deleted the advertisement
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *       400:
- *         description: Invalid advertisement ID
- *       401:
- *         description: Unauthorized (missing or invalid token)
- *       403:
- *         description: User is not a service provider or not the owner
- *       404:
- *         description: User or advertisement not found
- *       500:
- *         description: Internal server error
- */
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params;
-    const idNum = parseInt(id);
+    // Resolve the params promise
+    const resolvedParams = await params;
+    const idNum = parseInt(resolvedParams.id);
 
     if (isNaN(idNum)) {
       return NextResponse.json(

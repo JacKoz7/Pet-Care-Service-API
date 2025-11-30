@@ -1,4 +1,3 @@
-// app/api/pets/species/route.ts
 import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 
@@ -30,36 +29,3 @@ export async function GET() {
     await prisma.$disconnect();
   }
 }
-
-/**
- * @swagger
- * /api/pets/species:
- *   get:
- *     summary: Get all species
- *     description: Returns a list of all predefined species.
- *     tags: [Pets]
- *     responses:
- *       200:
- *         description: Species retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 species:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       idSpiece:
- *                         type: integer
- *                         example: 1
- *                       name:
- *                         type: string
- *                         example: "Pies"
- *       500:
- *         description: Internal server error
- */

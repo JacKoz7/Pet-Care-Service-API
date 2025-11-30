@@ -1,4 +1,3 @@
-// restore adv - UPDATED (species nie są przywracane, bo nie są zapisywane w archiwum)
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient, Prisma } from "@prisma/client";
 import { adminAuth } from "@/lib/firebaseAdmin";
@@ -142,7 +141,6 @@ export async function POST(
       ? JSON.parse(archivedAd.imagesUrls as string)
       : [];
 
-    // Transaction – species nie są przywracane (nie są zapisywane w archiwum)
     const restoredAd = await prisma.$transaction(async (tx) => {
       const newAd = await tx.advertisement.create({
         data: {
@@ -169,9 +167,6 @@ export async function POST(
           })),
         });
       }
-
-      // TODO: jeśli chcesz przywracać species, dodaj pole species Json? do AdvertisementArchive
-      // i tutaj recreate AdvertisementSpiece
 
       await tx.advertisementArchive.delete({
         where: {
@@ -208,49 +203,3 @@ export async function POST(
     await prisma.$disconnect();
   }
 }
-
-/**
- * @swagger
- * /api/advertisements/restore/{id}:
- *   post:
- *     summary: Restore an archived advertisement
- *     description: |
- *       Restores an archived advertisement to the Advertisement table and deletes it from AdvertisementArchive.
- *       Only the owner (matching serviceProviderId) who is an active service provider can restore.
- *       Ensures the title is unique for the service provider before restoration.
- *     tags: [Advertisements]
- *     security:
- *       - BearerAuth: []
- *     parameters:
- *       - name: id
- *         in: path
- *         required: true
- *         schema:
- *           type: integer
- *         description: Archive ID (idAdvertisementArchive)
- *     responses:
- *       200:
- *         description: Advertisement restored successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 advertisementId:
- *                   type: integer
- *                   description: ID of the restored advertisement
- *                   example: 101
- *       400:
- *         description: Invalid archive ID or title already exists
- *       401:
- *         description: Unauthorized (invalid or missing token)
- *       403:
- *         description: Forbidden (not owner or not active service provider)
- *       404:
- *         description: Archived advertisement or user not found
- *       500:
- *         description: Internal server error
- */

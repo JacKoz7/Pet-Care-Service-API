@@ -1,4 +1,3 @@
-// src/app/api/admin/advertisements/[id]/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient, Prisma } from "@prisma/client";
 import { adminAuth } from "@/lib/firebaseAdmin";
@@ -25,6 +24,7 @@ export async function DELETE(
     try {
       decodedToken = await adminAuth.verifyIdToken(token);
     } catch (error) {
+      void error;
       return NextResponse.json(
         { error: "Invalid or expired token" },
         { status: 401 }
@@ -116,11 +116,6 @@ export async function DELETE(
           Advertisement_idAdvertisement: idNum,
         },
       });
-      await tx.feedback.deleteMany({
-        where: {
-          Advertisement_idAdvertisement: idNum,
-        },
-      });
       await tx.archive.deleteMany({
         where: {
           Advertisement_idAdvertisement: idNum,
@@ -167,86 +162,3 @@ export async function DELETE(
     await prisma.$disconnect();
   }
 }
-
-/**
- * @swagger
- * /api/admin/advertisements/{id}:
- *   delete:
- *     summary: Delete an advertisement (admin only)
- *     description: |
- *       Archives an advertisement by moving it to the AdvertisementArchive table and deletes it from the Advertisement table.
- *       Also deletes associated images from Firebase Storage, feedbacks, and archive records.
- *       This operation is irreversible for the original advertisement. Requires admin authentication via Firebase ID token.
- *     tags: [Admin]
- *     security:
- *       - BearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *         description: The ID of the advertisement to delete
- *         example: 1
- *     responses:
- *       200:
- *         description: Advertisement deleted successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *       400:
- *         description: Invalid advertisement ID
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 error:
- *                   type: string
- *                   example: "Invalid advertisement ID"
- *       401:
- *         description: Unauthorized (invalid or missing token)
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 error:
- *                   type: string
- *                   example: "Invalid or expired token"
- *       403:
- *         description: Forbidden (not an admin)
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 error:
- *                   type: string
- *                   example: "Unauthorized: Admin access required"
- *       404:
- *         description: Advertisement not found
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 error:
- *                   type: string
- *                   example: "Advertisement not found"
- *       500:
- *         description: Internal server error
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 error:
- *                   type: string
- *                   example: "Internal server error"
- */

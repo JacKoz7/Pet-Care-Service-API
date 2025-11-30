@@ -1,12 +1,9 @@
-// src/app/api/user/verify-email/[firebaseUid]/route.ts (new file, replaces old)
-
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import admin from "firebase-admin";
 
 const prisma = new PrismaClient();
 
-// Initialize Firebase Admin if not already
 if (!admin.apps.length) {
   admin.initializeApp({
     credential: admin.credential.cert({
@@ -19,10 +16,12 @@ if (!admin.apps.length) {
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { firebaseUid: string } }
+  { params }: { params: Promise<{ firebaseUid: string }> }
 ) {
   try {
-    const { firebaseUid } = params;
+    // Resolve the params promise
+    const resolvedParams = await params;
+    const { firebaseUid } = resolvedParams;
 
     if (!firebaseUid) {
       return NextResponse.json(
@@ -51,7 +50,6 @@ export async function PATCH(
     }
 
     if (user.isVerified) {
-      // Idempotent: already verified
       return NextResponse.json({ success: true });
     }
 
@@ -75,65 +73,3 @@ export async function PATCH(
     await prisma.$disconnect();
   }
 }
-
-/**
- * @swagger
- * /api/user/verify-email/{firebaseUid}:
- *   patch:
- *     summary: Verify user email in database
- *     description: |
- *       Updates the user's verification status in the database based on Firebase email verification.
- *       This endpoint is called after the user clicks the verification link in their email.
- *       It is idempotent: if already verified, it returns success without changes.
- *       Authentication is handled via Firebase UID in the path; no body required.
- *     tags: [User]
- *     parameters:
- *       - name: firebaseUid
- *         in: path
- *         required: true
- *         description: Firebase UID of the user (from Firebase Auth)
- *         schema:
- *           type: string
- *           example: "abcd1234efgh5678"
- *     responses:
- *       200:
- *         description: Email verification updated successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *       400:
- *         description: Invalid input or email not verified in Firebase
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 error:
- *                   type: string
- *                   example: "Email not verified"
- *       404:
- *         description: User not found in database
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 error:
- *                   type: string
- *                   example: "User not found"
- *       500:
- *         description: Internal server error
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 error:
- *                   type: string
- *                   example: "Internal server error"
- */
