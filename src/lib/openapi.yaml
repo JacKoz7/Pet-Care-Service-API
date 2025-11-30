@@ -1710,6 +1710,7 @@ paths:
         The user must be a client (creates client record if none exists).
         All pets must belong to the client.
         The advertisement must exist and be active.
+        Prevents service providers from booking their own advertisements.
       tags:
         - Bookings
       security:
@@ -1789,6 +1790,8 @@ paths:
           description: Missing/invalid fields, invalid pets/advertisement, or date issues
         "401":
           description: Unauthorized (invalid or missing token)
+        "403":
+          description: Cannot book own advertisement
         "404":
           description: User not found
         "500":
@@ -3148,7 +3151,7 @@ paths:
 
   /api/reviews/{id}:
     delete:
-      summary: Dead that review you dropped, nigga
+      summary: Dead that review you dropped
       description: You the one who wrote it, so you the only nigga that can wipe it. Anybody else move funny, they get lined out the whole app.
       tags: [Reviews]
       security:
@@ -3182,7 +3185,7 @@ paths:
         "500":
           description: Server down bad, whole block bleedin' rn
     put:
-      summary: Switch up on yo old take, nigga
+      summary: Switch up on yo old take
       description: Mind changed? Flip the rating, rewrite the comment, do what you gotta do. But try to touch another nigga shit and we got real problems.
       tags: [Reviews]
       security:
@@ -3707,6 +3710,7 @@ paths:
         Requires a valid Firebase ID token in the Authorization header.
         Also updates the user's lastActive timestamp.
         Now checks if email is verified in DB; returns 403 if not.
+        If the user is a service provider, returns the serviceProviderId (assumes one primary service provider).
       tags: [User]
       security:
         - BearerAuth: []
@@ -3770,7 +3774,12 @@ paths:
                         example: false
                       isServiceProvider:
                         type: boolean
-                        example: false
+                        example: true
+                      serviceProviderId:
+                        type: integer
+                        nullable: true
+                        example: 1
+                        description: The ID of the service provider associated with the user, if the user is a service provider
                       lastActive:
                         type: string
                         format: date-time
@@ -3792,6 +3801,7 @@ paths:
         Requires a valid Firebase ID token in the Authorization header.
         Only firstName, lastName, phoneNumber, and cityId can be updated.
         Now checks if email is verified in DB; returns 403 if not.
+        If the user is a service provider, returns the serviceProviderId (assumes one primary service provider).
       tags: [User]
       security:
         - BearerAuth: []
@@ -3875,7 +3885,12 @@ paths:
                         example: false
                       isServiceProvider:
                         type: boolean
-                        example: false
+                        example: true
+                      serviceProviderId:
+                        type: integer
+                        nullable: true
+                        example: 1
+                        description: The ID of the service provider associated with the user, if the user is a service provider
                       lastActive:
                         type: string
                         format: date-time

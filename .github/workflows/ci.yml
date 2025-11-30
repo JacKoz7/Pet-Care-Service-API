@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - refactor/code-and-docs-cleanup
+      - feature/add-tests
 
 jobs:
   check:
@@ -21,10 +22,13 @@ jobs:
           cache: "npm"
 
       - name: Install
-        run: npm ci
+        run: npm install
 
       - name: Generate Prisma Client
         run: npx prisma generate
+
+      - name: Run Tests
+        run: npm test
 
       - name: Lint
         run: npm run lint
