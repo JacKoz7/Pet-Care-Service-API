@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
     const authHeader = request.headers.get("authorization");
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return NextResponse.json(
-        { error: "Authorization header missing or invalid" },
+        { error: "You ain't got no auth header or it's fucked up, nigga" },
         { status: 401 }
       );
     }
@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
     } catch (error) {
       console.error("Token verification failed:", error);
       return NextResponse.json(
-        { error: "Invalid or expired token" },
+        { error: "That token expired or straight invalid, nigga" },
         { status: 401 }
       );
     }
@@ -34,12 +34,12 @@ export async function POST(request: NextRequest) {
     });
 
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      return NextResponse.json({ error: "Can't find yo ass in the system" }, { status: 404 });
     }
 
     if (user.Clients.length === 0) {
       return NextResponse.json(
-        { error: "User is not a client" },
+        { error: "You ain't no client, nigga – get the fuck outta here" },
         { status: 403 }
       );
     }
@@ -51,14 +51,14 @@ export async function POST(request: NextRequest) {
 
     if (!bookingId || !rating) {
       return NextResponse.json(
-        { error: "Booking ID and rating are required" },
+        { error: "Need that booking ID and rating, nigga – don't play" },
         { status: 400 }
       );
     }
 
     if (rating < 1 || rating > 5) {
       return NextResponse.json(
-        { error: "Rating must be between 1 and 5" },
+        { error: "Rating gotta be 1-5, you trippin nigga" },
         { status: 400 }
       );
     }
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
 
     if (!booking) {
       return NextResponse.json(
-        { error: "Booking not found or you don't have permission" },
+        { error: "That booking ghost or you ain't got permission, nigga" },
         { status: 404 }
       );
     }
@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
     // Check if booking status is PAID
     if (booking.status !== "PAID") {
       return NextResponse.json(
-        { error: "You can only review bookings with PAID status" },
+        { error: "Only PAID bookings get reviews, nigga – handle yo business first" },
         { status: 400 }
       );
     }
@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
 
     if (existingReview) {
       return NextResponse.json(
-        { error: "Review already exists for this booking" },
+        { error: "Already reviewed this shit, nigga – one time only" },
         { status: 400 }
       );
     }
@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: "Review created successfully",
+      message: "Review dropped successfully, nigga",
       review: {
         id: review.idReview,
         rating: review.rating,
@@ -131,7 +131,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Error creating review:", error);
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: "Server crashin out, whole block down rn" },
       { status: 500 }
     );
   } finally {

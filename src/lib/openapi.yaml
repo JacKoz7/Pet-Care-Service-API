@@ -3052,6 +3052,10 @@ paths:
                             createdAt:
                               type: string
                               format: date-time
+                            clientId:
+                              type: integer
+                              description: ID of the client who wrote the review
+                              example: 42
                             clientName:
                               type: string
         "400":
@@ -3060,17 +3064,10 @@ paths:
           description: Service provider not found
         "500":
           description: Internal server error
-
   /api/reviews:
     post:
-      summary: Create a review for a service provider
-      description: |
-        Allows clients to create a review (rating 1-5 and optional comment) for a service provider after a booking with PAID status.
-        - Only clients can create reviews.
-        - Booking must have PAID status.
-        - Each booking can only be reviewed once.
-        - Rating must be between 1 and 5.
-        - Requires valid Firebase authentication token.
+      summary: Drop a review on that service provider, nigga
+      description: Clients only – drop that 1-5 rating and optional bars on a provider after a PAID booking. Gotta be a client to spit this. Booking gotta be PAID, no exceptions. One review per booking, nigga. Rating 1-5 or get bounced. Need that real Firebase token, no fakes.
       tags: [Reviews]
       security:
         - BearerAuth: []
@@ -3086,22 +3083,22 @@ paths:
               properties:
                 bookingId:
                   type: integer
-                  description: ID of the PAID booking to review
+                  description: ID of that PAID booking you finna review
                   example: 123
                 rating:
                   type: integer
                   minimum: 1
                   maximum: 5
-                  description: Rating from 1 to 5
+                  description: Stars from 1 to 5, keep it real
                   example: 5
                 comment:
                   type: string
                   maxLength: 1000
-                  description: Optional comment about the service
-                  example: "Excellent service! Very professional and caring."
+                  description: Optional heat on the service, spit yo truth
+                  example: "That shit was fire! Real pro and on point, nigga."
       responses:
         "200":
-          description: Review created successfully
+          description: Review locked in, nigga. It's official.
           content:
             application/json:
               schema:
@@ -3112,7 +3109,7 @@ paths:
                     example: true
                   message:
                     type: string
-                    example: "Review created successfully"
+                    example: "Review dropped successfully, nigga"
                   review:
                     type: object
                     properties:
@@ -3125,13 +3122,13 @@ paths:
                       comment:
                         type: string
                         nullable: true
-                        example: "Excellent service! Very professional and caring."
+                        example: "That shit was fire! Real pro and on point, nigga."
                       createdAt:
                         type: string
                         format: date-time
                         example: "2025-11-18T12:00:00Z"
         "400":
-          description: Bad request
+          description: Request dumb as hell, nigga – fix yo shit
           content:
             application/json:
               schema:
@@ -3139,19 +3136,51 @@ paths:
                 properties:
                   error:
                     type: string
-                    example: "You can only review bookings with PAID status"
+                    example: "Only PAID bookings get reviews, nigga – handle yo business first"
         "401":
-          description: Unauthorized (invalid or missing token)
+          description: Token missin or expired, who the fuck is you?
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "That token expired or straight invalid, nigga"
         "403":
-          description: Forbidden (user is not a client)
+          description: You ain't a client, nigga – step off
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "You ain't no client, nigga – get the fuck outta here"
         "404":
-          description: Booking not found or no permission
+          description: Booking ghost or you ain't got access
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "That booking ghost or you ain't got permission, nigga"
         "500":
-          description: Internal server error
+          description: Backend bleedin, trap down bad rn
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Server crashin out, whole block down rn"
 
   /api/reviews/{id}:
     delete:
-      summary: Dead that review you dropped
+      summary: Dead that review you dropped, nigga
       description: You the one who wrote it, so you the only nigga that can wipe it. Anybody else move funny, they get lined out the whole app.
       tags: [Reviews]
       security:
@@ -3185,7 +3214,7 @@ paths:
         "500":
           description: Server down bad, whole block bleedin' rn
     put:
-      summary: Switch up on yo old take
+      summary: Switch up on yo old take, nigga
       description: Mind changed? Flip the rating, rewrite the comment, do what you gotta do. But try to touch another nigga shit and we got real problems.
       tags: [Reviews]
       security:

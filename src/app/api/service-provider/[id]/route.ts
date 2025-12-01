@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
-
 const prisma = new PrismaClient();
 
 export async function GET(
@@ -89,6 +88,7 @@ export async function GET(
           rating: review.rating,
           comment: review.comment,
           createdAt: review.createdAt,
+          clientId: review.Client.idClient, 
           clientName: `${review.Client.User.firstName} ${review.Client.User.lastName}`,
         })),
       },
