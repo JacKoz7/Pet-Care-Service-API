@@ -684,7 +684,7 @@ paths:
                               example: "https://example.com/waw.jpg"
         "500":
           description: Internal server error
-          
+
   /api/advertisements/restore/{id}:
     post:
       summary: Restore an archived advertisement
@@ -1862,7 +1862,7 @@ paths:
         Automatically updates booking status to AWAITING_PAYMENT if end date has passed, and to OVERDUE if 48h after end date without payment.
         Requires a valid Firebase authentication token.
         Only available to clients.
-        Returns details about all pets in the booking, service provider (name, email, phone), message, booking times, status, and advertisement ID.
+        Returns details about all pets in the booking, service provider (name, email, phone, city), message, booking times, status, advertisement ID, and advertisement details (title, price, service hours, image).
       tags:
         - Bookings
       security:
@@ -1913,6 +1913,31 @@ paths:
                           type: integer
                           nullable: true
                           example: 123
+                        advertisement:
+                          type: object
+                          nullable: true
+                          properties:
+                            title:
+                              type: string
+                              example: "Dog Walking Service"
+                            price:
+                              type: number
+                              nullable: true
+                              example: 50.00
+                            serviceStartTime:
+                              type: string
+                              format: time
+                              nullable: true
+                              example: "09:00:00"
+                            serviceEndTime:
+                              type: string
+                              format: time
+                              nullable: true
+                              example: "17:00:00"
+                            keyImage:
+                              type: string
+                              nullable: true
+                              example: "https://example.com/ad-image.jpg"
                         pets:
                           type: array
                           items:
@@ -1967,6 +1992,9 @@ paths:
                               type: string
                               nullable: true
                               example: "987654321"
+                            city:
+                              type: string
+                              example: "Warsaw"
         "401":
           description: Unauthorized (invalid or missing token)
         "403":
@@ -2038,7 +2066,7 @@ paths:
         Automatically updates booking status to AWAITING_PAYMENT if end date has passed, and to OVERDUE if 48h after end date without payment.
         Requires a valid Firebase authentication token.
         Only available to active service providers.
-        Returns details about all pets in the booking, client (name, email, phone), message, booking times, status, and advertisement ID.
+        Returns details about all pets in the booking, client (name, email, phone, city), message, booking times, status, advertisement ID, and advertisement details (title, price, service hours, image).
       tags:
         - Bookings
       security:
@@ -2089,6 +2117,31 @@ paths:
                           type: integer
                           nullable: true
                           example: 123
+                        advertisement:
+                          type: object
+                          nullable: true
+                          properties:
+                            title:
+                              type: string
+                              example: "Dog Walking Service"
+                            price:
+                              type: number
+                              nullable: true
+                              example: 50.00
+                            serviceStartTime:
+                              type: string
+                              format: time
+                              nullable: true
+                              example: "09:00:00"
+                            serviceEndTime:
+                              type: string
+                              format: time
+                              nullable: true
+                              example: "17:00:00"
+                            keyImage:
+                              type: string
+                              nullable: true
+                              example: "https://example.com/ad-image.jpg"
                         pets:
                           type: array
                           items:
@@ -2143,60 +2196,15 @@ paths:
                               type: string
                               nullable: true
                               example: "123456789"
+                            city:
+                              type: string
+                              example: "Warsaw"
         "401":
           description: Unauthorized (invalid or missing token)
         "403":
           description: Forbidden (user is not an active service provider)
         "404":
           description: User not found
-        "500":
-          description: Internal server error
-
-  /api/bookings/service-provider/reject:
-    post:
-      summary: Reject a pending booking as service provider
-      description: |
-        Allows the authenticated service provider to reject a pending booking.
-        Only pending bookings can be rejected.
-        Requires a valid Firebase authentication token.
-        Only available to active service providers.
-      tags:
-        - Bookings
-      security:
-        - BearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                bookingId:
-                  type: integer
-                  example: 1
-                  description: The ID of the booking to reject
-      responses:
-        "200":
-          description: Booking rejected successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: true
-                  message:
-                    type: string
-                    example: "Booking rejected successfully"
-        "400":
-          description: Bad request (invalid booking ID or not pending)
-        "401":
-          description: Unauthorized (invalid or missing token)
-        "403":
-          description: Forbidden (user is not an active service provider or unauthorized for this booking)
-        "404":
-          description: Booking or user not found
         "500":
           description: Internal server error
 

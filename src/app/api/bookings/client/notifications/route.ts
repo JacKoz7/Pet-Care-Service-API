@@ -58,8 +58,8 @@ export async function GET(request: NextRequest) {
           { status: "PENDING" },
           { status: "CANCELLED", updatedAt: { gte: oneMonthAgo } },
           { status: "REJECTED", updatedAt: { gte: oneMonthAgo } },
-          { status: "ACCEPTED" }, 
-          { status: "AWAITING_PAYMENT" }, 
+          { status: "ACCEPTED" },
+          { status: "AWAITING_PAYMENT" },
           { status: "OVERDUE", updatedAt: { gte: threeMonthsAgo } },
           { status: "PAID", updatedAt: { gte: threeMonthsAgo } },
         ],
@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
         startDateTime: true,
         endDateTime: true,
         message: true,
-        advertisementId: true, 
+        advertisementId: true,
         updatedAt: true,
         Pets: {
           include: {
@@ -101,6 +101,23 @@ export async function GET(request: NextRequest) {
             },
           },
         },
+        Advertisement: {
+          select: {
+            title: true,
+            price: true,
+            serviceStartTime: true,
+            serviceEndTime: true,
+            Images: {
+              orderBy: {
+                order: "asc",
+              },
+              take: 1,
+              select: {
+                imageUrl: true,
+              },
+            },
+          },
+        },
         Service_Provider: {
           include: {
             User: {
@@ -109,6 +126,11 @@ export async function GET(request: NextRequest) {
                 lastName: true,
                 email: true,
                 phoneNumber: true,
+                City: {
+                  select: {
+                    name: true,
+                  },
+                },
               },
             },
           },
@@ -130,7 +152,7 @@ export async function GET(request: NextRequest) {
           where: { idBooking: booking.idBooking },
           data: { status: "AWAITING_PAYMENT", updatedAt: now },
         });
-        booking.status = "AWAITING_PAYMENT"; 
+        booking.status = "AWAITING_PAYMENT";
         booking.updatedAt = now;
       } else if (
         booking.status === "AWAITING_PAYMENT" &&
@@ -141,7 +163,7 @@ export async function GET(request: NextRequest) {
           where: { idBooking: booking.idBooking },
           data: { status: "OVERDUE", updatedAt: now },
         });
-        booking.status = "OVERDUE"; 
+        booking.status = "OVERDUE";
         booking.updatedAt = now;
       }
     }
@@ -153,7 +175,16 @@ export async function GET(request: NextRequest) {
       startDateTime: booking.startDateTime,
       endDateTime: booking.endDateTime,
       message: booking.message,
-      advertisementId: booking.advertisementId, 
+      advertisementId: booking.advertisementId,
+      advertisement: booking.Advertisement
+        ? {
+            title: booking.Advertisement.title,
+            price: booking.Advertisement.price,
+            serviceStartTime: booking.Advertisement.serviceStartTime,
+            serviceEndTime: booking.Advertisement.serviceEndTime,
+            keyImage: booking.Advertisement.Images[0]?.imageUrl || null,
+          }
+        : null,
       pets: booking.Pets.map((bp) => ({
         id: bp.Pet.idPet,
         name: bp.Pet.name,
@@ -169,6 +200,7 @@ export async function GET(request: NextRequest) {
         lastName: booking.Service_Provider.User.lastName,
         email: booking.Service_Provider.User.email,
         phoneNumber: booking.Service_Provider.User.phoneNumber,
+        city: booking.Service_Provider.User.City.name,
       },
     }));
 
