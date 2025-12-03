@@ -30,7 +30,6 @@ export async function GET(request: NextRequest) {
     const user = await prisma.user.findUnique({
       where: { firebaseUid: decodedToken.uid },
       include: {
-        Admin: true,
         ServiceProviders: {
           select: {
             idService_Provider: true,
@@ -70,11 +69,6 @@ export async function GET(request: NextRequest) {
 
     // Collect all roles the user has
     const roles: string[] = ["client"]; // Everyone is a client
-
-    // Check if user is admin
-    if (user.Admin) {
-      roles.push("admin");
-    }
 
     // Check if user has AT LEAST ONE ACTIVE service provider
     const activeServiceProviders = user.ServiceProviders.filter(

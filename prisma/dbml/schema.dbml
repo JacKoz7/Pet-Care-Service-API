@@ -17,14 +17,7 @@ Table User {
   City_idCity Int [not null]
   ServiceProviders service__provider [not null]
   Clients Client [not null]
-  Admin Admin
   Payments Payment [not null]
-}
-
-Table Admin {
-  idAdmin Int [pk, increment]
-  User User [not null]
-  User_idUser Int [unique, not null]
 }
 
 Table City {
@@ -299,8 +292,6 @@ Enum StatusArchive {
 }
 
 Ref: User.City_idCity > City.idCity
-
-Ref: Admin.User_idUser - User.idUser
 
 Ref: service__provider.User_idUser > User.idUser
 

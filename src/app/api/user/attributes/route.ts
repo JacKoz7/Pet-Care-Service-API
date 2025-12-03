@@ -68,14 +68,6 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    if (email === process.env.ADMIN_EMAIL) {
-      await prisma.admin.create({
-        data: {
-          User_idUser: newUser.idUser,
-        },
-      });
-    }
-
     return NextResponse.json({
       success: true,
       user: {

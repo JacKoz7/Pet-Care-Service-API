@@ -44,7 +44,6 @@ export async function DELETE(request: NextRequest) {
             Advertisements: true,
           },
         },
-        Admin: true,
       },
     });
 
@@ -168,13 +167,6 @@ export async function DELETE(request: NextRequest) {
       await tx.service_Provider.deleteMany({
         where: { idService_Provider: { in: spIds } },
       });
-
-      // Delete admin if exists
-      if (user.Admin) {
-        await tx.admin.delete({
-          where: { User_idUser: user.idUser },
-        });
-      }
 
       // Delete payments
       await tx.payment.deleteMany({

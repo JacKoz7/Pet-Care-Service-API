@@ -34,14 +34,7 @@ model User {
 
   ServiceProviders Service_Provider[]
   Clients          Client[]
-  Admin            Admin?
   Payments         Payment[]
-}
-
-model Admin {
-  idAdmin     Int  @id @default(autoincrement())
-  User        User @relation(fields: [User_idUser], references: [idUser])
-  User_idUser Int  @unique
 }
 
 model City {

@@ -30,7 +30,6 @@ export async function GET(request: NextRequest) {
       where: { firebaseUid: decodedToken.uid },
       include: {
         City: true,
-        Admin: true,
         ServiceProviders: true,
       },
     });
@@ -79,7 +78,6 @@ export async function GET(request: NextRequest) {
           name: user.City.name,
           imageUrl: user.City.imageUrl,
         },
-        isAdmin: !!user.Admin,
         isServiceProvider: user.ServiceProviders.length > 0,
         serviceProviderId,
         lastActive: user.lastActive,
@@ -174,7 +172,6 @@ export async function PUT(request: NextRequest) {
       },
       include: {
         City: true,
-        Admin: true,
         ServiceProviders: true,
       },
     });
@@ -199,7 +196,6 @@ export async function PUT(request: NextRequest) {
           name: updatedUser.City.name,
           imageUrl: updatedUser.City.imageUrl,
         },
-        isAdmin: !!updatedUser.Admin,
         isServiceProvider: updatedUser.ServiceProviders.length > 0,
         serviceProviderId,
         lastActive: updatedUser.lastActive,
