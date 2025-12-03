@@ -598,15 +598,17 @@ paths:
 
   /api/advertisements/list-all:
     get:
-      summary: Get ALL active advertisements
+      summary: Get ALL active and non-expired advertisements
       description: |
-        Retrieves a flat list of all active advertisements in the system.
-        No filtering, no pagination - just everything.
-        All filtering happens on the frontend.
+        Retrieves a flat list of all active advertisements that haven't expired.
+        Filters out advertisements where endDate is in the past.
+        Advertisements with no endDate (null) are always included.
+        No pagination - returns everything that's currently valid.
+        Additional filtering happens on the frontend.
       tags: [Advertisements]
       responses:
         "200":
-          description: Full list of advertisements retrieved successfully
+          description: Full list of active and valid advertisements retrieved successfully
           content:
             application/json:
               schema:
@@ -617,7 +619,7 @@ paths:
                     example: true
                   count:
                     type: integer
-                    description: Total number of items returned
+                    description: Total number of active and non-expired items returned
                     example: 42
                   advertisements:
                     type: array
@@ -648,6 +650,7 @@ paths:
                           type: string
                           format: date-time
                           nullable: true
+                          description: Null means no expiration date
                           example: "2025-12-31T00:00:00Z"
                         serviceStartTime:
                           type: string
@@ -681,7 +684,7 @@ paths:
                               example: "https://example.com/waw.jpg"
         "500":
           description: Internal server error
-
+          
   /api/advertisements/restore/{id}:
     post:
       summary: Restore an archived advertisement

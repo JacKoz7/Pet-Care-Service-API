@@ -5,18 +5,14 @@ const prisma = new PrismaClient();
 
 export async function GET() {
   try {
+    const now = new Date();
+
     const advertisements = await prisma.advertisement.findMany({
       where: {
         status: "ACTIVE",
+        endDate: { gte: now }, 
       },
-      select: {
-        idAdvertisement: true,
-        title: true,
-        price: true,
-        startDate: true,
-        endDate: true,
-        serviceStartTime: true,
-        serviceEndTime: true,
+      include: {
         Service: {
           select: {
             idService: true,
@@ -29,16 +25,16 @@ export async function GET() {
           take: 1,
         },
         AdvertisementSpieces: {
-          select: {
+          include: {
             spiece: {
               select: { name: true },
             },
           },
         },
         Service_Provider: {
-          select: {
+          include: {
             User: {
-              select: {
+              include: {
                 City: {
                   select: {
                     idCity: true,
