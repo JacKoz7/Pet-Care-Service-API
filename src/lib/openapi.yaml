@@ -1631,7 +1631,7 @@ paths:
         "500":
           description: Internal server error
 
-  /api/analysis:
+  /api/raport:
     post:
       summary: Perform pet diagnosis analysis
       description: |
@@ -1639,7 +1639,7 @@ paths:
         Requires a valid Firebase authentication token and ownership of the pet.
         Saves the analysis to the database.
       tags:
-        - Analysis
+        - Pet Health Raport
       security:
         - BearerAuth: []
       requestBody:
@@ -1821,7 +1821,7 @@ paths:
       summary: Get all pet diagnosis analyses for user
       description: Retrieves all analyses for the authenticated user's pets. Requires client role.
       tags:
-        - Analysis
+        - Pet Health Raport
       security:
         - BearerAuth: []
       responses:
@@ -1856,12 +1856,12 @@ paths:
         "500":
           description: Internal server error
 
-  /api/analysis/{id}:
+  /api/raport/{id}:
     get:
       summary: Get pet diagnosis analysis results
       description: Retrieves a specific analysis by ID. Requires authentication and ownership of the pet.
       tags:
-        - Analysis
+        - Pet Health Raport
       security:
         - BearerAuth: []
       parameters:
@@ -1911,7 +1911,7 @@ paths:
       summary: Delete pet diagnosis analysis
       description: Deletes a specific analysis by ID. Requires authentication and ownership of the pet.
       tags:
-        - Analysis
+        - Pet Health Raport
       security:
         - BearerAuth: []
       parameters:
@@ -2216,11 +2216,11 @@ paths:
         "500":
           description: Internal server error
 
-  /api/pets/{id}/diagnoses:
+  /api/pets/{id}/raports:
     get:
       summary: Get all diagnostic analyses for a specific pet
       description: Returns a list of all AI diagnostic analyses performed for the given pet. Only accessible by the pet owner.
-      tags: [Analysis]
+      tags: Pet Health Raport
       security:
         - BearerAuth: []
       parameters:
