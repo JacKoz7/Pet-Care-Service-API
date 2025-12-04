@@ -2220,7 +2220,8 @@ paths:
     get:
       summary: Get all diagnostic analyses for a specific pet
       description: Returns a list of all AI diagnostic analyses performed for the given pet. Only accessible by the pet owner.
-      tag: Pet Health Raport
+      tags:
+        - Pet Health Raport
       security:
         - BearerAuth: []
       parameters:
