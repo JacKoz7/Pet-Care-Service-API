@@ -113,7 +113,12 @@ describe("/api/user/attributes POST", () => {
 
   it("should return 409 if user already exists", async () => {
     mockPrisma.city.findUnique.mockResolvedValue({ idCity: 1, name: "Warsaw" });
-    mockPrisma.user.findFirst.mockResolvedValue({ idUser: 1 });
+    mockPrisma.user.findFirst.mockResolvedValue({
+      idUser: 1,
+      email: "test@test.com", 
+      firebaseUid: "test123",
+      phoneNumber: null,
+    });
 
     const request = new NextRequest(
       "http://localhost:3000/api/user/attributes",
@@ -131,7 +136,7 @@ describe("/api/user/attributes POST", () => {
     const data = await response.json();
 
     expect(response.status).toBe(409);
-    expect(data.error).toBe("User already exists");
+    expect(data.error).toBe("Email already in use"); 
   });
 
   it("should create user successfully", async () => {
