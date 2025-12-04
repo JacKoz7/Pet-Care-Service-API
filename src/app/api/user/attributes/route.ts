@@ -29,21 +29,32 @@ export async function POST(request: NextRequest) {
     const city = await prisma.city.findUnique({
       where: { idCity: Number(cityId) },
     });
+
     if (!city) {
       return NextResponse.json({ error: "Invalid city ID" }, { status: 400 });
     }
 
     const existingUser = await prisma.user.findFirst({
       where: {
-        OR: [{ email: email }, { firebaseUid: firebaseUid }],
+        OR: [
+          { email: email },
+          { firebaseUid: firebaseUid },
+          ...(phoneNumber ? [{ phoneNumber: phoneNumber }] : []), 
+        ],
       },
     });
 
     if (existingUser) {
-      return NextResponse.json(
-        { error: "User already exists" },
-        { status: 409 }
-      );
+      let errorMessage = "User already exists";
+      if (existingUser.email === email) {
+        errorMessage = "Email already in use";
+      } else if (existingUser.firebaseUid === firebaseUid) {
+        errorMessage = "Firebase UID already exists";
+      } else if (existingUser.phoneNumber === phoneNumber) {
+        errorMessage = "Phone number already in use";
+      }
+
+      return NextResponse.json({ error: errorMessage }, { status: 409 });
     }
 
     const newUser = await prisma.user.create({
@@ -83,6 +94,14 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error("Registration error:", error);
+
+    if (error instanceof Error && error.message.includes("Unique constraint")) {
+      return NextResponse.json(
+        { error: "Phone number, email, or Firebase UID already in use" },
+        { status: 409 }
+      );
+    }
+
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

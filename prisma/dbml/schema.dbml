@@ -8,7 +8,7 @@ Table User {
   firstName String
   lastName String
   email String
-  phoneNumber String
+  phoneNumber String [unique]
   lastActive DateTime
   profilePictureUrl String
   isVerified Boolean [not null, default: false]

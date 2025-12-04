@@ -24,7 +24,7 @@ model User {
   firstName         String?   @db.VarChar(45)
   lastName          String?   @db.VarChar(45)
   email             String?   @db.VarChar(70)
-  phoneNumber       String?   @db.Char(9)
+  phoneNumber       String?   @unique @db.Char(9) 
   lastActive        DateTime?
   profilePictureUrl String?   @db.VarChar(1000)
   isVerified        Boolean   @default(false)
