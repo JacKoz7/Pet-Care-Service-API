@@ -92,7 +92,7 @@ After starting:
 ## Environment Variables
 Example variables — fill your `.env` / `.env.local`:
 
-```
+
 # Database
 DATABASE_URL=postgresql://user:password@postgres:5432/petcare?schema=public
 
@@ -118,15 +118,3 @@ All endpoints are documented via OpenAPI / Swagger. Visit `/docs` after server s
 - **client** — regular user, can create pet profiles, browse and book services after login.
 - **service-provider** — can create / edit / delete ads. Ads become inactive if provider is removed.
 - **admin** — planned, access to admin panel to view / remove users, pets, ads.
-
-Authorization: Firebase JWT + server-side role verification.
-
----
-
-## Planned Features / TODO
-- [ ] Unit and integration tests 
-- [ ] Service booking flow + feedback
-- [ ] Admin panel (view / moderation)
-- [ ] Extended validation / rate limiting
-- [ ] Payment integration (optional)
-- [ ] Monitoring / health checks / alerts
